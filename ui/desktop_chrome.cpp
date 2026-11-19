@@ -30,10 +30,10 @@ class DraftIcon final : public QIconEngine {
             p.color(mode == QIcon::Disabled ? QPalette::Disabled : QPalette::Active, QPalette::WindowText);
         bool dark = p.window().color().lightness() < 128;
         auto data = svg_;
-        data.replace("#233747", ink.name().toLatin1());
-        data.replace("#007f81", mode == QIcon::Disabled ? ink.name().toLatin1()
-                                : dark                  ? "#77dbce"
-                                                        : "#00747a");
+        const auto primary = ink.name().toLatin1();
+        const QByteArray accent(dark ? "#77dbce" : "#00747a");
+        data.replace("#233747", primary);
+        data.replace("#007f81", mode == QIcon::Disabled ? primary : accent);
         QSvgRenderer renderer(data);
         renderer.render(painter, rect);
     }
