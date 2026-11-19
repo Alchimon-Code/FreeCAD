@@ -1,6 +1,6 @@
 [English](README.md) · **Русский**
 
-[![GitHub Actions CI](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml/badge.svg)](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml) [![Лицензия хоста](https://img.shields.io/badge/license-LGPL--2.1--or--later-blue)](LICENSE) [![Лицензия SDK](https://img.shields.io/badge/SDK-MIT-blue)](LICENSES/MIT.txt) ![C++20](https://img.shields.io/badge/C%2B%2B-20-325d88) ![Qt 6](https://img.shields.io/badge/Qt-6.5%2B-368143) ![OpenGL 4.5](https://img.shields.io/badge/OpenGL-4.5_Core-45727c)
+[![GitHub Actions CI](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml/badge.svg?branch=arena%2F85208daa-freecad)](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml) [![Лицензия хоста](https://img.shields.io/badge/license-LGPL--2.1--or--later-blue)](LICENSE) [![Лицензия SDK](https://img.shields.io/badge/SDK-MIT-blue)](LICENSES/MIT.txt) ![C++20](https://img.shields.io/badge/C%2B%2B-20-325d88) ![Qt 6](https://img.shields.io/badge/Qt-6.5%2B-368143) ![OpenGL 4.5](https://img.shields.io/badge/OpenGL-4.5_Core-45727c)
 
 # PlaneDraft 2D
 

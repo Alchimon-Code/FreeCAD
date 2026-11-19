@@ -35,7 +35,14 @@ class Evaluation {
         env["doc"] = DocumentRef{};
         env["args"] = std::string(args);
         env["pi"] = std::numbers::pi;
-        sequence(program_.body, env, 0);
+        // Format an error once. Catch/rethrow at every recursive frame can exhaust the
+        // default Windows thread stack while the exception itself is being dispatched.
+        try {
+            sequence(program_.body, env, 0);
+        } catch (const std::exception& e) {
+            throw Error(program_.source + ":" + std::to_string(site_.first) + ":" +
+                        std::to_string(site_.second) + ": " + e.what());
+        }
     }
 
   private:
@@ -44,6 +51,7 @@ class Evaluation {
     Transaction& tx_;
     Define define_;
     Functions functions_;
+    std::pair<unsigned, unsigned> site_{1, 1};
     unsigned fuel_ = 250000;
     size_t outputBytes_ = 0;
     bool writing_ = false;
@@ -54,29 +62,30 @@ class Evaluation {
         return result;
     }
     Value eval(const Node& n, Env& env, unsigned depth) {
-        try {
-            if (!fuel_ || depth > 128)
-                throw std::runtime_error("evaluation limit exceeded");
-            --fuel_;
-            if (n.kind == Node::String)
-                return n.text;
-            if (n.kind == Node::Symbol) {
-                if (auto it = env.find(n.text); it != env.end())
-                    return it->second;
-                if (auto v = literal(n.text))
-                    return *v;
-                throw std::invalid_argument("unbound symbol: " + n.text);
-            }
-            if (n.children.empty())
-                return List{};
-            auto& op = symbol(n.children[0]);
-            return form(op, std::span(n.children).subspan(1), env, depth + 1);
-        } catch (const Error&) {
-            throw;
-        } catch (const std::exception& e) {
-            throw Error(program_.source + ":" + std::to_string(n.line) + ":" + std::to_string(n.column) +
-                        ": " + e.what());
+        const auto parent = site_;
+        site_ = {n.line, n.column};
+        // Only restore the parent on success: run() needs the innermost failed location.
+        auto result = evaluate(n, env, depth);
+        site_ = parent;
+        return result;
+    }
+    Value evaluate(const Node& n, Env& env, unsigned depth) {
+        if (!fuel_ || depth > 64)
+            throw std::runtime_error("evaluation limit exceeded");
+        --fuel_;
+        if (n.kind == Node::String)
+            return n.text;
+        if (n.kind == Node::Symbol) {
+            if (auto it = env.find(n.text); it != env.end())
+                return it->second;
+            if (auto v = literal(n.text))
+                return *v;
+            throw std::invalid_argument("unbound symbol: " + n.text);
         }
+        if (n.children.empty())
+            return List{};
+        auto& op = symbol(n.children[0]);
+        return form(op, std::span(n.children).subspan(1), env, depth + 1);
     }
     Value form(const std::string& op, std::span<const Node> nodes, Env& env, unsigned depth) {
         auto atLeast = [&](size_t count) {

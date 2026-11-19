@@ -184,13 +184,21 @@ TEST_F(Host, ReentrantInstallationCannotStealPendingCommand) {
     registry.run("FRAME", ctx, {});
     EXPECT_TRUE(doc.extents().empty());
 }
-TEST_F(Host, InvalidTextAndEvaluationLimitsAreDiagnosedWithoutPublishing) {
+TEST_F(Host, InvalidSourceIsDiagnosedWithoutPublishing) {
     for (const auto& s :
-         {std::string("(print \"x\0y\")", 13), std::string("(print \"\xc0\x80\")"), std::string(100, '('),
-          std::string("(define x (list)) (for (i 200) (define x (list x)))"),
-          std::string("(defun recurse () (recurse)) (recurse)")}) {
+         {std::string("(print \"x\0y\")", 13), std::string("(print \"\xc0\x80\")"), std::string(100, '(')}) {
         EXPECT_THROW(exec(s), std::runtime_error);
         EXPECT_EQ(doc.revision(), 0u);
     }
+}
+TEST_F(Host, DeepValueIsRejectedWithoutPublishing) {
+    EXPECT_THROW(exec("(define x (list)) (for (i 200) (define x (list x)))"), std::runtime_error);
+    EXPECT_EQ(doc.revision(), 0u);
+}
+TEST_F(Host, RecursionLimitReturnsOneLocatedErrorToTheCaller) {
+    EXPECT_THROW(exec("(defun recurse ()\n  (recurse))\n(recurse)"), std::runtime_error);
+    ASSERT_EQ(err.size(), 1u);
+    EXPECT_EQ(err.front(), "test.pdl:2:3: evaluation limit exceeded");
+    EXPECT_EQ(doc.revision(), 0u);
 }
 } // namespace
