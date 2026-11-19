@@ -1,0 +1,10 @@
+/build*/
+/out/
+/.vcpkg*/
+/vcpkg_installed/
+/.cache/
+/.vs/
+/CMakeUserPresets.json
+/compile_commands.json
+*.user
+*.qm

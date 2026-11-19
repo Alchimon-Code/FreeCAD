@@ -1,0 +1,35 @@
+# PlaneDraft 2D · Third-party notices
+
+PlaneDraft is independent of upstream FreeCAD. The host, geometry kernel, Lisp interpreter, DXF reader/writer, PDF/SVG exporters, shaders, UI icons, translations and packaging scripts are original works under [LGPL-2.1-or-later](LICENSE). The C ABI, sample modules, scripts and drawings are [MIT](LICENSES/MIT.txt). No CAD SDK, proprietary drawing, SHX font, Qt commercial module or third-party icon collection is included.
+
+## Desktop runtime
+
+Versions in this section refer to the **Windows x64 preset**, not every Linux system Qt. The [vcpkg manifest](vcpkg.json) and [pinned port recipes](https://github.com/microsoft/vcpkg/tree/84bab45d415d22042bd0b9081aea57f362da3f35/ports) identify the sources, patches and build options. Qt is dynamically linked and replaceable. English is the application's source language.
+
+| Component and upstream | Use | Terms / credit |
+|---|---|---|
+| [Qt Base 6.9.3](https://github.com/qt/qtbase/tree/v6.9.3) | Qt Core, Gui, Widgets, OpenGL, OpenGLWidgets; Windows platform integration | The Qt Company Ltd. and contributors. **LGPL-3.0-only** alternative for these libraries/plugins, not LGPL-2.1. See [LGPLv3](LICENSES/LGPL-3.0.txt) and [GPLv3](LICENSES/GPL-3.0.txt). |
+| [Qt SVG 6.9.3](https://github.com/qt/qtsvg/tree/v6.9.3) | `QSvgRenderer` paints the original toolbar glyphs | Qt Company and contributors, **LGPL-3.0-only** alternative. Includes arc handling derived from XSVG, copyright 2002 USC/Information Sciences Institute, **HPND-sell-variant**. |
+| [Qt Translations 6.9.3](https://github.com/qt/qttranslations/tree/v6.9.3) | The separate `qtbase_ru.qm` for standard Qt dialogs and controls | Qt community translations. See the module's [license rules](https://github.com/qt/qttranslations/blob/v6.9.3/licenseRule.json) (default module rule includes LGPL-3.0-only) and the `qttranslations` port notice. This is not our embedded `planedraft_ru.qm`. |
+| [PCRE2](https://github.com/PCRE2Project/pcre2), 10.47 in the baseline | Qt regular expressions | PCRE2 contributors, BSD-3-Clause WITH PCRE2-exception; additional notices apply to bundled code including the BSD-2-Clause SLJIT. Retain the actual port copyright. |
+| [double-conversion](https://github.com/google/double-conversion), 3.4.0 | Qt numeric conversion | V8 project authors, BSD-3-Clause. |
+| [zlib](https://github.com/madler/zlib), 1.3.1; [libpng](https://github.com/pnggroup/libpng), 1.6.53 | Qt compression / graphics where enabled in the triplet | Jean-loup Gailly and Mark Adler, **Zlib**; PNG Reference Library Authors, **libpng-2.0**. |
+| OpenGL and the C++ runtime | Desktop GL 4.5 Core context; STL/CRT | The OpenGL implementation, system fonts and OS libraries are supplied by the system/driver, **not** shipped. On Windows the app-local **release** VC++ runtime is Microsoft software, not covered by PlaneDraft's LGPL. Redistribution requires the applicable Visual Studio terms and [redistributable list](https://learn.microsoft.com/visualstudio/releases/2022/redistribution). |
+
+The Qt DLLs themselves contain third-party work. [Qt 6.9.3 attributions and license texts](LICENSES/Qt-6.9.3-attributions.txt) reproduce upstream's component names, notices and terms, including Unicode data, easing functions, graphics algorithms, FreeType raster code and Khronos headers. This is a **source-module inventory** including conditional backends, not a claim that each feature is enabled. Portions of this software are copyright © The FreeType Project (www.freetype.org). All rights reserved.
+
+**Exact Windows package:** CPack writes `RUNTIME_INVENTORY.md` inside the ZIP (and installer payload): relative path, owner/version and SHA-256 for each deployed executable, DLL and Qt catalog. It collects the owning ports' `copyright` and `vcpkg.spdx.json` under `LICENSES/ports/`; an unaccounted runtime or unresolved import fails packaging. Thus the list follows the actual Qt/CRT deployment, not everything installed to compile it. Port metadata is not a substitute for embedded-component notices or the distributor's corresponding-source obligations. Linux builds use the notices for their installed Qt and system packages.
+
+## Tools, tests and optional programs — not deployed as application libraries
+
+| Component | Purpose and terms |
+|---|---|
+| [Qt Tools 6.9.3](https://github.com/qt/qttools/tree/v6.9.3), Qt Base build tools | `lupdate`, `lrelease`, `moc`, `rcc`, `windeployqt`: upstream tool-specific **GPL-3.0-only WITH Qt-GPL-exception-1.0** where so marked. No tool executable or Qt Designer is packaged. |
+| [GoogleTest 1.17.0](https://github.com/google/googletest/tree/v1.17.0) | Google and contributors, **BSD-3-Clause**. Test binaries only. |
+| [ezdxf](https://github.com/mozman/ezdxf) 1.4.3, [pypdf](https://github.com/py-pdf/pypdf) 5.9.0 | Independent DXF/PDF readers in the opt-in Python audit: **MIT**, **BSD-3-Clause**, respectively. |
+| [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) 4.30.0, PDFium; NumPy | Physical-page raster measurements only. Wrapper: Apache-2.0 **or** BSD-3-Clause; PDFium: BSD-style license **plus its third-party notices**. NumPy: BSD-3-Clause plus the notices for bundled components in the wheel. Audit dependencies also include fontTools (MIT and bundled notices), pyparsing (MIT) and typing_extensions (PSF-2.0). See the pinned [test requirements](tests/requirements-audit.txt) and the installed wheels' license directories. No Python or PDFium runtime is in PlaneDraft. |
+| Mesa/llvmpipe, LLVM, Xvfb | Software GL/display for Linux framebuffer tests. Mesa is predominantly MIT with per-component notices; LLVM Apache-2.0 WITH LLVM-exception; X.Org components under their respective X11/MIT-style licenses. Not included in Windows packages. |
+| CMake/CPack, Ninja, vcpkg, Inno Setup | Build/packaging tools: BSD-3-Clause, Apache-2.0, MIT (see also individual ports), and the [Inno Setup license](https://github.com/jrsoftware/issrc/blob/main/license.txt), respectively. The installer contains the Inno Setup engine (Jordan Russell and Martijn Laan), not the compiler. Keep its applicable notices and check the terms for the version used. |
+| [GNU LibreDWG](https://github.com/LibreDWG/libredwg) | Optional **external** `dwg2dxf` and `dxf2dwg` processes, GPL-3.0-or-later (interoperability tested with 0.13.3). No linking, download or redistribution of these tools; `PD_ENABLE_LIBREDWG=OFF` in the desktop package preset. |
+
+Before publishing binaries: verify all actual inputs, review platform/installer terms, retain notices, and provide the corresponding sources, modifications, installation/relinking information and rights required by the chosen LGPL terms. See the [release licensing checklist](docs/LICENSING.md). CI builds test payloads; it does not publish releases.

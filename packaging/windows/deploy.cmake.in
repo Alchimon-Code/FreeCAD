@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Runs inside cmake --install / the CPack staging prefix, never against the build's bin/.
+cmake_minimum_required(VERSION 3.24)
+set(stage "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+set(bin "${stage}/bin")
+set(sdk "@pd_prefix@")
+# vcpkg separates Qt's host tools, target DLLs and module metadata. Use that exact Qt installation.
+get_filename_component(tools "@pd_windeployqt@" DIRECTORY)
+set(ENV{PATH} "${tools};${sdk}/bin;$ENV{PATH}")
+execute_process(COMMAND "@pd_windeployqt@" --qtpaths "${tools}/qtpaths.exe" --release --dir "${bin}"
+    --no-compiler-runtime --no-translations --no-plugins --no-opengl-sw --no-system-d3d-compiler
+    --no-system-dxc-compiler "${bin}/PlaneDraft.exe" COMMAND_ERROR_IS_FATAL ANY)
+
+# windeployqt handles Qt modules, not arbitrary vcpkg DLLs. Walk actual PE imports including
+# the dynamically loaded QPA backend and BOTH SDK examples; never copy an entire triplet/bin.
+file(GET_RUNTIME_DEPENDENCIES
+    EXECUTABLES "${bin}/PlaneDraft.exe" "${bin}/pdconvert.exe"
+    MODULES "${bin}/platforms/qwindows.dll" "${stage}/plugins/sample_line.dll" "${stage}/plugins/frame_generator.dll"
+    DIRECTORIES "${bin}" "${sdk}/bin"
+    PRE_EXCLUDE_REGEXES "^api-ms-" "^ext-ms-"
+    POST_EXCLUDE_REGEXES "[/\\\\][Ss][Yy][Ss][Tt][Ee][Mm]32[/\\\\]"
+    RESOLVED_DEPENDENCIES_VAR resolved UNRESOLVED_DEPENDENCIES_VAR missing)
+if(missing)
+    message(FATAL_ERROR "Unresolved package imports: ${missing}")
+endif()
+foreach(dll IN LISTS resolved)
+    get_filename_component(name "${dll}" NAME)
+    if(NOT EXISTS "${bin}/${name}" AND NOT EXISTS "${bin}/platforms/${name}")
+        if(NOT EXISTS "${sdk}/bin/${name}")
+            message(FATAL_ERROR "Refusing DLL outside the release triplet: ${dll}")
+        endif()
+        file(COPY_FILE "${sdk}/bin/${name}" "${bin}/${name}")
+    endif()
+endforeach()
+
+set(triplet "@VCPKG_TARGET_TRIPLET@")
+set(installed "@VCPKG_INSTALLED_DIR@")
+set(crt "@CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS@")
+include("@PROJECT_SOURCE_DIR@/packaging/windows/inventory.cmake")

@@ -1,0 +1,55 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "linux-release",
+      "displayName": "Linux · Qt Widgets · Release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "generator": "Ninja", "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON" }
+    },
+    {
+      "name": "linux-sanitize", "inherits": "linux-release",
+      "displayName": "Linux · headless ASan/UBSan · Debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "PLANEDRAFT_BUILD_GUI": "OFF", "PLANEDRAFT_SANITIZE": "ON" }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows x64 · MSVC · shared Qt · Release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_HOST_TRIPLET": "x64-windows",
+        "VCPKG_MANIFEST_FEATURES": "tests",
+        "PLANEDRAFT_PACKAGE_WINDOWS": "ON",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "windows-core",
+      "inherits": "windows-msvc",
+      "displayName": "Windows x64 · headless core, extensions and GoogleTest",
+      "cacheVariables": { "PLANEDRAFT_BUILD_GUI": "OFF", "PLANEDRAFT_PACKAGE_WINDOWS": "OFF", "VCPKG_MANIFEST_NO_DEFAULT_FEATURES": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "linux-sanitize", "configurePreset": "linux-sanitize" },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc" },
+    { "name": "windows-core", "configurePreset": "windows-core" }
+  ],
+  "testPresets": [
+    { "name": "linux-release", "configurePreset": "linux-release", "output": { "outputOnFailure": true } },
+    { "name": "linux-sanitize", "configurePreset": "linux-sanitize", "output": { "outputOnFailure": true } },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "output": { "outputOnFailure": true } },
+    { "name": "windows-core", "configurePreset": "windows-core", "output": { "outputOnFailure": true } }
+  ]
+}
