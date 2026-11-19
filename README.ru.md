@@ -35,7 +35,12 @@ PlaneDraft — настольная 2D-САПР для Windows x64 и Linux. Г�
 
 ## Быстрый старт
 
-Для интерфейса нужен драйвер настольного **OpenGL 4.5 Core**. `pdconvert` и тестам ядра он не нужен. Команды ниже выполняются из корня исходников.
+Для интерфейса нужен драйвер настольного **OpenGL 4.5 Core**. `pdconvert` и тестам ядра он не нужен. Для переносимой версии Windows распакуйте **весь каталог** и запустите `bin\PlaneDraft.exe`; альтернатива — установщик для текущего пользователя. Для сборки из тега:
+
+```sh
+git clone --depth 1 --branch v0.1.0 https://github.com/Alchimon-Code/FreeCAD.git PlaneDraft
+cd PlaneDraft
+```
 
 ### Сборка на Windows
 
@@ -56,7 +61,7 @@ build\windows-msvc\bin\PlaneDraft.exe examples\drawings\panel.dxf
 
 ### Сборка на Linux
 
-Нужны GCC или Clang с C++20, CMake ≥ 3.24, Ninja, GoogleTest и Qt **6.5+** с Widgets, OpenGL, OpenGLWidgets, Svg, LinguistTools и каталогом `qtbase_ru.qm`. Если Qt установлен отдельно, укажите его префикс в `CMAKE_PREFIX_PATH`.
+Нужны GCC или Clang с C++20, CMake ≥ 3.24, Ninja, GoogleTest и Qt **6.5+** с Widgets, OpenGL, OpenGLWidgets, Svg, LinguistTools и каталогом `qtbase_ru.qm`. Если Qt установлен отдельно, укажите его префикс в `CMAKE_PREFIX_PATH`. Чтобы выбрать Clang, задайте `CC=clang CXX=clang++` при первой конфигурации в чистом каталоге сборки.
 
 ```sh
 cmake --preset linux-release
@@ -82,6 +87,8 @@ pdconvert examples/drawings/cover.dxf cover.svg
 
 В [GitHub Actions](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml) настроены Linux GCC/Clang с чтением реального framebuffer Mesa (100%, 150%, 200%), headless ASan/UBSan и MSVC x64. Независимый аудит проверяет структуру DXF и масштаб в растеризованном PDF. Для Windows предусмотрены запуск с чистым PATH, конвертация, установка и удаление, сверка SHA-256 **всех** файлов исполнения с `RUNTIME_INVENTORY.md`. CI не заменяет проверку драйвера на рабочей станции.
 
-Windows v0.1.0: проверка идёт; сам рецепт упаковки ещё не подтверждает результат.
+**Windows x64 v0.1.0: проверено на MSVC 2022.** [Все пять заданий CI прошли](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855). [Задание Windows](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855/job/135535007043) запустило переносимую и установленную копии с чистым `PATH`, выпустило лист 297 × 210 мм, проверило необязательную регистрацию DXF и удаление. В фактическом реестре **25 файлов исполнения**: 4 файла PlaneDraft, 8 DLL Microsoft CRT, 7 библиотек Qt 6.9.3 (включая Network и SVG), `qwindows.dll`, `qtbase_ru.qm` и DLL double-conversion, libpng, PCRE2-16, zlib. GTest и конвертеры DWG не поставляются.
+
+Комплект кандидата: `PlaneDraft-0.1.0-windows-x64.zip`, `PlaneDraft-0.1.0-windows-x64-setup.exe`, а также `SHA256SUMS` и `RUNTIME_INVENTORY.md` той же сборки. Черновик не отменяет [проверку условий публичной поставки](docs/LICENSING.md).
 
 [Изменения](CHANGELOG.md) · [Релизы](https://github.com/Alchimon-Code/FreeCAD/releases) · [Карта архитектуры](ARCHITECTURE.md) · [Участие и тесты](CONTRIBUTING.ru.md)

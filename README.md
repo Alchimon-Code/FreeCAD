@@ -15,7 +15,7 @@ PlaneDraft is a desktop drafting application for Windows x64 and Linux. Edit geo
 | In the drawing | What you can do |
 |---|---|
 | [Model and layers](docs/images/workspace-dark-ru.png) | Work with lines, circles, arcs, bulged polylines and text. Edit shared properties in one transaction; lock a layer without losing its snap points. Each document tab keeps its own camera, selection, command line and undo history. |
-| [Precision editing](editor/README.md) | Pick before or during a command. Trim against finite edges, extend to a boundary, offset curves or fillet two lines at a given radius. Drag grips; use endpoint, midpoint, centre, quadrant, intersection, insertion or nearest snaps. F3 toggles OSNAP, F8 Ortho, F10 polar tracking. |
+| [Precision editing](editor/README.md) | Pick before or during a command. Trim and extend using analytic intersections with finite line or circular edges. Offset a line, circle, arc or polyline; fillet two lines at a given radius. Drag grips; use endpoint, midpoint, centre, quadrant, intersection, insertion or nearest snaps. F3 toggles OSNAP, F8 Ortho, F10 polar tracking. |
 | [Blocks and annotation](docs/DRAWINGS.md) | Reuse nested block definitions, insert or explode them. Hatch closed boundaries with islands. Place linear, aligned, radius, diameter and angular dimensions with ISO or ESKD settings. |
 | [Paper space](docs/images/layout-eskd.png) | Lay out clipped viewports at explicit scales on A4–A1 sheets. Add a frame and an ESKD-style title block. Changing tabs doesn't alter the model. |
 | [Output](docs/images/pdf-output.png) | Read and write the supported ASCII DXF subset. Export layers, colours and physical line weights to SVG or PDF. DWG conversion is optional and uses separately installed tools, not a native DWG parser. |
@@ -35,7 +35,12 @@ PlaneDraft is a desktop drafting application for Windows x64 and Linux. Edit geo
 
 ## Quick start
 
-Use a desktop OpenGL **4.5 Core** driver for the GUI. `pdconvert` and the headless tests don't need one. Run the following from the source checkout.
+Use a desktop OpenGL **4.5 Core** driver for the GUI. `pdconvert` and the headless tests don't need one. With the Windows portable ZIP, extract the **whole folder** and run `bin\PlaneDraft.exe`; the alternative is a per-user installer. To build the tagged sources instead:
+
+```sh
+git clone --depth 1 --branch v0.1.0 https://github.com/Alchimon-Code/FreeCAD.git PlaneDraft
+cd PlaneDraft
+```
 
 ### Windows · MSVC 2022 x64
 
@@ -56,7 +61,7 @@ The first configure builds the pinned dependencies. `windows-core` builds withou
 
 ### Linux · GCC or Clang
 
-Install a C++20 compiler, CMake ≥ 3.24, Ninja, GoogleTest and a Qt **6.5+** SDK with Widgets, OpenGL, OpenGLWidgets, Svg, LinguistTools and `qtbase_ru.qm`. Point `CMAKE_PREFIX_PATH` at the SDK if it's not on the system search path.
+Install a C++20 compiler, CMake ≥ 3.24, Ninja, GoogleTest and a Qt **6.5+** SDK with Widgets, OpenGL, OpenGLWidgets, Svg, LinguistTools and `qtbase_ru.qm`. Point `CMAKE_PREFIX_PATH` at the SDK if it's not on the system search path. To select Clang, set `CC=clang CXX=clang++` for the first configure in a fresh build tree.
 
 ```sh
 cmake --preset linux-release
@@ -82,6 +87,8 @@ pdconvert examples/drawings/cover.dxf cover.svg
 
 [CI runs](https://github.com/Alchimon-Code/FreeCAD/actions/workflows/ci.yml) cover Linux GCC/Clang with real Mesa framebuffer readback (100%, 150%, 200%), headless ASan/UBSan and MSVC x64. The independent audit checks DXF structure and the physical scale of a rasterised vector PDF. For Windows the release gate includes a cold-PATH launch, conversion, installation/uninstallation and SHA-256 checks of **every** packaged runtime against `RUNTIME_INVENTORY.md`. A hosted runner is not a test of a workstation's graphics driver.
 
-Windows v0.1.0: verification in progress; the existence of a packaging recipe is not a passing result.
+**Windows x64 v0.1.0: verified on MSVC 2022.** [All five CI jobs passed](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855). The [Windows job](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855/job/135535007043) launched the portable and installed copies with a clean `PATH`, exported the 297 × 210 mm sheet, tested opt-in DXF registration and uninstalled. The actual inventory had **25 runtime files**: 4 PlaneDraft binaries, 8 Microsoft CRT DLLs, 7 Qt 6.9.3 libraries (including Network and SVG), `qwindows.dll`, `qtbase_ru.qm`, and DLLs for double-conversion, libpng, PCRE2-16 and zlib. No GTest or DWG converter was shipped.
+
+The release candidate pairs `PlaneDraft-0.1.0-windows-x64.zip` and `PlaneDraft-0.1.0-windows-x64-setup.exe` with `SHA256SUMS` and `RUNTIME_INVENTORY.md` from their own build. Preparing a draft does not bypass the [distribution review](docs/LICENSING.md).
 
 [Changelog](CHANGELOG.md) · [Releases](https://github.com/Alchimon-Code/FreeCAD/releases) · [Architecture map](ARCHITECTURE.md) · [Contributing & tests](CONTRIBUTING.md)

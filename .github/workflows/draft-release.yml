@@ -38,11 +38,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
-          MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            [[ "$MESSAGE" =~ ^Draft\ verified\ PlaneDraft\ release\ from\ run\ ([1-9][0-9]*)$ ]]
+            message=$(git log -1 --format=%B)
+            [[ "$message" =~ ^Draft\ verified\ PlaneDraft\ release\ from\ run\ ([1-9][0-9]*)$ ]]
             RUN_ID=${BASH_REMATCH[1]}
           fi
           [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
@@ -51,7 +51,7 @@ jobs:
           git merge-base --is-ancestor "$sha" HEAD
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
             # The explicit request must be a single empty commit directly on the tested SHA.
-            test "$(git rev-parse HEAD^)" = "$sha"
+            test "$(git show -s --format=%P HEAD)" = "$sha"
             git diff --quiet "$sha" HEAD
             jq -e --arg branch "$GITHUB_REF_NAME" '.head_branch == $branch' <<< "$run" > /dev/null
           fi

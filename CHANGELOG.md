@@ -9,7 +9,7 @@ First PlaneDraft 2D release series: draw at model scale, compose a sheet and iss
 - **Workbench:** independent drawing tabs, dockable properties, layer manager, five SVG toolbars, bilingual command line, live Russian/English and light/dark switching. Fractional-DPI rendering covers the entire widget framebuffer.
 - **Exchange:** native support for a documented subset of ASCII DXF; vector SVG/PDF output from the application and the Qt-free `pdconvert` CLI. Optional external DWG conversion is off by default.
 - **Extensions:** a sized C ABI v2 with v1 compatibility, two sample modules and a transactional PlaneDraft Lisp interpreter with an example script.
-- **Distribution:** Windows x64 portable ZIP and per-user Inno Setup recipes. The installer offers an optional DXF handler without replacing another application's default. Runtime files carry a SHA-256 inventory and third-party notices.
+- **Distribution:** MSVC 2022 x64 portable ZIP and per-user Inno Setup installer generated from the same payload. Both forms passed cold-PATH loading, named A4 PDF export and runtime inventory checks. The installer offers an optional DXF handler without replacing another application's default. The 25 runtime files have a SHA-256 inventory; matching port records and full PCRE2/SLJIT notices travel with the binaries.
 
 ### Compatibility notes
 

@@ -64,6 +64,15 @@ def verify(root, installed=False):
                              f"copyright SHA-256 {sha256(notice)}")
     if not count or files:
         raise ValueError(f"Incomplete inventory ({count} rows); unlisted runtimes: {sorted(files)}")
+    # The pinned pcre2 port installs COPYING, which only points to the actual licence.
+    # Check the complete upstream texts as well as the unmodified port record.
+    if "pcre2" in records:
+        for name, digest in (
+            ("PCRE2-10.47.txt", "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811"),
+            ("SLJIT-45f910b.txt", "5f216505c0f6ea3273caec89e766eef93cdeb7bbb0c429f9360116d7c938feeb"),
+        ):
+            if sha256(root / "LICENSES" / name) != digest:
+                raise ValueError(f"Missing or altered upstream licence: {name}")
     print(f"Verified {count} runtime files and {len(records)} port records in {root.name}")
     notices = "\n".join(records[k] for k in sorted(records))
     if not installed and os.environ.get("GITHUB_ACTIONS") == "true":

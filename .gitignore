@@ -23,3 +23,6 @@
 /install_manifest.txt
 __pycache__/
 .venv/
+PlaneDraft-*-windows-x64.zip
+PlaneDraft-*-windows-x64-setup.exe
+Thumbs.db
