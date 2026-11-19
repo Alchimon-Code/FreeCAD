@@ -36,13 +36,13 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r tests/requirements-audit.txt
-      - run: cmake --preset linux-release -DPLANEDRAFT_TEST_GL=ON -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
-      - run: cmake --build --preset linux-release --parallel 2
+      - run: python .github/scripts/checked.py cmake --preset linux-release -DPLANEDRAFT_TEST_GL=ON -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
+      - run: python .github/scripts/checked.py cmake --build --preset linux-release --parallel 2
       - name: Run every suite (including software Mesa OpenGL 4.5 and independent DXF/PDF readers)
         run: |
-          xvfb-run -a -s '-screen 0 1600x1000x24 +extension GLX' ctest --preset linux-release --timeout 120
-          QT_SCALE_FACTOR=1.5 xvfb-run -a ctest --preset linux-release -R '^viewport_fbo$'
-          QT_SCALE_FACTOR=2 xvfb-run -a ctest --preset linux-release -R '^viewport_fbo$'
+          xvfb-run -a -s '-screen 0 1600x1000x24 +extension GLX' python .github/scripts/checked.py ctest --preset linux-release --timeout 120
+          QT_SCALE_FACTOR=1.5 xvfb-run -a python .github/scripts/checked.py ctest --preset linux-release -R '^viewport_fbo$'
+          QT_SCALE_FACTOR=2 xvfb-run -a python .github/scripts/checked.py ctest --preset linux-release -R '^viewport_fbo$'
 
   sanitizers:
     name: Headless Debug · ASan + UBSan
@@ -59,9 +59,9 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r tests/requirements-audit.txt
-      - run: cmake --preset linux-sanitize -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
-      - run: cmake --build --preset linux-sanitize --parallel 2
-      - run: ctest --preset linux-sanitize --timeout 180
+      - run: python .github/scripts/checked.py cmake --preset linux-sanitize -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
+      - run: python .github/scripts/checked.py cmake --build --preset linux-sanitize --parallel 2
+      - run: python .github/scripts/checked.py ctest --preset linux-sanitize --timeout 180
 
   windows:
     name: MSVC 2022 x64 · ${{ matrix.preset }}
@@ -80,23 +80,34 @@ jobs:
           repository: microsoft/vcpkg
           ref: 84bab45d415d22042bd0b9081aea57f362da3f35
           path: .vcpkg
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: deps
         with:
           path: .vcpkg-cache
-          key: msvc2022-x64-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json', '.github/workflows/ci.yml') }}
+          key: vs2022-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
       - name: Bootstrap pinned vcpkg
         shell: pwsh
         run: |
           New-Item -Force -ItemType Directory $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
           "VCPKG_ROOT=$pwd\.vcpkg" >> $env:GITHUB_ENV
           .\.vcpkg\bootstrap-vcpkg.bat -disableMetrics
-      - name: Configure, build and CTest (core, I/O, editor, native plugins and Lisp)
+      - name: Configure with MSVC and install the pinned dependencies
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
-          cmake --preset ${{ matrix.preset }} -DPD_ENABLE_LIBREDWG=${{ matrix.preset == 'windows-core' && 'ON' || 'OFF' }} || exit /b 1
-          cmake --build --preset ${{ matrix.preset }} || exit /b 1
-          ctest --preset ${{ matrix.preset }} --timeout 180
+          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_INSTALL_OPTIONS=--clean-after-build -DPD_ENABLE_LIBREDWG=${{ matrix.preset == 'windows-core' && 'ON' || 'OFF' }}
+      - name: Keep the binary cache even if later project tests fail
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .vcpkg-cache
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+      - name: Build and CTest (core, I/O, editor, native plugins and Lisp)
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
+          python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
+          python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
       - name: Ensure the Inno Setup compiler is available
         if: matrix.preset == 'windows-msvc'
         shell: pwsh
@@ -110,8 +121,8 @@ jobs:
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
-          pwsh -NoProfile -File packaging/windows/make-installer.ps1 || exit /b 1
-          pwsh -NoProfile -File packaging/windows/smoke-test.ps1
+          python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/make-installer.ps1 || exit /b 1
+          python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/smoke-test.ps1
       - name: Retain tested Windows release candidates
         if: matrix.preset == 'windows-msvc' && github.event_name == 'push'
         uses: actions/upload-artifact@v4
