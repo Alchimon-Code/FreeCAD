@@ -41,8 +41,11 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            message=$(git log -1 --format=%B)
-            [[ "$message" =~ ^Draft\ verified\ PlaneDraft\ release\ from\ run\ ([1-9][0-9]*)$ ]]
+            # The request is the exact subject; ordinary Signed-off-by / Co-authored-by trailers are OK.
+            subject=$(git show -s --format=%s HEAD)
+            [[ "$subject" =~ ^Draft\ verified\ PlaneDraft\ release\ from\ run\ ([1-9][0-9]*)$ ]] || {
+              echo '::error::Expected a release request subject ending in the numeric CI run ID'; exit 1;
+            }
             RUN_ID=${BASH_REMATCH[1]}
           fi
           [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
