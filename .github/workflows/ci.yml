@@ -27,9 +27,11 @@ jobs:
       - name: Check documentation links
         if: matrix.cc == 'gcc'
         run: python3 tools/check_docs.py
-      - name: Install C++ test and desktop GL dependencies
+      - name: Install pinned GoogleTest
+        run: bash .github/scripts/linux-gtest.sh
+      - name: Install desktop GL dependencies
         run: |
-          bash .github/scripts/ubuntu-deps.sh ninja-build libgtest-dev libgl1-mesa-dev libgl1-mesa-dri \
+          python3 .github/scripts/checked.py bash .github/scripts/ubuntu-deps.sh libgl-dev libegl-dev libgl1-mesa-dri \
             libxkbcommon-dev libxkbcommon-x11-0 libxcb-xkb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 \
             libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
             libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 xvfb xauth locales
@@ -61,7 +63,8 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - uses: actions/checkout@v4
-      - run: bash .github/scripts/ubuntu-deps.sh ninja-build libgtest-dev
+      - name: Install pinned GoogleTest (no desktop dependencies)
+        run: bash .github/scripts/linux-gtest.sh
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
