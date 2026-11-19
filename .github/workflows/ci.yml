@@ -29,12 +29,15 @@ jobs:
         run: python3 tools/check_docs.py
       - name: Install C++ test and desktop GL dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgtest-dev libgl1-mesa-dev libgl1-mesa-dri libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth locales
+          bash .github/scripts/ubuntu-deps.sh ninja-build libgtest-dev libgl1-mesa-dev libgl1-mesa-dri \
+            libxkbcommon-dev libxkbcommon-x11-0 libxcb-xkb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
+            libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 xvfb xauth locales
           sudo locale-gen de_DE.UTF-8
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.9.3'
+          install-deps: false # XCB/GL are installed above; no second apt update or multimedia SDK.
           cache: true
       - uses: actions/setup-python@v5
         with:
@@ -58,7 +61,7 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build libgtest-dev
+      - run: bash .github/scripts/ubuntu-deps.sh ninja-build libgtest-dev
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
