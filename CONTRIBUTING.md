@@ -1,14 +1,33 @@
-# Как внести изменение
+**English** · [Русский](CONTRIBUTING.ru.md)
 
-1. Воспроизведите сборку и тесты по [README](README.md). Изменения вносите в самый узкий модуль: у `core` нет Qt, у внешнего плагина нет доступа к приватным C++-классам. ABI и формат файла версионируются независимо.
-2. Новая операция сначала получает тест инвариантов: что изменяется, что возвращают Undo/Redo, какой ID сохраняется, что происходит при невалидном вводе. Изменения SDK проверяйте загрузкой внешнего модуля, не прямым вызовом слинкованной функции. Для производительности указывайте параметры сцены и машины, не только средний FPS.
-3. Форматируйте C/C++ с `.clang-format` (базовая версия 18); для анализа используйте `.clang-tidy` и `compile_commands.json` из Ninja. Не коммитьте `build/`, vcpkg, сгенерированные `.qm`, бинарники и тестовые данные без лицензии.
-4. Исходные строки UI — на английском через `tr()`, токены — в `CommandNames`. Обновите каталог: `cmake --build --preset windows-msvc --target update_translations`; переведите новые сообщения в `resources/i18n/planedraft_ru.ts`, затем пересоберите. Проверьте RU → EN при незавершённом вводе и команду с `_`.
-5. Перед новой зависимостью, образцом чертежа, шрифтом или шаблоном приложите upstream, ревизию, лицензию, данные о происхождении и назначении (host/tool/test/worker). См. [LICENSING](docs/LICENSING.md). Не присылайте фрагменты закрытых SDK, результаты реверс-инжиниринга, чужие CAD-ресурсы «из установленного продукта».
-6. В PR укажите пользовательский сценарий, тесты и ограничения. При обновлении портов меняйте baseline в манифесте, checkout vcpkg в CI и инструкцию сборки вместе. Изменения подаются на условиях соответствующего компонента (LGPL-2.1-or-later или MIT для публичного SDK и примеров).
+# Contributing to PlaneDraft
 
-**Проверка перед выпуском на Windows:** запустить приложение из чистого дерева сборки, проверить драйвер 4.5, масштаб дисплея 100/150/200%, `pd_gl_tests.exe` и `PlaneDraft.exe --viewport-demo` (pan/zoom, привязки, рамки, undo/redo), смену языка и отказ на несовместимую DLL. Headless CTest и Windows CI не заменяют эту проверку реального GPU. Бинарные релизы блокируются до проверки состава пакета и лицензий.
+Start with a drawing task and a repeatable example. For a bug, include the preset, OS, compiler/Qt version, input commands and expected result. For rendering, include the GPU, driver and display scale. Please share only drawings you have permission to redistribute.
 
-Для изменения ABI или скриптового DOM обязательны проверка старого v1-модуля, отката ошибочной команды и headless [ASan+UBSan](sdk/README.md). Не передавайте через границу DLL C++-контейнеры или память, которую другая сторона должна освободить своим CRT.
+1. Build using the [quick start](README.md#quick-start). Change the narrowest module that owns the behaviour: `core/` has no Qt dependency, and native plugins must not rely on private C++ classes.
+2. Add a regression test. For an edit, check the geometry, stable IDs, spatial query and Undo/Redo. Test invalid input without losing an existing redo branch. For I/O, test with an independent reader as well as our own writer. For ABI changes load an actual shared module and keep the v1 tests passing.
+3. Format C and C++ using `.clang-format` (version 18 baseline). Translate new user-visible strings using `tr()` and `cmake --build --preset windows-msvc --target update_translations`. Check that switching language keeps an active command and that `_` global command names still work.
+4. Submit the change with its test commands and limitations. UI changes should include a real screenshot; performance claims need a scene, hardware and measurement method. Keep build trees, downloaded SDKs, generated `.qm` files and binary release assets out of Git.
 
-Изменения форматов проверяйте через `pd_io_tests` и реальный `_OPEN`, в том числе после незавершённой операции и при совпадающих ID двух чертежей. Не подменяйте DWG-бэкенд прямой линковкой; различайте тест протокола и реальный round-trip внешними инструментами.
+## Tests beyond the default preset
+
+```sh
+# Full GUI tests need a working desktop GL 4.5 context (a software Mesa/Xvfb session is fine).
+python -m pip install -r tests/requirements-audit.txt   # in a virtual environment
+cmake --preset linux-release -DPLANEDRAFT_TEST_GL=ON -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON
+cmake --build --preset linux-release --parallel
+ctest --preset linux-release
+QT_SCALE_FACTOR=1.5 ctest --preset linux-release -R '^viewport_fbo$'
+QT_SCALE_FACTOR=2 ctest --preset linux-release -R '^viewport_fbo$'
+
+cmake --preset linux-sanitize -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
+cmake --build --preset linux-sanitize --parallel
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --preset linux-sanitize
+python tools/check_docs.py
+```
+
+The [CI definition](.github/workflows/ci.yml) and [Windows packaging instructions](packaging/windows/README.md) describe the MSVC jobs. Run installer tests only in a disposable profile. Hosted smoke tests verify loading and packaging, not a hardware OpenGL driver.
+
+## Licensing
+
+Contributions follow the license of the component ([host](LICENSE), [SDK and examples](LICENSES/MIT.txt)). Identify upstream source, version, license and inclusion in the runtime for any new dependency or asset. Update the baseline, CI checkout and notices together. Don't copy closed CAD SDKs, fonts, templates or customer data. Review [distribution obligations](docs/LICENSING.md) and the actual package inventory before publishing binaries.

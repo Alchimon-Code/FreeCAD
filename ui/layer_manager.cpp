@@ -8,6 +8,7 @@
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <set>
 namespace {
 enum Column { Current, Name, Visible, Frozen, Locked, Color, Weight, Count };

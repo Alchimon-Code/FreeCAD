@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "command_session.h"
 
+#include <algorithm>
 #include <planedraft/entities/primitives.hpp>
 
 #include <QCoreApplication>

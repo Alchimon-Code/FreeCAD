@@ -23,6 +23,9 @@ jobs:
       PD_TEST_NUMERIC_LOCALE: de_DE.UTF-8
     steps:
       - uses: actions/checkout@v4
+      - name: Check documentation links
+        if: matrix.cc == 'gcc'
+        run: python3 tools/check_docs.py
       - name: Install C++ test and desktop GL dependencies
         run: |
           sudo apt-get update
@@ -123,6 +126,16 @@ jobs:
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
           python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/make-installer.ps1 || exit /b 1
           python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/smoke-test.ps1
+      - name: Show the verified runtime inventory and release checksums on the check
+        if: matrix.preset == 'windows-msvc'
+        shell: pwsh
+        run: |
+          $dir = 'build/windows-msvc/packages'
+          $inventory = Get-Content -Raw "$dir/RUNTIME_INVENTORY.md"
+          $sums = Get-Content -Raw "$dir/SHA256SUMS"
+          Add-Content $env:GITHUB_STEP_SUMMARY ($inventory + "`n~~~text`n" + $sums + '~~~')
+          # Also available through the Checks API without downloading a build log.
+          Write-Host ('::notice title=Verified portable runtime::' + ($inventory + $sums).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
       - name: Retain tested Windows release candidates
         if: matrix.preset == 'windows-msvc' && github.event_name == 'push'
         uses: actions/upload-artifact@v4

@@ -123,6 +123,13 @@ if(PLANEDRAFT_BUILD_GUI)
         qt_add_resources(${target} "${target}_catalog" PREFIX "/i18n" BASE "${CMAKE_CURRENT_BINARY_DIR}" FILES ${pd_catalog})
     endfunction()
     pd_embed_catalog(PlaneDraft)
+
+    # Maintainers can reproduce the documentation PNGs in a desktop GL session.
+    # Not built by default and never installed in the runtime package.
+    add_executable(pd_capture_workspace EXCLUDE_FROM_ALL tools/capture_workspace.cpp)
+    target_link_libraries(pd_capture_workspace PRIVATE pd_ui)
+    pd_embed_catalog(pd_capture_workspace)
+    add_dependencies(pd_capture_workspace PlaneDraft)
 endif()
 
 if(BUILD_TESTING)

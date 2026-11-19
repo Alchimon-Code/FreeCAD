@@ -8,3 +8,18 @@
 /compile_commands.json
 *.user
 *.qm
+
+# Local build, install and packaging trees (release assets are CI artifacts, not source).
+/cmake-build-*/
+/stage/
+/packages/
+/_CPack_Packages/
+/CMakeFiles/
+/CMakeCache.txt
+/Testing/
+/cmake_install.cmake
+/build.ninja
+/.ninja_*
+/install_manifest.txt
+__pycache__/
+.venv/
