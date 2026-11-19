@@ -10,9 +10,28 @@ install(DIRECTORY examples/scripts examples/drawings DESTINATION examples
 # Standalone v2 header, plus the namespaced include paths used by existing v1/v2 clients.
 install(FILES sdk/include/planedraft/pd_plugin_api.h DESTINATION include)
 install(DIRECTORY sdk/include/planedraft DESTINATION include FILES_MATCHING PATTERN "*.h")
-install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION .)
+install(FILES LICENSE CHANGELOG.md vcpkg.json DESTINATION .)
+# The archives contain a runnable product, not a checkout. Keep the guides' local
+# drawing/license links; resolve their references to source-only material at the release tag.
+set(pd_source_url "https://github.com/Alchimon-Code/FreeCAD/blob/v${PROJECT_VERSION}")
+set(pd_source_tree "https://github.com/Alchimon-Code/FreeCAD/tree/v${PROJECT_VERSION}")
+set(pd_manual_dir "${PROJECT_BINARY_DIR}/package-docs")
+configure_file(packaging/README.md.in "${pd_manual_dir}/README.md" @ONLY)
+install(FILES "${pd_manual_dir}/README.md" DESTINATION .)
+foreach(doc IN ITEMS THIRD_PARTY_NOTICES.md docs/DRAWINGS.md docs/LICENSING.md)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${doc}")
+    file(READ "${PROJECT_SOURCE_DIR}/${doc}" text)
+    string(REGEX REPLACE "\\]\\((\\.\\./)?((core|editor|io)/README\\.md|tests/requirements-audit\\.txt)"
+        "](${pd_source_url}/\\2" text "${text}")
+    get_filename_component(dir "${doc}" DIRECTORY)
+    if(NOT dir)
+        set(dir ".")
+    endif()
+    file(MAKE_DIRECTORY "${pd_manual_dir}/${dir}")
+    file(WRITE "${pd_manual_dir}/${doc}" "${text}")
+    install(FILES "${pd_manual_dir}/${doc}" DESTINATION "${dir}")
+endforeach()
 install(DIRECTORY LICENSES DESTINATION .)
-install(FILES docs/DRAWINGS.md docs/LICENSING.md DESTINATION docs)
 install(FILES resources/aliases.ini DESTINATION examples)
 
 option(PLANEDRAFT_PACKAGE_WINDOWS "Stage the portable MSVC/vcpkg desktop payload with CPack" OFF)

@@ -16,16 +16,19 @@ function RunChecked([string]$exe, [string]$arguments) {
     if ($p.ExitCode -ne 0) { throw "$exe exited with $($p.ExitCode)" }
 }
 # Compare the actual portable archive against every row, not just a sample of known Qt DLLs.
-function CheckInventory([string]$root) {
+function CheckInventory([string]$root, [switch]$Installed) {
     $base = (Resolve-Path -LiteralPath $root).Path
     $files = @{}
     foreach ($file in Get-ChildItem -File -Recurse -LiteralPath $base) {
         if ($file.Extension -in '.exe','.dll','.qm') {
             $relative = $file.FullName.Substring($base.Length + 1).Replace('\','/')
+            # Inno creates its own uninstaller on the target; it is not an application binary.
+            if ($Installed -and $relative -eq 'unins000.exe') { continue }
             $files.Add($relative, $file.FullName)
         }
     }
     $count = 0
+    $records = @{}
     foreach ($line in Get-Content -LiteralPath "$base/RUNTIME_INVENTORY.md" -Encoding UTF8) {
         if (!$line.StartsWith('| `')) { continue }
         if ($line -notmatch '^\| `([^`]+)` \| ([^|]+) \| `([0-9a-f]{64})` \|$') { throw "Malformed inventory row: $line" }
@@ -36,13 +39,22 @@ function CheckInventory([string]$root) {
         $count++
         if ($owner -notlike 'PlaneDraft (*' -and $owner -notlike 'Microsoft Visual C++ Redistributable (*') {
             $port = $owner.Split(' ')[0]
-            foreach ($doc in 'copyright','vcpkg.spdx.json') {
-                if (!(Test-Path -LiteralPath "$base/LICENSES/ports/$port/$doc")) { throw "Missing $port/$doc" }
+            if (!$records.ContainsKey($port)) {
+                $dir = "$base/LICENSES/ports/$port"
+                if ((Get-Item -LiteralPath "$dir/copyright").Length -le 0) { throw "Empty notice for $port" }
+                $sbom = Get-Content -Raw -Encoding UTF8 -LiteralPath "$dir/vcpkg.spdx.json" | ConvertFrom-Json
+                $recipe = @($sbom.packages | Where-Object { $_.name -ceq $port })
+                if ($recipe.Count -ne 1 -or !$recipe[0].versionInfo) { throw "Wrong SPDX record for $port" }
+                $notice = (Get-FileHash -LiteralPath "$dir/copyright" -Algorithm SHA256).Hash.ToLowerInvariant()
+                $records[$port] = "$port $($recipe[0].versionInfo): vcpkg $($recipe[0].licenseConcluded); copyright SHA-256 $notice"
             }
         }
     }
     if ($count -eq 0 -or $files.Count -ne 0) { throw "Incomplete runtime inventory: $($files.Keys -join ', ')" }
     Write-Host "Verified SHA-256 and ownership records for all $count runtime files"
+    if (!$Installed -and $env:GITHUB_ACTIONS -eq 'true') {
+        Write-Host ('::notice title=Notices in this Windows payload::' + (($records.Values | Sort-Object) -join '%0A'))
+    }
 }
 function CheckPayload([string]$root) {
     foreach ($path in @('bin/PlaneDraft.exe','bin/pdconvert.exe','bin/platforms/qwindows.dll',
@@ -55,23 +67,35 @@ function CheckPayload([string]$root) {
     }
     # --version constructs QApplication (loads QPA) but doesn't require a GPU on the runner.
     RunChecked "$root/bin/PlaneDraft.exe" '--version'
-    & "$root/bin/pdconvert.exe" "$root/examples/drawings/cover.dxf" "$tmp/smoke.pdf"
-    if ($LASTEXITCODE -ne 0 -or (Get-Item "$tmp/smoke.pdf").Length -lt 100) { throw 'CLI smoke failed' }
+    & "$root/bin/pdconvert.exe" --layout 'Панель' "$root/examples/drawings/panel.dxf" "$tmp/smoke.pdf"
+    if ($LASTEXITCODE -ne 0) { throw 'CLI sheet export failed' }
+    $pdf = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$tmp/smoke.pdf"))
+    if (!$pdf.StartsWith('%PDF-') -or $pdf -notmatch '/MediaBox\s*\[0 0 ([.0-9]+) ([.0-9]+)\]') { throw 'Missing vector PDF page' }
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    if ([Math]::Abs([double]::Parse($Matches[1], $culture) * 25.4 / 72 - 297) -gt 0.01 -or
+        [Math]::Abs([double]::Parse($Matches[2], $culture) * 25.4 / 72 - 210) -gt 0.01) { throw 'Wrong A4 sheet dimensions' }
     Remove-Item "$tmp/smoke.pdf"
 }
 try {
     Expand-Archive -LiteralPath ($zip[0].FullName) -DestinationPath "$tmp/portable"
+    $portable = "$tmp/portable/$($zip[0].BaseName)"
+    & python "$PSScriptRoot/../../tools/check_docs.py" $portable
+    if ($LASTEXITCODE -ne 0) { throw 'Broken links in the shipped manuals' }
     # Never let a build-machine SDK or Qt plugin path mask missing runtime dependencies.
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
     $env:QT_PLUGIN_PATH = ''
     $env:QT_QPA_PLATFORM_PLUGIN_PATH = ''
-    $portable = "$tmp/portable/$($zip[0].BaseName)"
     CheckPayload $portable
     CheckInventory $portable
     Copy-Item -LiteralPath "$portable/RUNTIME_INVENTORY.md" -Destination "$packages/RUNTIME_INVENTORY.md"
     # Test the real default on this fresh runner; forcing /TASKS="" would mask a default-on regression.
     RunChecked ($setup[0].FullName) "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$install`""
     CheckPayload $install
+    if (!(Test-Path "$install/unins000.exe")) { throw 'Missing generated uninstaller' }
+    if ((Get-FileHash "$install/RUNTIME_INVENTORY.md").Hash -ne (Get-FileHash "$portable/RUNTIME_INVENTORY.md").Hash) {
+        throw 'Installer inventory differs from the tested portable inventory'
+    }
+    CheckInventory $install -Installed
     if (!(Test-Path "$install/LICENSES/Inno-Setup.txt")) { throw 'Missing installer engine notice' }
     if (Get-ItemProperty -LiteralPath 'HKCU:\Software\Classes\.dxf\OpenWithProgids' -Name 'PlaneDraft.Drawing' -ErrorAction SilentlyContinue) {
         throw 'Installer registered DXF without opt-in'
@@ -89,6 +113,8 @@ try {
     if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
 }
 if ((Test-Path 'HKCU:\Software\Classes\PlaneDraft.Drawing') -or
+    (Test-Path 'HKCU:\Software\PlaneDraft\Capabilities') -or
+    (Get-ItemProperty -LiteralPath 'HKCU:\Software\Classes\.dxf\OpenWithProgids' -Name 'PlaneDraft.Drawing' -ErrorAction SilentlyContinue) -or
     (Get-ItemProperty -LiteralPath 'HKCU:\Software\RegisteredApplications' -Name 'PlaneDraft 2D' -ErrorAction SilentlyContinue)) {
     throw 'Uninstall left a registered DXF handler'
 }

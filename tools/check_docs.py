@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Check repository-local Markdown links/images and heading fragments (offline)."""
+"""Check local Markdown links offline, in a checkout or a staged package (optional directory)."""
 from functools import cache
 from pathlib import Path
 import re
@@ -31,20 +31,28 @@ def anchors(path):
 
 
 def main():
-    files = subprocess.check_output(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"], cwd=ROOT
-    ).decode("utf-8").split("\0")
+    if len(sys.argv) > 2:
+        sys.exit("Usage: check_docs.py [package-directory]")
+    root = Path(sys.argv[1]).resolve(strict=True) if len(sys.argv) == 2 else ROOT
+    if root == ROOT:
+        files = subprocess.check_output(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md"], cwd=root
+        ).decode("utf-8").split("\0")
+    else:
+        files = [p.relative_to(root) for p in root.rglob("*.md")]
+        if not (root / "README.md").is_file():
+            sys.exit("Package README missing")
     checked = 0
     errors = []
     for name in filter(None, files):
-        path = ROOT / name
+        path = root / name
         for url in re.findall(r"\]\(([^\s)]+)\)", content(path)):
             link = urlsplit(url)
             if link.scheme or link.netloc:
                 continue
             dst = (path.parent / unquote(link.path)).resolve() if link.path else path
             fragment = unquote(link.fragment)
-            if not dst.is_relative_to(ROOT) or not dst.exists():
+            if not dst.is_relative_to(root) or not dst.exists():
                 errors.append(f"{name}: missing target {url}")
             elif fragment and dst.suffix == ".md" and fragment not in anchors(dst):
                 errors.append(f"{name}: missing heading {url}")

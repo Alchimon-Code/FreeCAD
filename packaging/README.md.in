@@ -1,0 +1,19 @@
+# PlaneDraft @PROJECT_VERSION@
+
+**First drawing.** Keep the extracted folders together. Run `bin/PlaneDraft.exe` (on Linux, `bin/PlaneDraft`) and open [panel.dxf](examples/drawings/panel.dxf). Select the **Панель** tab to see the A4 sheet at 1:2. The desktop needs an OpenGL 4.5 Core driver; the command-line converter needs neither Qt nor a GPU. To load the included native examples, start the application with `--load-plugins`; only load modules you trust.
+
+**Первый запуск.** Распакуйте весь комплект, не переносите EXE отдельно от DLL. Запустите `PlaneDraft` из каталога `bin`, откройте [панель](examples/drawings/panel.dxf) и выберите вкладку **Панель** под холстом. Для рабочего окна нужен драйвер OpenGL 4.5 Core; для `pdconvert` — нет. Регистрация DXF в установщике Windows необязательна. Примеры расширений загружаются только по ключу `--load-plugins`.
+
+From the package root, with `bin` on `PATH` / Из корня комплекта, добавив `bin` в `PATH`:
+
+```
+pdconvert --layout "Панель" examples/drawings/panel.dxf panel-A4.pdf
+```
+
+[Illustrated guide · English](@pd_source_url@/README.md) · [Руководство со снимками · Русский](@pd_source_url@/README.ru.md) · [Чертёж и печать](docs/DRAWINGS.md) · [Changelog](CHANGELOG.md)
+
+## Source and runtime / Исходники и библиотеки
+
+The [release source tree](@pd_source_tree@) contains the CMake presets, the C ABI, and the packaging scripts. [vcpkg.json](vcpkg.json) pins the dependency recipes; their sources and patches are linked in the [notices](THIRD_PARTY_NOTICES.md). Qt DLLs are dynamically replaceable. Do not treat the host license as the license of the Microsoft runtime or the Inno Setup engine. In a Windows package, `RUNTIME_INVENTORY.md` lists the actual runtime files, origins and SHA-256 digests; `LICENSES/ports/` contains the matching notices and SPDX records.
+
+[Исходники этого выпуска](@pd_source_tree@), [лицензия хоста](LICENSE), [MIT для SDK и примеров](LICENSES/MIT.txt), [условия поставки](docs/LICENSING.md). Библиотеки Qt можно заменить совместимой сборкой. Нативный движок DWG, драйверы и шрифты не входят в комплект.

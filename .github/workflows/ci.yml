@@ -2,6 +2,7 @@ name: PlaneDraft CI
 on:
   push:
     branches: ['**']
+    paths: ['**'] # A no-change promotion commit reuses a completed run; don't rebuild its payload.
   pull_request:
 permissions:
   contents: read
@@ -94,21 +95,22 @@ jobs:
           New-Item -Force -ItemType Directory $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
           "VCPKG_ROOT=$pwd\.vcpkg" >> $env:GITHUB_ENV
           .\.vcpkg\bootstrap-vcpkg.bat -disableMetrics
-      - name: Configure with MSVC and install the pinned dependencies
+      - name: Install pinned MSVC dependencies (same triplet and features as the preset)
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
-          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_INSTALL_OPTIONS=--clean-after-build -DPD_ENABLE_LIBREDWG=${{ matrix.preset == 'windows-core' && 'ON' || 'OFF' }}
-      - name: Keep the binary cache even if later project tests fail
+          python .github/scripts/checked.py "%VCPKG_ROOT%\vcpkg.exe" install --triplet x64-windows --host-triplet=x64-windows --x-feature=tests ${{ matrix.preset == 'windows-core' && '--x-no-default-features' || '' }} "--x-install-root=%CD%\build\${{ matrix.preset }}\vcpkg_installed" --clean-after-build
+      - name: Keep the binary cache even if the application configure or tests fail
         if: steps.deps.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .vcpkg-cache
           key: ${{ steps.deps.outputs.cache-primary-key }}
-      - name: Build and CTest (core, I/O, editor, native plugins and Lisp)
+      - name: Configure, build and CTest (core, I/O, editor, native plugins and Lisp)
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
+          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=${{ matrix.preset == 'windows-core' && 'ON' || 'OFF' }} || exit /b 1
           python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
           python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
       - name: Ensure the Inno Setup compiler is available
