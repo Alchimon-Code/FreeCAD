@@ -50,8 +50,8 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
     const int needed = QFontMetrics(font).horizontalAdvance(action->iconText()) + 18;
-    button->setMinimumWidth(std::clamp(needed, 54, 132));
-    button->setMaximumWidth(std::clamp(needed, 84, 150));
+    button->setMinimumWidth(std::max(54, needed));
+    button->setMaximumWidth(std::max(84, needed + 16));
     return button;
 }
 const QColor kColors[] = {QColor("#e6403a"), QColor("#f0a63a"), QColor("#f5e14a"), QColor("#54c46a"),

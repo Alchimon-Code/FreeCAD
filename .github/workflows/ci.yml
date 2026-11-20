@@ -144,7 +144,9 @@ jobs:
         run: |
           # Job logs are not reachable from every client; the annotation carries the tail instead.
           $out = ctest --preset ${{ matrix.preset }} --rerun-failed --output-on-failure 2>&1 | Out-String
-          $flat = ($out -replace '\s+', ' ').Trim()
+          $hits = ($out -split "`r?`n") | Where-Object {
+            $_ -match 'clipped caption|error:|FAILED|Value of|Actual:|Expected:|Which is:|Exception|abort' }
+          $flat = if ($hits) { ($hits -join ' | ').Trim() } else { ($out -replace '\s+', ' ').Trim() }
           if ($flat.Length -gt 3500) { $flat = $flat.Substring(0, 3500) }
           Write-Output "::error title=Failing tests::$flat"
           exit 1
