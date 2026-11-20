@@ -229,16 +229,33 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
             button->toolButtonStyle() == Qt::ToolButtonIconOnly)
             continue;
         const int needed = button->fontMetrics().horizontalAdvance(text);
-        if (button->minimumWidth() < needed)
-            clipped << QStringLiteral("%1: %2 < %3").arg(text).arg(button->minimumWidth()).arg(needed);
+        // The hint is what Qt needs for the full caption, margins included; a maximum below it is
+        // exactly what used to squeeze "Полилиния" into "Полил...".
+        const int hint = button->sizeHint().width();
+        if (button->minimumWidth() < needed || button->maximumWidth() < hint)
+            clipped << QStringLiteral("%1: %2/%3 < %4/%5")
+                           .arg(text)
+                           .arg(button->minimumWidth())
+                           .arg(button->maximumWidth())
+                           .arg(needed)
+                           .arg(hint);
     }
     for (const auto& item : clipped)
         std::cerr << "clipped caption " << item.toStdString() << '\n';
     EXPECT_TRUE(clipped.isEmpty());
     // A narrow window scrolls the page rather than squeezing the captions.
-    auto* scroll = ribbon->findChild<QScrollArea*>("ribbonScroll");
-    ASSERT_NE(scroll, nullptr);
-    EXPECT_EQ(scroll->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    const auto pages = ribbon->findChildren<QScrollArea*>("ribbonScroll");
+    ASSERT_FALSE(pages.isEmpty());
+    for (auto* scroll : pages) {
+        EXPECT_EQ(scroll->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+        // The strip is as tall as its tallest page: the third row of Modify and the panel captions
+        // underneath it stay inside the ribbon instead of being cut by a fixed height.
+        auto* content = scroll->widget();
+        ASSERT_NE(content, nullptr);
+        const int needed = content->sizeHint().height();
+        EXPECT_GE(scroll->height(), needed)
+            << "clipped page: " << scroll->height() << " < " << needed;
+    }
 }
 
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {

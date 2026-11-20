@@ -253,7 +253,8 @@ void MainWindow::buildRibbon() {
     ribbon_->addPanelWidget("home", tr("Properties"), ribbon_->colorBox());
     ribbon_->addPanelWidget("home", tr("Line weight"), ribbon_->weightBox());
     ribbon_->addPanel("insert", tr("Block"), list({"BLOCK", "INSERT"}));
-    ribbon_->addPanel("insert", tr("Import and scripts"), {open_, runScript_});
+    ribbon_->addPanel("insert", tr("Clipboard"), list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
+    ribbon_->addPanel("insert", tr("Import and scripts"), {open_, save_, runScript_}, 2);
     ribbon_->addPanel("annotate", tr("Dimensions"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE"}),

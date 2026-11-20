@@ -39,14 +39,32 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     return frame;
 }
 // Fit the whole command name instead of eliding it to "Сопр...": a CAD ribbon must be readable
-// without hovering, so the width follows the longest label the active language produces. Captions
-// are translated after the panel exists, so the same helper runs again whenever the action changes.
-void fitCaption(QToolButton* button, const QAction* action) {
-    const auto text = action->iconText();
-    const int needed = button->fontMetrics().horizontalAdvance(text) + 18;
-    button->setMinimumWidth(std::max(54, needed));
-    button->setMaximumWidth(std::max(84, needed + 16));
+// without hovering. The width comes from the button's own size hint, which is the only measure that
+// already includes the style margins around the caption; adding a guessed padding left the longest
+// Russian labels a character short. Captions are translated after the panel exists, so the same
+// helper runs again whenever the action changes.
+void fitCaption(QToolButton* button) {
+    button->setMinimumWidth(0);
+    button->setMaximumWidth(QWIDGETSIZE_MAX);
+    const int needed = std::max(54, button->sizeHint().width());
+    button->setMinimumWidth(needed);
+    button->setMaximumWidth(needed);
 }
+
+// A ribbon page is a fixed strip. Its height is the tallest panel, so a third row of buttons and the
+// panel captions under it are never cut off; the extra scrollbar extent keeps the text visible when
+// a horizontal bar appears. The width hint stays small: the page scrolls, the window does not grow.
+class PageScroll : public QScrollArea {
+  public:
+    using QScrollArea::QScrollArea;
+    QSize sizeHint() const override {
+        const QWidget* content = widget();
+        if (!content)
+            return QScrollArea::sizeHint();
+        return {240, content->sizeHint().height() + 16};
+    }
+    QSize minimumSizeHint() const override { return sizeHint(); }
+};
 QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     auto* button = new QToolButton(parent);
     button->setDefaultAction(action);
@@ -56,8 +74,8 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
-    fitCaption(button, action);
-    QObject::connect(action, &QAction::changed, button, [button, action] { fitCaption(button, action); });
+    fitCaption(button);
+    QObject::connect(action, &QAction::changed, button, [button] { fitCaption(button); });
     return button;
 }
 const QColor kColors[] = {QColor("#e6403a"), QColor("#f0a63a"), QColor("#f5e14a"), QColor("#54c46a"),
@@ -130,7 +148,7 @@ void Ribbon::addPage(const QString& key) {
     row->addStretch(1);
     // A page keeps its natural width instead of squeezing panel buttons until their captions
     // elide to "От..."; a narrow window scrolls, which is what a real ribbon does too.
-    auto* scroll = new QScrollArea(pages_);
+    auto* scroll = new PageScroll(pages_);
     scroll->setObjectName("ribbonScroll");
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidgetResizable(true);

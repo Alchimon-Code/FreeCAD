@@ -16,7 +16,9 @@ DWG out of the box, a ribbon workbench and the classic AutoCAD command set.
 - **Ribbon:** Home, Insert, Annotate, View and Manage pages with Draw, Modify, Annotations, Layers,
   Blocks, Properties, Plugins and Scripts panels; a quick access toolbar for New, Open, Save, PDF,
   Undo and Redo; layer, colour and line-weight drop-downs that edit the selection in one undo step.
-  View → Ribbon switches back to the five classic toolbars and remembers the choice.
+  View → Ribbon switches back to the five classic toolbars and remembers the choice. Every page is
+  a fixed strip as tall as its tallest panel — three rows of Modify commands and the panel captions
+  stay inside it — while a narrow window scrolls the page sideways instead of eliding a caption.
 - **CAD ergonomics:** Space confirms a step or repeats the last command on an empty prompt (except
   while entering free text), a middle double-click zooms to the drawing extents, the right-button
   menu offers repeat, recent commands, properties, erase, clipboard and a base point, and F12 shows
