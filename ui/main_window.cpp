@@ -550,10 +550,7 @@ void MainWindow::retranslate() {
     completions_->setStringList(session_->completions());
     if (ribbon_) {
         ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
-        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
-                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
-                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
-                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+        ribbon_->retranslate();
     }
     (language_.russian() ? russian_ : english_)->setChecked(true);
     updatePrompt();
@@ -604,10 +601,7 @@ void MainWindow::attach(DrawingPage* p) {
             completions_->setStringList(session_->completions());
     if (ribbon_) {
         ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
-        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
-                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
-                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
-                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+        ribbon_->retranslate();
     }
     });
     connect(&s->editor(), &EditController::stateChanged, p, [this, p] {
@@ -666,10 +660,7 @@ void MainWindow::activate(int index) {
     completions_->setStringList(session_->completions());
     if (ribbon_) {
         ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
-        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
-                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
-                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
-                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+        ribbon_->retranslate();
     }
     updateTitle();
     updateTabs();

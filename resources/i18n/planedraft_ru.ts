@@ -1132,6 +1132,10 @@
         <translation>Блок</translation>
     </message>
     <message>
+        <source>Clipboard</source>
+        <translation>Буфер обмена</translation>
+    </message>
+    <message>
         <source>Import and scripts</source>
         <translation>Импорт и скрипты</translation>
     </message>

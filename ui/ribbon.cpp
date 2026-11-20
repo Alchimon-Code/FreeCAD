@@ -3,6 +3,7 @@
 
 #include <QAction>
 #include <QColor>
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QFontMetrics>
 #include <QFrame>
@@ -31,8 +32,9 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     box->setContentsMargins(8, 4, 8, 2);
     box->setSpacing(2);
     box->addStretch(1);
-    auto* label = new QLabel(title, frame);
+    auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
     label->setObjectName("ribbonPanelTitle");
+    label->setProperty("titleSource", title);
     label->setAlignment(Qt::AlignHCenter);
     label->setStyleSheet("font-size: 10px; color: palette(dark);");
     box->addWidget(label);
@@ -227,10 +229,13 @@ void Ribbon::setPageTitles(const QStringList& titles) {
         tabs_->setTabText(i, titles[i]);
 }
 
-void Ribbon::retranslate(const QStringList& panelTitles) {
-    for (int i = 0; i < panelLabels_.size() && i < panelTitles.size(); ++i)
-        if (panelLabels_[i])
-            panelLabels_[i]->setText(panelTitles[i]);
+void Ribbon::retranslate() {
+    for (auto* label : panelLabels_) {
+        if (!label)
+            continue;
+        const auto source = label->property("titleSource").toString();
+        label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
+    }
 }
 
 void Ribbon::refreshLayers(const QStringList& names, const QString& current) {

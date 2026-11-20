@@ -79,11 +79,11 @@ void MainWindow::setupChrome() {
         action->setIcon(icon(name));
         bars_[b]->addAction(action);
     };
-    add(0, new_, "new");
-    add(0, open_, "open");
-    add(0, save_, "save");
-    add(2, undo_, "undo");
-    add(2, redo_, "redo");
+    add(0, new_, "new";
+    add(0, open_, "open";
+    add(0, save_, "save";
+    add(2, undo_, "undo";
+    add(2, redo_, "redo";
     bars_[2]->addSeparator();
     const QStringList draw{"line", "pline", "circle", "arc", "rectang", "polygon", "hatch"};
     const QStringList modify{"move", "copy", "rotate", "scale", "mirror", "trim", "extend",
@@ -109,12 +109,12 @@ void MainWindow::setupChrome() {
     erase_->setIcon(icon("erase"));
     repeat_->setIcon(icon("redo"));
     exportPdf_->setIcon(icon("pdf"));
-    add(4, extents_, "extents");
+    add(4, extents_, "extents";
     grid_ = view_->addAction(QString());
     grid_->setObjectName("gridMode");
     grid_->setCheckable(true);
     grid_->setChecked(cfg.value("view/grid", true).toBool());
-    add(4, grid_, "grid");
+    add(4, grid_, "grid";
     grid_->setShortcut(Qt::Key_F7);
     connect(grid_, &QAction::toggled, this, [this](bool on) {
         if (canvas_)
@@ -238,34 +238,34 @@ void MainWindow::buildRibbon() {
                 actions << a;
         return actions;
     };
-    ribbon_->addPanel("home", tr("Draw"),
+    ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Draw"),
                       list({"LINE", "PLINE", "CIRCLE", "ARC", "RECTANG", "POLYGON", "HATCH"}), 4);
-    ribbon_->addPanel("home", tr("Modify"),
+    ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Modify"),
                       list({"MOVE", "COPY", "ROTATE", "SCALE", "MIRROR", "TRIM", "EXTEND", "OFFSET",
                             "FILLET", "CHAMFER", "ARRAY", "MATCHPROP", "ERASE", "EXPLODE"}),
                       5);
-    ribbon_->addPanel("home", tr("Annotate"),
+    ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Annotate"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE", "DIST", "AREA"}),
                       4);
-    ribbon_->addPanelWidget("home", tr("Layers"), ribbon_->layerBox());
-    ribbon_->addPanel("home", tr("Blocks"), list({"BLOCK", "INSERT"}));
-    ribbon_->addPanelWidget("home", tr("Properties"), ribbon_->colorBox());
-    ribbon_->addPanelWidget("home", tr("Line weight"), ribbon_->weightBox());
-    ribbon_->addPanel("insert", tr("Block"), list({"BLOCK", "INSERT"}));
-    ribbon_->addPanel("insert", tr("Clipboard"), list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
-    ribbon_->addPanel("insert", tr("Import and scripts"), {open_, save_, runScript_}, 2);
-    ribbon_->addPanel("annotate", tr("Dimensions"),
+    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Layers"), ribbon_->layerBox());
+    ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Blocks"), list({"BLOCK", "INSERT"}));
+    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), ribbon_->colorBox());
+    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Line weight"), ribbon_->weightBox());
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Block"), list({"BLOCK", "INSERT"}));
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"), list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Import and scripts"), {open_, save_, runScript_}, 2);
+    ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Dimensions"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE"}),
                       3);
-    ribbon_->addPanel("annotate", tr("Measure"), list({"DIST", "AREA", "HATCH"}));
-    ribbon_->addPanel("view", tr("Zoom and grid"), {extents_, grid_});
-    ribbon_->addPanel("view", tr("Drafting aids"), {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
-    ribbon_->addPanel("view", tr("Appearance"), {theme_, panels_->menuAction()});
-    ribbon_->addPanel("manage", tr("Plugins"), {load_, unload_, loadFolder_});
-    ribbon_->addPanel("manage", tr("Scripts"), {runScript_});
-    ribbon_->addPanel("manage", tr("Application"), {quit_});
+    ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Measure"), list({"DIST", "AREA", "HATCH"}));
+    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Zoom and grid"), {extents_, grid_});
+    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Drafting aids"), {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
+    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Appearance"), {theme_, panels_->menuAction()});
+    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_});
+    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Scripts"), {runScript_});
+    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Application"), {quit_});
     ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
     syncRibbon();
 }

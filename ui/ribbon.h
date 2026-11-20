@@ -31,7 +31,9 @@ class Ribbon final : public QWidget {
     [[nodiscard]] QComboBox* colorBox() const { return color_; }
     [[nodiscard]] QComboBox* weightBox() const { return weight_; }
     void setPageTitles(const QStringList& titles);
-    void retranslate(const QStringList& panelTitles);
+    // Panel titles are translated from the source string each panel remembers, so adding a panel can
+    // never shift the title of the panel next to it.
+    void retranslate();
     // The combos only report a choice; MainWindow applies it to the current selection.
     void refreshLayers(const QStringList& names, const QString& current);
 

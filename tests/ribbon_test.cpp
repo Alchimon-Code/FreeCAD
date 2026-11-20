@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
@@ -76,6 +77,12 @@ TEST_F(RibbonWorkspace, TabsPanelsQuickAccessAndStyleCombosExist) {
     // The palette and weights are the classic AutoCAD defaults, not free-form entries.
     EXPECT_EQ(ribbon->colorBox()->itemText(0), QStringLiteral("By layer"));
     EXPECT_EQ(ribbon->weightBox()->itemText(1), QStringLiteral("By block"));
+    // Panel titles are translated from the source each label remembers, so inserting a panel cannot
+    // shift the title of its neighbour (the Insert tab once read "Dimensions" above Clipboard).
+    QStringList insertTitles;
+    for (auto* label : ribbon->page("insert")->findChildren<QLabel*>("ribbonPanelTitle"))
+        insertTitles << label->property("titleSource").toString();
+    EXPECT_EQ(insertTitles, QStringList({"Block", "Clipboard", "Import and scripts"}));
 }
 
 TEST_F(RibbonWorkspace, RibbonToggleSwitchesToClassicToolbarsAndRemembersIt) {
@@ -236,7 +243,7 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
         const int room = button->minimumWidth() - 2 * margin;
         const int advance = button->fontMetrics().horizontalAdvance(text);
-        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room - 24) != text)
+        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room) != text)
             clipped << QStringLiteral("%1: min %2 room %3 advance %4")
                            .arg(text)
                            .arg(button->minimumWidth())
