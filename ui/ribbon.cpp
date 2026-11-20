@@ -5,11 +5,14 @@
 #include <QColor>
 #include <QCoreApplication>
 #include <QComboBox>
+#include <QFont>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QHBoxLayout>
+#include <QPainter>
+#include <QPaintEvent>
 #include <QLabel>
 #include <QStackedWidget>
 #include <QTabBar>
@@ -23,11 +26,27 @@
 #include <algorithm>
 
 namespace {
+// The panel separator is painted from the palette instead of a style-sheet rule: a style sheet on the
+// frame freezes the palettes of the buttons it polishes, so switching to the light theme left every
+// caption in the dark theme's text colour — visible only as a nearly invisible ribbon.
+class PanelFrame : public QFrame {
+  public:
+    explicit PanelFrame(QWidget* parent = nullptr) : QFrame(parent) {
+        setFrameShape(QFrame::NoFrame);
+        setObjectName("ribbonPanel");
+    }
+
+  protected:
+    void paintEvent(QPaintEvent* event) override {
+        QFrame::paintEvent(event);
+        QPainter painter(this);
+        painter.setPen(palette().color(QPalette::Mid));
+        painter.drawLine(width() - 1, 0, width() - 1, height() - 1);
+    }
+};
+
 QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
-    auto* frame = new QFrame(parent);
-    frame->setFrameShape(QFrame::NoFrame);
-    frame->setObjectName("ribbonPanel");
-    frame->setStyleSheet("#ribbonPanel { border-right: 1px solid palette(mid); }");
+    auto* frame = new PanelFrame(parent);
     // A short page (Insert has three small panels) must keep its buttons at the top: stretching the
     // frame spreads a two-row grid over the whole strip, which reads as a broken layout.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -39,7 +58,10 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     label->setObjectName("ribbonPanelTitle");
     label->setProperty("titleSource", title);
     label->setAlignment(Qt::AlignHCenter);
-    label->setStyleSheet("font-size: 10px; color: palette(dark);");
+    QFont titleFont = label->font();
+    titleFont.setPixelSize(10);
+    label->setFont(titleFont);
+    label->setForegroundRole(QPalette::Dark);
     box->addWidget(label);
     *out = label;
     return frame;

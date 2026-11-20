@@ -1,1 +1,1 @@
-fixed panel heights and the Annotate tab 2026-11-20T12:58:27Z
+no style sheet on ribbon panels 2026-11-20T13:11:50Z
