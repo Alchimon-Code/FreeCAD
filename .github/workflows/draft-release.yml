@@ -1,0 +1,101 @@
+name: Draft a verified release
+on:
+  # Bootstrap a first release without needing to merge CI into the default branch first.
+  # Only an explicit, empty, owner-pushed promotion commit is eligible (checked again below).
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful PlaneDraft CI push run for a commit merged into the default branch
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: planedraft-release-draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch) ||
+      (github.event_name == 'push' && github.actor == github.repository_owner &&
+       startsWith(github.event.head_commit.message, 'Draft verified PlaneDraft release from run '))
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Identify the tested revision (never use an artifact from a PR or fork)
+        id: tested
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            # The request is the exact subject; ordinary Signed-off-by / Co-authored-by trailers are OK.
+            subject=$(git show -s --format=%s HEAD)
+            [[ "$subject" =~ ^Draft\ verified\ PlaneDraft\ release\ from\ run\ ([1-9][0-9]*)$ ]] || {
+              echo '::error::Expected a release request subject ending in the numeric CI run ID'; exit 1;
+            }
+            RUN_ID=${BASH_REMATCH[1]}
+          fi
+          [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          run=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID")
+          sha=$(jq -er --arg repo "$GH_REPO" 'select(.head_repository.full_name == $repo and .event == "push" and .path == ".github/workflows/ci.yml" and .status == "completed" and .conclusion == "success") | .head_sha' <<< "$run")
+          git merge-base --is-ancestor "$sha" HEAD
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            # The explicit request must be a single empty commit directly on the tested SHA.
+            test "$(git show -s --format=%P HEAD)" = "$sha"
+            git diff --quiet "$sha" HEAD
+            jq -e --arg branch "$GITHUB_REF_NAME" '.head_branch == $branch' <<< "$run" > /dev/null
+          fi
+          version=$(git show "$sha:vcpkg.json" | jq -er '."version-string"')
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if git rev-parse --verify -q "refs/tags/v$version" || gh release view "v$version" > /dev/null 2>&1; then
+            echo 'Tag or release already exists; refusing to replace it.' >&2; exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ steps.tested.outputs.run_id }}
+          github-token: ${{ github.token }}
+          name: PlaneDraft-windows-x64-${{ steps.tested.outputs.sha }}
+          path: candidate
+      - name: Match both assets and the enclosed inventory; create a draft, never publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.tested.outputs.run_id }}
+          SHA: ${{ steps.tested.outputs.sha }}
+          VERSION: ${{ steps.tested.outputs.version }}
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          base="PlaneDraft-$VERSION-windows-x64"
+          test "$(wc -l < SHA256SUMS)" -eq 2
+          for asset in "$base.zip" "$base-setup.exe"; do
+            grep -Fx "$(sha256sum "$asset")" <(tr -d '\r' < SHA256SUMS)
+          done
+          unzip -p "$base.zip" "$base/RUNTIME_INVENTORY.md" | cmp - RUNTIME_INVENTORY.md
+          notes="$RUNNER_TEMP/notes.md"
+          git show "$SHA:CHANGELOG.md" | awk -v h="## v$VERSION" '$0==h{p=1;next} /^## /{p=0} p' > "$notes"
+          test -s "$notes"
+          printf '\nTested commit: `%s` · [CI and Windows package checks](https://github.com/%s/actions/runs/%s). See the attached inventory and SHA256SUMS.\n' "$SHA" "$GH_REPO" "$RUN_ID" >> "$notes"
+          gh release create "v$VERSION" "$base.zip" "$base-setup.exe" RUNTIME_INVENTORY.md SHA256SUMS --draft --target "$SHA" --title "PlaneDraft v$VERSION" --notes-file "$notes"
+          # A draft release need not create a Git ref until publication. Pin the source tag now.
+          ref="repos/$GH_REPO/git/ref/tags/v$VERSION"
+          if tagged=$(gh api "$ref" --jq '.object.sha' 2>/dev/null); then
+            test "$tagged" = "$SHA"
+          else
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$SHA" --silent
+          fi

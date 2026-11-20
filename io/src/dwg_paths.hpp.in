@@ -1,0 +1,3 @@
+// Generated build-local paths to separately installed tools, never import or link a converter library.
+#define PD_DWG_READER u8R"PD(@PD_DWG_READER@)PD"
+#define PD_DWG_WRITER u8R"PD(@PD_DWG_WRITER@)PD"

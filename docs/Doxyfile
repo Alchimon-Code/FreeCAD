@@ -1,0 +1,15 @@
+# Run from the repository root: doxygen docs/Doxyfile
+PROJECT_NAME           = "PlaneDraft Plugin SDK"
+PROJECT_NUMBER         = "ABI v2 + v1"
+OUTPUT_DIRECTORY       = build/sdk-docs
+INPUT                  = sdk/include
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h
+OPTIMIZE_OUTPUT_FOR_C  = YES
+EXTRACT_ALL            = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = PD_EXPORT= PD_CALL=
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+QUIET                  = YES

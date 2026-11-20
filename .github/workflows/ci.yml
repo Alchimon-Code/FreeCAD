@@ -1,0 +1,178 @@
+name: PlaneDraft CI
+on:
+  push:
+    branches: ['**']
+    paths: ['**'] # A no-change promotion commit reuses a completed run; don't rebuild its payload.
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  linux-release:
+    name: Linux ${{ matrix.cxx }} · Release + framebuffer
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { cc: gcc, cxx: g++ }
+          - { cc: clang, cxx: clang++ }
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      PD_TEST_NUMERIC_LOCALE: de_DE.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check documentation links
+        if: matrix.cc == 'gcc'
+        run: python3 tools/check_docs.py
+      - name: Check the release version agrees in CMake, vcpkg and the changelog
+        if: matrix.cc == 'gcc'
+        run: python3 tools/check_release.py
+      - name: Install pinned GoogleTest
+        run: bash .github/scripts/linux-gtest.sh
+      - name: Install desktop GL dependencies
+        run: |
+          python3 .github/scripts/checked.py bash .github/scripts/ubuntu-deps.sh libgl-dev libegl-dev libgl1-mesa-dri \
+            libxkbcommon-dev libxkbcommon-x11-0 libxcb-xkb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
+            libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 xvfb xauth locales
+          sudo locale-gen de_DE.UTF-8
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          install-deps: false # XCB/GL are installed above; no second apt update or multimedia SDK.
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r tests/requirements-audit.txt
+      - run: python .github/scripts/checked.py cmake --preset linux-release -DPLANEDRAFT_TEST_GL=ON -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
+      - run: python .github/scripts/checked.py cmake --build --preset linux-release --parallel 2
+      - name: Run every suite (including software Mesa OpenGL 4.5 and independent DXF/PDF readers)
+        run: |
+          xvfb-run -a -s '-screen 0 1600x1000x24 +extension GLX' python .github/scripts/checked.py ctest --preset linux-release --timeout 120
+          QT_SCALE_FACTOR=1.5 xvfb-run -a python .github/scripts/checked.py ctest --preset linux-release -R '^viewport_fbo$'
+          QT_SCALE_FACTOR=2 xvfb-run -a python .github/scripts/checked.py ctest --preset linux-release -R '^viewport_fbo$'
+
+  sanitizers:
+    name: Headless Debug · ASan + UBSan
+    runs-on: ubuntu-24.04
+    env:
+      CC: clang
+      CXX: clang++
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned GoogleTest (no desktop dependencies)
+        run: bash .github/scripts/linux-gtest.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r tests/requirements-audit.txt
+      - run: python .github/scripts/checked.py cmake --preset linux-sanitize -DPLANEDRAFT_TEST_EXCHANGE_AUDIT=ON -DPD_ENABLE_LIBREDWG=ON
+      - run: python .github/scripts/checked.py cmake --build --preset linux-sanitize --parallel 2
+      - run: python .github/scripts/checked.py ctest --preset linux-sanitize --timeout 180
+
+  windows:
+    name: MSVC 2022 x64 · ${{ matrix.preset }}
+    runs-on: windows-2022
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [windows-core, windows-msvc]
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 84bab45d415d22042bd0b9081aea57f362da3f35
+          path: .vcpkg
+      - uses: actions/cache/restore@v4
+        id: deps
+        with:
+          path: .vcpkg-cache
+          key: vs2022-${{ matrix.preset }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
+      - name: Bootstrap pinned vcpkg
+        shell: pwsh
+        run: |
+          New-Item -Force -ItemType Directory $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          "VCPKG_ROOT=$pwd\.vcpkg" >> $env:GITHUB_ENV
+          .\.vcpkg\bootstrap-vcpkg.bat -disableMetrics
+      - name: Install pinned MSVC dependencies (same triplet and features as the preset)
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
+          python .github/scripts/checked.py "%VCPKG_ROOT%\vcpkg.exe" install --triplet x64-windows --host-triplet=x64-windows --x-feature=tests ${{ matrix.preset == 'windows-core' && '--x-no-default-features' || '' }} "--x-install-root=%CD%\build\${{ matrix.preset }}\vcpkg_installed" --clean-after-build
+      - name: Keep the binary cache even if the application configure or tests fail
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .vcpkg-cache
+          key: ${{ steps.deps.outputs.cache-primary-key }}
+      - name: Build the GPLv3 converters with MinGW-w64 for the package
+        if: matrix.preset == 'windows-msvc'
+        shell: pwsh
+        run: python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/build-converters.ps1
+      - name: Configure, build and CTest (core, I/O, editor, native plugins and Lisp)
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
+          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=ON ${{ matrix.preset == 'windows-msvc' && '-DPD_LIBREDWG_PREBUILT_DIR=%CD%/build/converters/dist' || '' }} || exit /b 1
+          python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
+          python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
+      - name: Ensure the Inno Setup compiler is available
+        if: matrix.preset == 'windows-msvc'
+        shell: pwsh
+        run: |
+          if (!(Get-Command ISCC.exe -ErrorAction SilentlyContinue) -and !(Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot install Inno Setup' }
+          }
+      - name: Build and smoke-test portable ZIP and per-user installer (no release publication)
+        if: matrix.preset == 'windows-msvc'
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
+          python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/make-installer.ps1 || exit /b 1
+          python .github/scripts/checked.py pwsh -NoProfile -File packaging/windows/smoke-test.ps1
+      - name: Publish the failing test output as an annotation
+        if: failure()
+        shell: pwsh
+        run: |
+          # Job logs are not reachable from every client; the annotation carries the tail instead.
+          $out = ctest --preset ${{ matrix.preset }} --rerun-failed --output-on-failure 2>&1 | Out-String
+          $hits = ($out -split "`r?`n") | Where-Object {
+            $_ -match 'clipped caption|error:|FAILED|Value of|Actual:|Expected:|Which is:|Exception|abort' }
+          $flat = if ($hits) { ($hits -join ' | ').Trim() } else { ($out -replace '\s+', ' ').Trim() }
+          if ($flat.Length -gt 3500) { $flat = $flat.Substring(0, 3500) }
+          Write-Output "::error title=Failing tests::$flat"
+          exit 1
+      - name: Show the verified runtime inventory and release checksums on the check
+        if: matrix.preset == 'windows-msvc'
+        shell: pwsh
+        run: |
+          $dir = 'build/windows-msvc/packages'
+          $inventory = Get-Content -Raw "$dir/RUNTIME_INVENTORY.md"
+          $sums = Get-Content -Raw "$dir/SHA256SUMS"
+          Add-Content $env:GITHUB_STEP_SUMMARY ($inventory + "`n~~~text`n" + $sums + '~~~')
+          # Also available through the Checks API without downloading a build log.
+          Write-Host ('::notice title=Verified portable runtime::' + ($inventory + $sums).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A'))
+      - name: Retain tested Windows release candidates
+        if: matrix.preset == 'windows-msvc' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlaneDraft-windows-x64-${{ github.sha }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          path: |
+            build/windows-msvc/packages/PlaneDraft-*-windows-x64.zip
+            build/windows-msvc/packages/PlaneDraft-*-windows-x64-setup.exe
+            build/windows-msvc/packages/RUNTIME_INVENTORY.md
+            build/windows-msvc/packages/SHA256SUMS

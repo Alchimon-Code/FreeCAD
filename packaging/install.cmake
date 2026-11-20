@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+install(TARGETS pdconvert RUNTIME DESTINATION bin)
+if(TARGET PlaneDraft)
+    install(FILES "${pd_qtbase_ru}" DESTINATION bin/translations)
+    install(TARGETS PlaneDraft RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+endif()
+install(TARGETS sample_line frame_generator LIBRARY DESTINATION plugins RUNTIME DESTINATION plugins)
+install(DIRECTORY examples/scripts examples/drawings DESTINATION examples
+        FILES_MATCHING PATTERN "*.pdl" PATTERN "*.dxf")
+# Standalone v2 header, plus the namespaced include paths used by existing v1/v2 clients.
+install(FILES sdk/include/planedraft/pd_plugin_api.h DESTINATION include)
+install(DIRECTORY sdk/include/planedraft DESTINATION include FILES_MATCHING PATTERN "*.h")
+install(FILES LICENSE CHANGELOG.md vcpkg.json DESTINATION .)
+# The archives contain a runnable product, not a checkout. Keep the guides' local
+# drawing/license links; resolve their references to source-only material at the release tag.
+set(pd_source_url "https://github.com/Alchimon-Code/FreeCAD/blob/v${PROJECT_VERSION}")
+set(pd_source_tree "https://github.com/Alchimon-Code/FreeCAD/tree/v${PROJECT_VERSION}")
+set(pd_manual_dir "${PROJECT_BINARY_DIR}/package-docs")
+configure_file(packaging/README.md.in "${pd_manual_dir}/README.md" @ONLY)
+install(FILES "${pd_manual_dir}/README.md" DESTINATION .)
+foreach(doc IN ITEMS THIRD_PARTY_NOTICES.md docs/DRAWINGS.md docs/LICENSING.md)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${doc}")
+    file(READ "${PROJECT_SOURCE_DIR}/${doc}" text)
+    string(REGEX REPLACE "\\]\\((\\.\\./)?((core|editor|io)/README\\.md|tests/requirements-audit\\.txt)"
+        "](${pd_source_url}/\\2" text "${text}")
+    get_filename_component(dir "${doc}" DIRECTORY)
+    if(NOT dir)
+        set(dir ".")
+    endif()
+    file(MAKE_DIRECTORY "${pd_manual_dir}/${dir}")
+    file(WRITE "${pd_manual_dir}/${doc}" "${text}")
+    install(FILES "${pd_manual_dir}/${doc}" DESTINATION "${dir}")
+endforeach()
+install(DIRECTORY LICENSES DESTINATION .)
+install(FILES resources/aliases.ini DESTINATION examples)
+
+option(PLANEDRAFT_PACKAGE_WINDOWS "Stage the portable MSVC/vcpkg desktop payload with CPack" OFF)
+if(PLANEDRAFT_PACKAGE_WINDOWS)
+    include("${CMAKE_CURRENT_LIST_DIR}/windows/package.cmake")
+endif()
