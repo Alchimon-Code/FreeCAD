@@ -9,7 +9,7 @@ The images are captures of the running Qt Widgets / desktop OpenGL application, 
 | [A4 layout](layout-eskd.png) | Model viewport, section A–A, ESKD-style frame and title block |
 | [PDF output](pdf-output.png) | Independent raster of the vector export, 144 dpi, 297 × 210 mm |
 | [Ribbon · dark RU](ribbon-dark-ru.png) | Home page with Draw, Modify, Annotations, Layers, Blocks and Properties panels, quick access toolbar and layer/colour/line-weight drop-downs |
-| [Ribbon · light EN](ribbon-light-en.png) | Insert page of the same ribbon after the real theme and locale actions |
+| [Ribbon · light EN](ribbon-light-en.png) | Annotate page of the same ribbon after the real theme and locale actions |
 | [Dynamic input](dynamic-input.png) | F12 length/angle fields beside the crosshair while `_LINE` waits for the second point |
 | [DWG opened](dwg-open.png) | `panel.dwg`, written and read back by the bundled LibreDWG programs, opened in a new tab |
 
