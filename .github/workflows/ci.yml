@@ -27,6 +27,9 @@ jobs:
       - name: Check documentation links
         if: matrix.cc == 'gcc'
         run: python3 tools/check_docs.py
+      - name: Check the release version agrees in CMake, vcpkg and the changelog
+        if: matrix.cc == 'gcc'
+        run: python3 tools/check_release.py
       - name: Install pinned GoogleTest
         run: bash .github/scripts/linux-gtest.sh
       - name: Install desktop GL dependencies

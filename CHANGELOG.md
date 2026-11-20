@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.2.0 (in progress)
+## v0.2.0
 
-Verification: [CI run 44722807453](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44722807453) — five jobs, including the Windows payload that ran its own converters on a real drawing and round-tripped `panel.dxf` through DWG. 27 runtime files in the inventory.
+Verified by the five CI jobs and by the Windows payload that ran its own converters on a real drawing and round-tripped `panel.dxf` through DWG; 27 runtime files in the inventory.
 
 DWG out of the box, a ribbon workbench and the classic AutoCAD command set.
 
