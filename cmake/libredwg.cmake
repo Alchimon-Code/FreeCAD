@@ -43,11 +43,26 @@ add_custom_target(pd_dwg_tools ALL
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tools/libredwg"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:dwg2dxf>" "$<TARGET_FILE:dxf2dwg>"
             "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tools/libredwg"
+    # vcpkg builds zlib as a DLL; the converters live in their own directory, so it has to travel.
+    COMMAND "${CMAKE_COMMAND}"
+            "-DEXECUTABLES=$<TARGET_FILE:dwg2dxf>|$<TARGET_FILE:dxf2dwg>"
+            "-DDESTINATION=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tools/libredwg"
+            "-DSEARCH_DIRS=$<TARGET_FILE_DIR:dwg2dxf>;${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/copy_converter_deps.cmake"
     COMMENT "Stage pinned LibreDWG converters beside the build products"
     VERBATIM)
 add_dependencies(pd_dwg_tools dwg2dxf dxf2dwg)
 
 install(TARGETS dwg2dxf dxf2dwg RUNTIME DESTINATION tools/libredwg)
+if(WIN32)
+    # Same reason as in the staging target: bin/ is deployed app-locally, tools/libredwg/ is not.
+    install(CODE "
+        execute_process(COMMAND \"${CMAKE_COMMAND}\"
+            \"-DEXECUTABLES=\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/tools/libredwg/dwg2dxf.exe|\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/tools/libredwg/dxf2dwg.exe\"
+            \"-DDESTINATION=\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/tools/libredwg\"
+            \"-DSEARCH_DIRS=\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin;${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin\"
+            -P \"${CMAKE_CURRENT_LIST_DIR}/copy_converter_deps.cmake\")")
+endif()
 # Upstream's own install() rules publish dwgread/dwg2SVG and a private library tree under
 # libredwg-<version>/. PlaneDraft ships only the two exchange programs, so drop that staging copy
 # after all upstream rules have run (the converters are built statically).
