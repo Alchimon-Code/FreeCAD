@@ -34,16 +34,31 @@ function CheckPayload([string]$root) {
     if ($LASTEXITCODE -ne 0) { throw 'CLI sheet export failed' }
     $pdf = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$tmp/smoke.pdf"))
     if (!$pdf.StartsWith('%PDF-') -or $pdf -notmatch '/MediaBox\s*\[0 0 ([.0-9]+) ([.0-9]+)\]') { throw 'Missing vector PDF page' }
-    # Exercise the shipped GPLv3 program on its own first: a hang or crash here is a converter
-    # problem, not a bridge one, and its console output names the failing phase.
-    $writer = Start-Process -FilePath "$root/tools/libredwg/dxf2dwg.exe" -NoNewWindow -PassThru `
-        -ArgumentList @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") `
-        -RedirectStandardOutput "$tmp/writer.out" -RedirectStandardError "$tmp/writer.err"
-    if (!$writer.WaitForExit(180000)) { $writer.Kill(); throw 'Bundled dxf2dwg did not finish' }
-    if ($writer.ExitCode -ne 0) {
-        throw "Bundled dxf2dwg failed: $($writer.ExitCode) $(Get-Content -Raw "$tmp/writer.err")"
+    # Exercise the shipped GPLv3 programs on their own first: a hang or crash here is a converter
+    # problem, not a bridge one, and console output names the phase that failed.
+    function Invoke-Converter([string]$exe, [string[]]$arguments, [int]$seconds) {
+        $out = "$tmp/convert.out"
+        $err = "$tmp/convert.err"
+        $p = Start-Process -FilePath $exe -NoNewWindow -PassThru -ArgumentList $arguments `
+            -RedirectStandardOutput $out -RedirectStandardError $err
+        if (!$p.WaitForExit($seconds * 1000)) {
+            $p.Kill()
+            throw "Converter did not finish in ${seconds}s: $exe $arguments`nSTDOUT: $(Get-Content -Raw $out)`nSTDERR: $(Get-Content -Raw $err)"
+        }
+        if ($p.ExitCode -ne 0) {
+            throw "Converter exit $($p.ExitCode): $exe $arguments`nSTDOUT: $(Get-Content -Raw $out)`nSTDERR: $(Get-Content -Raw $err)"
+        }
+        return (Get-Content -Raw $out)
     }
-    if ((Get-Item "$tmp/direct.dwg").Length -lt 1000) { throw 'Bundled dxf2dwg produced no DWG' }
+    Invoke-Converter "$root/tools/libredwg/dwg2dxf.exe" @('--help') 60 | Out-Null
+    Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" @('--help') 60 | Out-Null
+    $written = Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
+        @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") 180
+    if ($written -notmatch 'Writing DWG file') {
+        throw "Bundled dxf2dwg reported no write: $written"
+    }
+    if (!(Test-Path "$tmp/direct.dwg")) { throw 'Bundled dxf2dwg produced no DWG' }
+    if ((Get-Item "$tmp/direct.dwg").Length -lt 1000) { throw 'Bundled dxf2dwg produced a truncated DWG' }
     Remove-Item "$tmp/direct.dwg"
     # DWG out of the box: the bundled LibreDWG programs are found beside the executable.
     & "$root/bin/pdconvert.exe" "$root/examples/drawings/panel.dxf" "$tmp/smoke.dwg"
