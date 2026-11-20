@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.2.0
+
+DWG out of the box, a ribbon workbench and the classic AutoCAD command set.
+
+- **DWG:** the pinned LibreDWG 0.14 programs `dwg2dxf` and `dxf2dwg` travel with the portable ZIP, the
+  installer and the installed Linux tree under `tools/libredwg/`. PlaneDraft finds them beside the
+  executable and then on `PATH`, so no environment variable or manual install is needed. The
+  converters stay separate GPLv3 processes: the LGPL core never links, loads or ships libredwg.
+  `*.dwg *.dxf` are accepted by the open and save dialogs. Reading uses the native converter
+  (R2.10 … R2018+), writing targets R2000 by default (`dxf2dwg -a r2000`). 3D entities are skipped
+  with a summary on the command line, and text rotation survives the round trip.
+- **Ribbon:** Home, Insert, Annotate, View and Manage pages with Draw, Modify, Annotations, Layers,
+  Blocks, Properties, Plugins and Scripts panels; a quick access toolbar for New, Open, Save, PDF,
+  Undo and Redo; layer, colour and line-weight drop-downs that edit the selection in one undo step.
+  View → Ribbon switches back to the five classic toolbars and remembers the choice.
+- **CAD ergonomics:** Space confirms a step or repeats the last command on an empty prompt (except
+  while entering free text), a middle double-click zooms to the drawing extents, the right-button
+  menu offers repeat, recent commands, properties, erase, clipboard and a base point, and F12 shows
+  dynamic length/angle input beside the crosshair with Tab switching between the fields.
+- **Command line:** autocomplete over every command and alias; built-in EN and RU alias tables
+  (`L`/`ОТ`, `REC`/`ПРЯМ`, `POL`/`МН`, `CHA`/`ФАС`, …) that a user `aliases.ini` extends or
+  overrides; `_ZOOM` routed to the view; `COPYCLIP`, `CUTCLIP`, `COPYBASE` and `PASTECLIP` with the
+  usual Ctrl+C/X/V and Ctrl+Shift+C shortcuts.
+- **New commands:** `_RECTANG`/`ПРЯМОУГ` (closed polyline), `_POLYGON`/`МН-УГОЛ` (inscribed or
+  circumscribed), `_CHAMFER`/`ФАСКА` (two distances), `_ARRAY`/`МАССИВ` (rectangular and polar, one
+  undo step), `_MATCHPROP`/`КОПИРОВАТЬСВ`, `_DIST`/`ДИСТ` and `_AREA`/`ПЛОЩАДЬ` reporting to the
+  command line. Circles, three-point arcs and polylines accept typed points as well as picks.
+- **Tests:** new coverage for every added command, the alias resolution, clipboard, repeat,
+  ribbon/QAT/combos, Space-as-Enter, F12 and the extents double-click, plus DWG round-trip tests
+  through `pdconvert` on Linux and Windows.
+
+### Compatibility notes
+
+Windows packages now contain two extra GPLv3 executables and their licence text; see the runtime
+inventory and notices. DWG output is R2000 unless a newer version is requested. Unsupported DXF/DWG
+content is reported and may be simplified on import.
+
 ## v0.1.0
 
 First PlaneDraft 2D release series: draw at model scale, compose a sheet and issue it as a vector file.

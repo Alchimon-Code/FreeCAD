@@ -1,0 +1,57 @@
+name: Documentation screenshots
+
+# Rebuilds the README captures from the running application under Xvfb + software Mesa, then
+# commits them back to the dispatched branch. Triggered manually; the ordinary CI workflow never
+# writes to the repository.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    name: Capture and commit documentation images
+    runs-on: ubuntu-24.04
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Install pinned GoogleTest
+        run: bash .github/scripts/linux-gtest.sh
+      - name: Install desktop GL dependencies
+        run: |
+          python3 .github/scripts/checked.py bash .github/scripts/ubuntu-deps.sh libgl-dev libegl-dev libgl1-mesa-dri \
+            libxkbcommon-dev libxkbcommon-x11-0 libxcb-xkb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
+            libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 xvfb xauth
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          install-deps: false
+          cache: true
+      - name: Configure with the bundled LibreDWG converters
+        run: python .github/scripts/checked.py cmake --preset linux-release -DPD_ENABLE_LIBREDWG=ON
+      - name: Build the documentation tool
+        run: python .github/scripts/checked.py cmake --build --preset linux-release --target pd_capture_workspace --parallel 2
+      - name: Capture the real application
+        run: |
+          mkdir -p docs/images
+          xvfb-run -a -s '-screen 0 1600x1000x24 +extension GLX' \
+            python .github/scripts/checked.py build/linux-release/bin/pd_capture_workspace \
+            examples/drawings docs/images
+      - name: Commit the captures
+        run: |
+          git config user.name 'PlaneDraft CI'
+          git config user.email 'ci@users.noreply.github.com'
+          git add docs/images/*.png
+          if git diff --cached --quiet; then
+            echo 'Screenshots are already current.'
+            exit 0
+          fi
+          git commit -m 'Refresh documentation screenshots from the running application [skip ci]'
+          git push origin HEAD:${{ github.ref_name }}

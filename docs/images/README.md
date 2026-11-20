@@ -1,6 +1,6 @@
 # Gallery provenance
 
-The workspace images are captures of the running Qt Widgets / desktop OpenGL application, not illustrations. All three use [panel.dxf](../../examples/drawings/panel.dxf). For the two model views the tool changes layer colours in memory for contrast (the `*` on the tab), selects the two inserts or the central circle, and switches the actual locale/theme actions. It undoes the colour change before showing the **Панель** paper-space tab. It does not edit the example DXF, load plugins or modify the user's settings.
+The images are captures of the running Qt Widgets / desktop OpenGL application, not illustrations. All but the PDF raster use [panel.dxf](../../examples/drawings/panel.dxf). For the two model views the tool changes layer colours in memory for contrast (the `*` on the tab), selects the two inserts or the central circle, and switches the actual locale/theme actions. It undoes the colour change before showing the **Панель** paper-space tab. It does not edit the example DXF, load plugins or modify the user's settings.
 
 | View | Subject |
 |---|---|
@@ -8,8 +8,14 @@ The workspace images are captures of the running Qt Widgets / desktop OpenGL app
 | [Light · EN](workspace-light-en.png) | Same window, selected circle, radius 27; names from the drawing stay in their original language |
 | [A4 layout](layout-eskd.png) | Model viewport, section A–A, ESKD-style frame and title block |
 | [PDF output](pdf-output.png) | Independent raster of the vector export, 144 dpi, 297 × 210 mm |
+| [Ribbon · dark RU](ribbon-dark-ru.png) | Home page with Draw, Modify, Annotations, Layers, Blocks and Properties panels, quick access toolbar and layer/colour/line-weight drop-downs |
+| [Ribbon · light EN](ribbon-light-en.png) | Insert page of the same ribbon after the real theme and locale actions |
+| [Dynamic input](dynamic-input.png) | F12 length/angle fields beside the crosshair while `_LINE` waits for the second point |
+| [DWG opened](dwg-open.png) | `panel.dwg`, written and read back by the bundled LibreDWG programs, opened in a new tab |
 
-To reproduce from the repository root, configure `linux-release` as in the [build guide](../../README.md#quick-start), then run in a desktop GL session:
+The ribbon captures switch the real View → Ribbon action, and `dwg-open.png` is produced by running the bundled `tools/libredwg/dxf2dwg` on the example drawing and opening the result. The [documentation workflow](../../.github/workflows/docs-images.yml) repeats exactly this under Xvfb with software Mesa and commits the PNGs, so the gallery can be regenerated without a GPU.
+
+To reproduce from the repository root, configure `linux-release` with `-DPD_ENABLE_LIBREDWG=ON` as in the [build guide](../../README.md#quick-start), build `pd_capture_workspace`, then run in a desktop GL session:
 
 ```sh
 cmake --build --preset linux-release --target pd_capture_workspace pdconvert

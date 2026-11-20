@@ -5,14 +5,17 @@
 #include "layer_manager.h"
 #include "main_window.h"
 #include "property_inspector.h"
+#include "ribbon.h"
 #include "viewport.h"
 #include <QAction>
 #include <QApplication>
 #include <QDir>
 #include <QLineEdit>
 #include <QMouseEvent>
+#include <QDockWidget>
 #include <QPainter>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <iostream>
@@ -109,10 +112,31 @@ int main(int argc, char** argv) {
     }
     auto console = window.findChild<QPlainTextEdit*>();
     console->clear(); // Don't include build-machine paths in documentation.
+    // The v0.1 captures show the classic toolbars; the ribbon is on by default since v0.2.0.
+    auto setRibbon = [&](bool on) {
+        auto* toggle = window.findChild<QAction*>("ribbonToggle");
+        if (!toggle || toggle->isChecked() == on)
+            return;
+        toggle->trigger();
+        app.processEvents();
+    };
+    setRibbon(false);
     command("_DIMSTYLE ESKD");
     view.setSelection(inserts);
     pointAt(view, {115.5, -18.5});
     if (!saveFrame(window, out.filePath("workspace-dark-ru.png")))
+        return 1;
+
+    // v0.2.0 ribbon captures: dark Russian Home page, then light English Insert page.
+    setRibbon(true);
+    auto* ribbon = window.findChild<Ribbon*>();
+    if (!ribbon)
+        return 1;
+    ribbon->setCurrentPage(0);
+    view.setSelection(circles);
+    pointAt(view, {-94, -43});
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("ribbon-dark-ru.png")))
         return 1;
 
     window.findChild<QAction*>("localeSwitch")->trigger();
@@ -125,15 +149,51 @@ int main(int argc, char** argv) {
     if (language.russian() || !saveFrame(window, out.filePath("workspace-light-en.png")))
         return 1;
 
+    ribbon->setCurrentPage(1);
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("ribbon-light-en.png")))
+        return 1;
+
+    // Dynamic input beside the crosshair: a base point, a hovered destination and F12 on.
+    ribbon->setCurrentPage(0);
+    command("_LINE -60,-40");
+    pointAt(view, {-20, -10});
+    pointAt(view, {-15, -5});
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("dynamic-input.png")))
+        return 1;
+    view.escape();
+    command("_UNDO");
+
     window.findChild<QAction*>("localeSwitch")->trigger();
     app.processEvents();
     command("_UNDO");
+    setRibbon(false);
     session.selectSpace("Панель");
     properties->hide();
     layers->hide();
     window.findChild<QDockWidget*>("CommandLine")->hide();
     app.processEvents();
     view.zoomExtents();
-    return view.paperSpace() && !session.modified() && saveFrame(window, out.filePath("layout-eskd.png")) ? 0
-                                                                                                          : 1;
+    if (!view.paperSpace() || session.modified() ||
+        !saveFrame(window, out.filePath("layout-eskd.png")))
+        return 1;
+
+    // A real DWG produced by the bundled LibreDWG writer and opened through the reader.
+    auto converter = QCoreApplication::applicationDirPath() + "/tools/libredwg/dxf2dwg";
+#ifdef Q_OS_WIN
+    converter += ".exe";
+#endif
+    const auto dwg = settings.filePath("panel.dwg");
+    if (QProcess::execute(converter, {drawings.filePath("panel.dxf"), dwg}) != 0)
+        return 1;
+    window.findChild<QDockWidget*>("CommandLine")->show();
+    window.findChild<QAction*>("localeSwitch")->trigger();
+    window.findChild<QPlainTextEdit*>()->clear(); // keep only the import report in the transcript
+    if (!window.openDrawing(dwg))
+        return 1;
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("dwg-open.png")))
+        return 1;
+    return 0;
 }
