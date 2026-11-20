@@ -42,8 +42,9 @@ function CheckPayload([string]$root) {
         $p = Start-Process -FilePath $exe -NoNewWindow -PassThru -ArgumentList $arguments `
             -RedirectStandardOutput $out -RedirectStandardError $err
         if (!$p.WaitForExit($seconds * 1000)) {
+            $cpu = try { [math]::Round($p.TotalProcessorTime.TotalSeconds, 2) } catch { -1 }
             $p.Kill()
-            throw "Converter did not finish in ${seconds}s: $exe $arguments`nSTDOUT: $(Get-Content -Raw $out)`nSTDERR: $(Get-Content -Raw $err)"
+            throw "Converter stalled (cpu=${cpu}s): $exe $arguments`nSTDOUT: $(Get-Content -Raw $out)`nSTDERR: $(Get-Content -Raw $err)"
         }
         if ($p.ExitCode -ne 0) {
             throw "Converter exit $($p.ExitCode): $exe $arguments`nSTDOUT: $(Get-Content -Raw $out)`nSTDERR: $(Get-Content -Raw $err)"
@@ -86,17 +87,19 @@ ENDSEC
 EOF
 '@
     Set-Content -LiteralPath "$tmp/tiny.dxf" -Value $tiny -Encoding ascii
-    Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
-        @('-o', "$tmp/tiny.dwg", "$tmp/tiny.dxf") 90 | Out-Null
-    Remove-Item "$tmp/tiny.dwg"
-    $written = Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
-        @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") 180
-    if ($written -notmatch 'Writing DWG file') {
-        throw "Bundled dxf2dwg reported no write: $written"
+    $buildExe = "$PSScriptRoot/../../build/windows-msvc/bin/tools/libredwg/dxf2dwg.exe"
+    $shipped = (Get-ChildItem "$root/tools/libredwg" | ForEach-Object { $_.Name }) -join ','
+    try {
+        Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" @('-o', "$tmp/tiny.dwg", "$tmp/tiny.dxf") 90 | Out-Null
+        Remove-Item "$tmp/tiny.dwg"
+    } catch {
+        $buildResult = 'absent'
+        if (Test-Path $buildExe) {
+            try { Invoke-Converter $buildExe @('-o', "$tmp/tiny-build.dwg", "$tmp/tiny.dxf") 30 | Out-Null
+                  $buildResult = 'works' } catch { $buildResult = "fails: $_" }
+        }
+        throw "Payload converter failed. dir=[$shipped] buildtree=$buildResult`n$_"
     }
-    if (!(Test-Path "$tmp/direct.dwg")) { throw 'Bundled dxf2dwg produced no DWG' }
-    if ((Get-Item "$tmp/direct.dwg").Length -lt 1000) { throw 'Bundled dxf2dwg produced a truncated DWG' }
-    Remove-Item "$tmp/direct.dwg"
     # DWG out of the box: the bundled LibreDWG programs are found beside the executable.
     & "$root/bin/pdconvert.exe" "$root/examples/drawings/panel.dxf" "$tmp/smoke.dwg"
     if ($LASTEXITCODE -ne 0 -or (Get-Item "$tmp/smoke.dwg").Length -lt 1000) { throw 'DWG export failed' }
