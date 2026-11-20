@@ -297,6 +297,167 @@ TEST_F(Edit, LockedOrStalePlansCannotPartiallyPublishOrDropRedo) {
     EXPECT_EQ(d.revision(), rev);
     near(get<Line>(l).start(), {1, 0});
 }
+
+TEST_F(Edit, RectangleAndPolygonCreateClosedPolylinesInOneTransaction) {
+    int packets = 0;
+    auto watch = d.observe([&](auto) { ++packets; });
+    edit::rectangle(d, {0, 0}, {40, 25}).apply(d);
+    ASSERT_EQ(d.size(), 1u);
+    auto& box = get<Polyline>(1);
+    EXPECT_TRUE(box.closed());
+    ASSERT_EQ(box.vertices().size(), 4u);
+    near(box.vertices()[1].point, {40, 0});
+    EXPECT_EQ(d.extents().max(), (Vec2{40, 25}));
+    edit::polygon(d, {100, 0}, {110, 0}, 6, false).apply(d);
+    auto& hex = get<Polyline>(2);
+    ASSERT_EQ(hex.vertices().size(), 6u);
+    for (auto& v : hex.vertices())
+        EXPECT_NEAR((v.point - Vec2{100, 0}).length(), 10, 1e-9);
+    // Circumscribed: the picked point is an edge midpoint, so the apothem is the picked radius.
+    edit::polygon(d, {200, 0}, {210, 0}, 4, true).apply(d);
+    auto& square = get<Polyline>(3);
+    for (std::size_t i = 0; i < square.vertices().size(); ++i) {
+        auto mid = midpoint(square.vertices()[i].point,
+                            square.vertices()[(i + 1) % square.vertices().size()].point);
+        EXPECT_NEAR((mid - Vec2{200, 0}).length(), 10, 1e-9)
+            << "circumscribed polygon keeps the picked point on an edge";
+    }
+    EXPECT_EQ(packets, 3);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 2u);
+    EXPECT_THROW(edit::rectangle(d, {0, 0}, {0, 5}), std::invalid_argument);
+    EXPECT_THROW(edit::polygon(d, {0, 0}, {1, 0}, 2, false), std::invalid_argument);
+}
+
+TEST_F(Edit, CircleArcAndPolylineAreFirstClassConstructors) {
+    edit::circle(d, {5, 5}, 2.5).apply(d);
+    auto& c = get<Circle>(1);
+    near(c.center(), {5, 5});
+    EXPECT_DOUBLE_EQ(c.radius(), 2.5);
+    // Quarter arc through (10,0): centre (5,5), radius 5, CCW from 0 to 90 degrees.
+    edit::arc(d, {10, 5}, {8.5355339059327378, 8.5355339059327378}, {5, 10}).apply(d);
+    auto& a = get<Arc>(2);
+    EXPECT_NEAR(a.curve().radius(), 5, 1e-9);
+    EXPECT_NEAR(a.curve().sweep(), pi / 2, 1e-9);
+    std::array<Vec2, 3> points{{{0, 0}, {5, 0}, {5, 5}}};
+    edit::polyline(d, points, false).apply(d);
+    auto& p = get<Polyline>(3);
+    EXPECT_FALSE(p.closed());
+    ASSERT_EQ(p.vertices().size(), 3u);
+    EXPECT_THROW(edit::circle(d, {0, 0}, 0), std::invalid_argument);
+    std::array<Vec2, 1> one{{{0, 0}}};
+    EXPECT_THROW(edit::polyline(d, one, false), std::invalid_argument);
+}
+
+TEST_F(Edit, ChamferTrimsBothLinesAndAddsOneConnector) {
+    auto a = line({0, 0}, {20, 0});
+    auto b = line({0, 0}, {0, 20});
+    int packets = 0;
+    auto watch = d.observe([&](auto) { ++packets; });
+    edit::chamfer(d, a, {10, 0}, b, {0, 10}, 5, 5).apply(d);
+    ASSERT_EQ(d.size(), 3u);
+    near(get<Line>(a).start(), {5, 0});
+    near(get<Line>(a).end(), {20, 0});
+    near(get<Line>(b).start(), {0, 5});
+    auto& connector = get<Line>(3);
+    near(connector.start(), {5, 0});
+    near(connector.end(), {0, 5});
+    EXPECT_NEAR((connector.end() - connector.start()).length(), 5 * std::sqrt(2.), 1e-9);
+    EXPECT_EQ(packets, 1);
+    EXPECT_TRUE(d.undo());
+    ASSERT_EQ(d.size(), 2u);
+    near(get<Line>(a).start(), {0, 0});
+    // Zero second distance only trims the second line to the corner.
+    edit::chamfer(d, a, {10, 0}, b, {0, 10}, 4, 0).apply(d);
+    near(get<Line>(b).start(), {0, 0});
+    EXPECT_THROW(edit::chamfer(d, a, {10, 0}, b, {0, 10}, -1, 4), std::invalid_argument);
+}
+
+TEST_F(Edit, RectangularAndPolarArraysPublishOneUndoableStep) {
+    auto a = d.add(Circle({1, 1}, 1));
+    auto base = d.revision();
+    std::array<EntityId, 1> one{a};
+    auto plan = edit::arrayRectangular(d, one, 2, 3, {10, 5});
+    EXPECT_EQ(plan.items().size(), 5u);
+    EXPECT_EQ(d.revision(), base);
+    plan.apply(d);
+    ASSERT_EQ(d.size(), 6u);
+    std::vector<Vec2> centres;
+    for (auto id : d.entityIds())
+        centres.push_back(get<Circle>(id).center());
+    EXPECT_NE(std::find(centres.begin(), centres.end(), Vec2{21, 6}), centres.end());
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 1u);
+    ASSERT_TRUE(d.redo());
+    std::array<EntityId, 1> firstId{1};
+    auto polar = edit::arrayPolar(d, firstId, {0, 0}, 4, 2 * pi);
+    polar.apply(d);
+    // Full turn: six existing circles plus three copies, no duplicate at 360 degrees.
+    ASSERT_EQ(d.size(), 9u);
+    std::vector<Vec2> rotated;
+    for (EntityId id : {7u, 8u, 9u}) {
+        auto centre = get<Circle>(id).center();
+        rotated.push_back(centre);
+        EXPECT_NEAR(centre.length(), std::sqrt(2.), 1e-9);
+    }
+    EXPECT_NEAR(rotated[0].x, -1, 1e-9);
+    EXPECT_NEAR(rotated[0].y, 1, 1e-9);
+    EXPECT_TRUE(d.undo());
+    auto partial = edit::arrayPolar(d, firstId, {0, 0}, 3, pi / 2);
+    partial.apply(d);
+    ASSERT_EQ(d.size(), 8u); // six originals plus two intermediate copies over 90 degrees
+    EXPECT_THROW(edit::arrayPolar(d, firstId, {0, 0}, 1, pi), std::invalid_argument);
+    EXPECT_THROW(edit::arrayRectangular(d, edit::Selection{}, 2, 2, {1, 1}), std::invalid_argument);
+}
+
+TEST_F(Edit, MatchPropertiesCopiesLayerColourAndLineworkWithoutMovingGeometry) {
+    Layer red("Red");
+    red.color = Color{220, 10, 10};
+    LayerId lid = 0;
+    d.transact([&](Transaction& tx) { lid = tx.addLayer(red); });
+    auto source = d.add(Circle({0, 0}, 3));
+    auto target = line({0, 0}, {4, 4});
+    auto e = dynamic_cast<const Line&>(*d.entity(target));
+    auto before = e.start();
+    // Give the source explicit overrides, then copy them.
+    edit::Plan give(d);
+    auto styledSource = d.entity(source)->clone();
+    styledSource->traits.layer = lid;
+    styledSource->traits.color = Color{10, 200, 30};
+    styledSource->traits.lineWeight = 0.5;
+    give.put(source, std::move(styledSource));
+    give.apply(d);
+    std::array<EntityId, 1> targets{target};
+    edit::matchProperties(d, source, targets).apply(d);
+    auto& line = dynamic_cast<const Line&>(*d.entity(target));
+    EXPECT_EQ(line.traits.layer, lid);
+    EXPECT_EQ(std::get<Color>(line.traits.color), (Color{10, 200, 30}));
+    EXPECT_DOUBLE_EQ(std::get<double>(line.traits.lineWeight), 0.5);
+    near(line.start(), before);
+    auto& first = dynamic_cast<const Circle&>(*d.entity(source));
+    EXPECT_EQ(first.center(), (Vec2{0, 0}));
+    std::array<EntityId, 1> self{source};
+    EXPECT_THROW(edit::matchProperties(d, source, self), std::invalid_argument);
+}
+
+TEST_F(Edit, DistanceAngleAndAreaIgnoreOrientationAndIncludeBulges) {
+    auto m = edit::measure({1, 1}, {4, 5});
+    EXPECT_DOUBLE_EQ(m.distance, 5);
+    EXPECT_NEAR(m.angle, std::atan2(4., 3.), 1e-12);
+    auto down = edit::measure({0, 0}, {0, -2});
+    EXPECT_NEAR(down.angle, 3 * pi / 2, 1e-12);
+    auto c = d.add(Circle({0, 0}, 2));
+    EXPECT_NEAR(edit::area(*d.entity(c)), 4 * pi, 1e-12);
+    // A 10 x 4 rectangle with a half-circle bulge on the top edge, twice the height.
+    std::vector<Vertex> v{{{0, 0}, 0}, {{10, 0}, 0}, {{10, 4}, 0}, {{0, 4}, 0}};
+    v[2].bulge = 1; // semicircle of radius 5 outside the 10-unit top edge
+    auto p = d.add(Polyline(v, true));
+    double expected = 40 + pi * 25 / 2;
+    EXPECT_NEAR(edit::area(*d.entity(p)), expected, 1e-2);
+    auto open = line({0, 0}, {1, 0});
+    EXPECT_THROW(edit::area(*d.entity(open)), std::invalid_argument);
+}
+
 TEST(Tracking, OrthoBothAxesAndPolarCaptureAreRelativeToBase) {
     using edit::Tracking;
     Vec2 base{1e7, -1e7};

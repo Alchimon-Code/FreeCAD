@@ -132,6 +132,25 @@ static char32_t codeUnit(std::string_view s) {
     auto [p, e] = std::from_chars(s.data() + 3, end, v, 16);
     return e == std::errc{} && p == end ? v : 0;
 }
+// ASCII-only exchange dialect. LibreDWG's DXF reader does not map raw codepage bytes to Unicode,
+// so the DWG bridge writes every non-ASCII character as the standard \U+XXXX escape instead of
+// relying on $DWGCODEPAGE. The file is then unambiguous for both LibreDWG and PlaneDraft.
+std::string encodeAscii(std::string_view s) {
+    std::string r;
+    for (auto c : unicode(s)) {
+        if (c < 32 || c == 127)
+            throw std::invalid_argument("control character not representable in single-line DXF string");
+        if (c < 127 && c != '\\')
+            r += static_cast<char>(c);
+        else if (c < 65536)
+            r += "\\U+" + hex(c, 4);
+        else {
+            c -= 65536;
+            r += "\\U+" + hex(0xd800 + (c >> 10), 4) + "\\U+" + hex(0xdc00 + (c & 1023), 4);
+        }
+    }
+    return r;
+}
 std::string decode(std::string_view raw, std::string_view page, bool declaredLegacyPage) {
     std::string s(raw);
     bool native = declaredLegacyPage;

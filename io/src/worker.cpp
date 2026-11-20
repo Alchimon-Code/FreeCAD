@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "detail.hpp"
 #include <chrono>
+#include <vector>
 #include <thread>
 #ifdef _WIN32
 #include <windows.h>
@@ -29,7 +30,8 @@ std::wstring quote(const std::wstring& s) {
     return cmd + L'"';
 }
 #endif
-std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& out, const fs::path& work) {
+std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& out, const fs::path& work,
+                      const std::string& version) {
     if (!tool.is_absolute() || !fs::is_regular_file(tool))
         throw Failure(IoStatus::BackendUnavailable, "DWG converter not installed/configured");
     if (!fs::is_regular_file(in))
@@ -71,7 +73,10 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
     if (!UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, allowed,
                                    sizeof allowed, nullptr, nullptr))
         throw Failure(IoStatus::BackendError, "cannot restrict inherited handles");
-    auto args = quote(tool.wstring()) + L" -a r2000 -o " + quote(out.wstring()) + L" " + quote(in.wstring());
+    std::wstring args = quote(tool.wstring());
+    if (!version.empty())
+        args += L" -a " + std::wstring(version.begin(), version.end());
+    args += L" -o " + quote(out.wstring()) + L" " + quote(in.wstring());
     PROCESS_INFORMATION pi{};
     if (!CreateProcessW(tool.c_str(), args.data(), nullptr, nullptr, TRUE,
                         CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, work.c_str(),
@@ -89,9 +94,18 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
     if (w != WAIT_OBJECT_0)
         throw Failure(IoStatus::BackendError, "DWG converter timed out");
 #else
-    std::string args[] = {tool.string(), "-a", "r2000", "-o", out.string(), in.string()};
-    char* argv[] = {args[0].data(), args[1].data(), args[2].data(), args[3].data(),
-                    args[4].data(), args[5].data(), nullptr};
+    std::vector<std::string> args{tool.string()};
+    if (!version.empty()) {
+        args.push_back("-a");
+        args.push_back(version);
+    }
+    args.push_back("-o");
+    args.push_back(out.string());
+    args.push_back(in.string());
+    std::vector<char*> argv;
+    for (auto& a : args)
+        argv.push_back(a.data());
+    argv.push_back(nullptr);
     pid_t pid;
     posix_spawn_file_actions_t actions;
     if (posix_spawn_file_actions_init(&actions))
@@ -104,7 +118,7 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
         posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0) ||
         posix_spawn_file_actions_addopen(&actions, 2, log.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600))
         throw Failure(IoStatus::BackendError, "cannot redirect converter IO");
-    int err = posix_spawn(&pid, tool.c_str(), &actions, nullptr, argv, environ);
+    int err = posix_spawn(&pid, tool.c_str(), &actions, nullptr, argv.data(), environ);
     if (err)
         throw Failure(IoStatus::BackendUnavailable, "cannot start DWG converter");
     int status = 0;

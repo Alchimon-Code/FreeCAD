@@ -9,6 +9,8 @@
 
 #include <QHash>
 #include <QObject>
+#include <QStringList>
+#include <memory>
 #include <optional>
 
 // UI, DLLs and Lisp commands share this single document-editing path.
@@ -44,6 +46,26 @@ class CommandSession : public QObject {
     using FilePicker = std::function<QString(const QString& global)>;
     void setFilePicker(FilePicker picker) { picker_ = std::move(picker); }
     void loadAliases(const QString& iniPath);
+    // ZOOM lives in the viewport, not the document: the window supplies the camera action.
+    void setZoomExtentsHandler(std::function<void()> handler) { zoomExtents_ = std::move(handler); }
+    // Standard AutoCAD-style short names (EN and RU). A user aliases.ini may override any entry.
+    static QHash<QString, QString> defaultAliases();
+    // Ribbon layer/colour/line-weight controls. Each call is exactly one undo step, or nothing.
+    QString setLayer(const std::vector<pd::EntityId>& ids, pd::LayerId layer);
+    QString setColor(const std::vector<pd::EntityId>& ids, std::variant<pd::ByLayer, pd::ByBlock, pd::Color>);
+    QString setLineWeight(const std::vector<pd::EntityId>& ids,
+                          std::variant<pd::ByLayer, pd::ByBlock, double>);
+    // Internal clipboard shared by the context menu, Ctrl+C/X/V and the COPYCLIP family. A paste is
+    // one transaction; layer names are remapped onto the target drawing.
+    QString copySelection(const std::vector<pd::EntityId>& ids, std::optional<pd::Vec2> base = {});
+    QString cutSelection(const std::vector<pd::EntityId>& ids, std::optional<pd::Vec2> base = {});
+    QString pasteClipboard(std::optional<pd::Vec2> at = {});
+    bool clipboardEmpty() const { return clip_.items.empty(); }
+    std::size_t clipboardSize() const { return clip_.items.size(); }
+    pd::Vec2 clipboardBase() const { return clip_.base; }
+    // Space on an empty prompt repeats the last command, as in AutoCAD.
+    QString repeatLast();
+    [[nodiscard]] QStringList recentCommands() const { return recent_; }
 
   signals:
     void documentChanged(const QList<pd::Change>& changes);
@@ -75,4 +97,13 @@ class CommandSession : public QObject {
     std::function<std::vector<pd::EntityId>()> selection_;
     bool executing_ = false;
     QHash<QString, QString> aliases_;
+    std::function<void()> zoomExtents_;
+    struct Clipboard {
+        std::vector<std::shared_ptr<pd::Entity>> items;
+        std::vector<pd::Layer> layers;
+        pd::Vec2 base;
+        bool empty() const { return items.empty(); }
+    } clip_;
+    QString lastCommand_;
+    QStringList recent_;
 };

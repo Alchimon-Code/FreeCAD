@@ -6,12 +6,16 @@
 #include "language.h"
 #include "layer_manager.h"
 #include "property_inspector.h"
+#include "ribbon.h"
 #include "viewport.h"
 #include <QScrollBar>
 #include <QTabWidget>
 #include <QTextDocument>
 
 #include <QActionGroup>
+#include <QApplication>
+#include <QClipboard>
+#include <QMenu>
 #include <QCloseEvent>
 #include <QCompleter>
 #include <QCoreApplication>
@@ -53,7 +57,14 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     tabs_->setExpanding(false);
     tabs_->setShape(QTabBar::RoundedSouth);
     vbox->addWidget(tabs_);
-    setCentralWidget(pane);
+    ribbon_ = new Ribbon(this);
+    auto* central = new QWidget(this);
+    auto* shell = new QVBoxLayout(central);
+    shell->setContentsMargins(0, 0, 0, 0);
+    shell->setSpacing(0);
+    shell->addWidget(ribbon_);
+    shell->addWidget(pane, 1);
+    setCentralWidget(central);
     connect(tabs_, &QTabBar::currentChanged, this, [this](int i) {
         if (i >= 0 && session_)
             session_->selectSpace(tabs_->tabData(i).toString());
@@ -86,6 +97,16 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         connect(a, &QAction::triggered, this,
                 [this, degrees] { session_->editor().setPolarDegrees(degrees); });
     }
+    dynamic_ = settings_->addAction(QString());
+    dynamic_->setObjectName("dynamicInputToggle");
+    dynamic_->setCheckable(true);
+    dynamic_->setShortcut(Qt::Key_F12);
+    dynamic_->setChecked(QSettings().value("view/dynamicInput", true).toBool());
+    connect(dynamic_, &QAction::toggled, this, [this](bool on) {
+        QSettings().setValue("view/dynamicInput", on);
+        if (canvas_)
+            canvas_->setDynamicInput(on);
+    });
     languages_ = settings_->addMenu(QString());
     new_ = file_->addAction(QString());
     new_->setShortcuts(QKeySequence::New);
@@ -122,8 +143,64 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         auto* a = edit_->addAction(QString());
         a->setData(cmd);
         editActions_.append(a);
+        commands_.insert(cmd, a);
         connect(a, &QAction::triggered, this, [this, cmd] { submit("_" + cmd); });
     }
+    // Clipboard and context-menu commands. Shortcuts live on the drawing canvas, so a focused
+    // text field keeps its own Ctrl+C/V behaviour.
+    auto canvasAction = [this](const QKeySequence& key) {
+        auto* a = new QAction(this);
+        a->setShortcut(key);
+        a->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        return a;
+    };
+    cut_ = canvasAction(QKeySequence::Cut);
+    copy_ = canvasAction(QKeySequence::Copy);
+    paste_ = canvasAction(QKeySequence::Paste);
+    copyBase_ = canvasAction(QKeySequence(QStringLiteral("Ctrl+Shift+C")));
+    repeat_ = canvasAction(QKeySequence());
+    cut_->setObjectName("cutClipboard");
+    copy_->setObjectName("copyClipboard");
+    paste_->setObjectName("pasteClipboard");
+    copyBase_->setObjectName("copyBaseClipboard");
+    repeat_->setObjectName("repeatCommand");
+    connect(cut_, &QAction::triggered, this, [this] { submit("_CUTCLIP"); });
+    connect(copy_, &QAction::triggered, this, [this] { submit("_COPYCLIP"); });
+    connect(paste_, &QAction::triggered, this, [this] {
+        auto p = canvas_ ? canvas_->cursorPoint() : std::nullopt;
+        submit(p ? QStringLiteral("_PASTECLIP %1,%2").arg(p->x).arg(p->y) : QStringLiteral("_PASTECLIP"));
+    });
+    connect(copyBase_, &QAction::triggered, this, [this] {
+        auto p = canvas_ ? canvas_->cursorPoint() : std::nullopt;
+        submit(p ? QStringLiteral("_COPYBASE %1,%2").arg(p->x).arg(p->y)
+                 : QStringLiteral("_COPYBASE 0,0"));
+    });
+    connect(repeat_, &QAction::triggered, this, [this] { submit(session_->repeatLast()); });
+    erase_ = canvasAction(QKeySequence::Delete);
+    erase_->setObjectName("eraseSelection");
+    connect(erase_, &QAction::triggered, this, [this] { submit("_ERASE"); });
+    properties_ = edit_->addAction(QString());
+    properties_->setObjectName("selectionProperties");
+    connect(properties_, &QAction::triggered, this, [this] {
+        inspector_->raise();
+        inspector_->refresh();
+    });
+    recent_ = edit_->addMenu(QString());
+    contextMenu_ = new QMenu(this);
+    contextMenu_->setObjectName("drawingContextMenu");
+    contextRepeat_ = contextMenu_->addAction(QString());
+    contextRepeat_->setObjectName("contextRepeat");
+    connect(contextRepeat_, &QAction::triggered, repeat_, &QAction::trigger);
+    contextMenu_->addMenu(recent_);
+    recent_->setObjectName("contextRecent");
+    contextMenu_->addSeparator();
+    for (auto* action : {cut_, copy_, copyBase_, paste_})
+        contextMenu_->addAction(action);
+    contextMenu_->addSeparator();
+    contextMenu_->addAction(erase_);
+    contextMenu_->addAction(properties_);
+    contextMenu_->addSeparator();
+    contextMenu_->addAction(extents_);
     auto* group = new QActionGroup(this);
     english_ = languages_->addAction(QStringLiteral("English"));
     russian_ = languages_->addAction(QStringLiteral("Русский"));
@@ -200,8 +277,10 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
 }
 
 void MainWindow::submit(const QString& text) {
-    if (text.trimmed().isEmpty() && !session_->editor().active())
+    if (text.trimmed().isEmpty() && !session_->editor().active()) {
+        enterOrRepeat();
         return;
+    }
     if (!text.trimmed().isEmpty())
         page_->append("> " + text);
     auto result = session_->execute(text); // OPEN can activate a different page.
@@ -271,6 +350,18 @@ void MainWindow::chooseLanguage(bool russian) {
 bool MainWindow::eventFilter(QObject* watched, QEvent* e) {
     if (watched == input_ && e->type() == QEvent::KeyPress) {
         auto key = static_cast<QKeyEvent*>(e);
+        // Space confirms the current step or repeats the last command, exactly like Enter.
+        // Text entry (RENAME, MTEXT content, file names) keeps the literal space.
+        if (key->key() == Qt::Key_Space && !session_->editor().expectsFreeText() &&
+            !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) {
+            const auto text = input_->text().trimmed();
+            input_->clear();
+            if (text.isEmpty())
+                enterOrRepeat();
+            else
+                submit(text);
+            return true;
+        }
         if (key->key() == Qt::Key_Escape) {
             input_->clear();
             canvas_->escape();
@@ -283,6 +374,90 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* e) {
     }
     return QMainWindow::eventFilter(watched, e);
 }
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Space && event->modifiers() == Qt::NoModifier &&
+        qobject_cast<QLineEdit*>(QApplication::focusWidget()) == nullptr &&
+        !(session_ && session_->editor().expectsFreeText())) {
+        enterOrRepeat();
+        event->accept();
+        return;
+    }
+    QMainWindow::keyPressEvent(event);
+}
+
+void MainWindow::enterOrRepeat() {
+    if (!session_)
+        return;
+    if (session_->editor().active()) {
+        submit("");
+        return;
+    }
+    auto reply = session_->repeatLast();
+    if (reply.isEmpty())
+        return;
+    page_->append("> " + tr("repeat"));
+    page_->append(reply);
+    history_->verticalScrollBar()->setValue(history_->verticalScrollBar()->maximum());
+}
+
+void MainWindow::refreshContextMenu() {
+    if (!session_)
+        return;
+    contextRepeat_->setText(repeat_->text());
+    contextRepeat_->setEnabled(!session_->editor().active() && !session_->recentCommands().isEmpty());
+    recent_->clear();
+    recent_->setTitle(tr("Recent commands"));
+    for (const auto& name : session_->recentCommands()) {
+        auto* a = recent_->addAction(name);
+        connect(a, &QAction::triggered, this, [this, name] { submit("_" + name); });
+    }
+    recent_->setEnabled(!recent_->isEmpty());
+    paste_->setEnabled(!session_->clipboardEmpty());
+}
+
+void MainWindow::showContextMenu(const QPoint& globalPos) {
+    if (!session_)
+        return;
+    refreshContextMenu();
+    contextMenu_->exec(globalPos);
+}
+
+void MainWindow::applyRibbonMode(bool on) {
+    if (!ribbon_)
+        return;
+    if (on) {
+        if (classicVisibility_.size() != bars_.size()) {
+            classicVisibility_.clear();
+            for (auto* bar : bars_)
+                classicVisibility_.append(!bar->isHidden());
+        }
+        for (auto* bar : bars_)
+            bar->hide();
+    } else {
+        for (int i = 0; i < bars_.size(); ++i)
+            bars_[i]->setVisible(i < classicVisibility_.size() ? classicVisibility_[i] : true);
+        classicVisibility_.clear();
+    }
+    ribbon_->setVisible(on);
+    QSettings().setValue("ui/ribbon", on);
+    if (on)
+        syncRibbon();
+}
+
+void MainWindow::syncRibbon() {
+    if (!ribbon_ || ribbon_->isHidden() || !session_)
+        return;
+    QStringList names;
+    QString current;
+    for (auto id : session_->document().layerIds()) {
+        const auto* layer = session_->document().layer(id);
+        names << QString::fromStdString(layer->name);
+        if (id == session_->editor().activeLayer())
+            current = QString::fromStdString(layer->name);
+    }
+    ribbon_->refreshLayers(names, current.isEmpty() && !names.isEmpty() ? names.front() : current);
+}
+
 void MainWindow::closeEvent(QCloseEvent* event) {
     for (int i = 0; i < documents_->count(); ++i) {
         auto p = static_cast<DrawingPage*>(documents_->widget(i));
@@ -354,6 +529,18 @@ void MainWindow::retranslate() {
     quit_->setText(tr("Exit"));
     undo_->setText(tr("Undo"));
     redo_->setText(tr("Redo"));
+    cut_->setText(tr("Cut"));
+    copy_->setText(tr("Copy"));
+    copyBase_->setText(tr("Copy with base point"));
+    paste_->setText(tr("Paste"));
+    erase_->setText(tr("Erase"));
+    properties_->setText(tr("Properties"));
+    repeat_->setText(session_ && !session_->recentCommands().isEmpty()
+                         ? tr("Repeat %1").arg(session_->recentCommands().front())
+                         : tr("Repeat last command"));
+    dynamic_->setText(tr("Dynamic input"));
+    dynamic_->setToolTip(tr("Length and angle beside the crosshair (F12)"));
+    ribbonToggle_->setText(tr("Ribbon"));
     new_->setText(tr("New drawing"));
     close_->setText(tr("Close tab"));
     translateChrome();
@@ -361,6 +548,13 @@ void MainWindow::retranslate() {
     layers_->retranslate();
     console_->setWindowTitle(tr("Command line"));
     completions_->setStringList(session_->completions());
+    if (ribbon_) {
+        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
+                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
+                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
+                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+    }
     (language_.russian() ? russian_ : english_)->setChecked(true);
     updatePrompt();
     updateEditState();
@@ -396,6 +590,7 @@ void MainWindow::attach(DrawingPage* p) {
         if (page_ != p)
             return;
         updateEditState();
+        syncRibbon();
         if (batch.front().kind == pd::Change::Kind::Reset)
             updateTabs();
     });
@@ -407,6 +602,13 @@ void MainWindow::attach(DrawingPage* p) {
     connect(s, &CommandSession::vocabularyChanged, p, [this, p] {
         if (page_ == p)
             completions_->setStringList(session_->completions());
+    if (ribbon_) {
+        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
+                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
+                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
+                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+    }
     });
     connect(&s->editor(), &EditController::stateChanged, p, [this, p] {
         if (page_ == p)
@@ -422,6 +624,18 @@ void MainWindow::attach(DrawingPage* p) {
         if (page_ == p)
             submit("_ERASE");
     });
+    connect(v, &Viewport::contextMenuRequested, p, [this, p](const QPoint& global) {
+        if (page_ == p)
+            showContextMenu(global);
+    });
+    connect(v, &Viewport::enterRequested, p, [this, p] {
+        if (page_ == p)
+            enterOrRepeat();
+    });
+    s->setZoomExtentsHandler([v] { v->zoomExtents(); });
+    v->setDynamicInput(dynamic_->isChecked());
+    for (auto* action : {cut_, copy_, copyBase_, paste_, erase_})
+        v->addAction(action);
     connect(v, &Viewport::cursorPosition, p, [this, p](bool valid, double x, double y) {
         if (p == page_)
             showCoordinates(valid, x, y);
@@ -446,10 +660,18 @@ void MainWindow::activate(int index) {
     inspector_->bind(session_, canvas_);
     layers_->bind(session_);
     completions_->setStringList(session_->completions());
+    if (ribbon_) {
+        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+        ribbon_->retranslate({tr("Draw"), tr("Modify"), tr("Annotate"), tr("Layers"), tr("Blocks"),
+                              tr("Properties"), tr("Line weight"), tr("Block"), tr("Import and scripts"),
+                              tr("Dimensions"), tr("Measure"), tr("Zoom and grid"), tr("Drafting aids"),
+                              tr("Appearance"), tr("Plugins"), tr("Scripts"), tr("Application")});
+    }
     updateTitle();
     updateTabs();
     updateEditState();
     updatePrompt();
+    syncRibbon();
     showCoordinates(false, 0, 0);
     canvas_->setGrid(grid_->isChecked());
     updateSnap();

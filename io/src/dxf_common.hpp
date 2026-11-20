@@ -16,5 +16,6 @@ Color aci(int index);
 int closestAci(Color);
 int weightCode(double mm);
 std::string encode(std::string_view utf8);
+std::string encodeAscii(std::string_view utf8);
 std::string decode(std::string_view bytes, std::string_view codepage, bool declaredLegacyPage);
 } // namespace pd::io::dxf

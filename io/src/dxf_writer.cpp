@@ -10,6 +10,14 @@ using namespace dxf;
 class Writer {
     std::ostream& out;
     DxfVersion version;
+    bool ascii;
+
+  public:
+    Writer(std::ostream& stream, DxfVersion v, bool asciiOnly)
+        : out(stream), version(v), ascii(asciiOnly) {}
+
+  private:
+    std::string str(std::string_view s) const { return ascii ? encodeAscii(s) : encode(s); }
     void colorCode(Color c, bool visible = true) {
         g(62, closestAci(c) * (visible ? 1 : -1));
         if (version == DxfVersion::R2004)
@@ -59,7 +67,7 @@ class Writer {
     void symbol(int code, const std::string& name) {
         if (name.empty() || name.find_first_of("<>/\\\":;?*|=,") != name.npos || unicode(name).size() > 255)
             throw Failure(IoStatus::Unsupported, "invalid DXF symbol name: " + name);
-        g(code, encode(name));
+        g(code, str(name));
     }
     void extras(const Color* c, const double* w, const Text* t) {
         bool rgb = version == DxfVersion::R2000 && c && aci(closestAci(*c)) != *c,
@@ -93,7 +101,7 @@ class Writer {
         g(100, "AcDbText");
         at(10, m.applyPoint({}));
         g(40, height);
-        g(1, encode(t.content()));
+        g(1, str(t.content()));
         g(50, std::atan2(unit.y, unit.x) / rad);
         g(41, x.length() / std::abs(sy));
         g(51, std::atan(unit.dot(y) / sy) / rad);
@@ -225,7 +233,7 @@ class Writer {
             g(100, "AcDbDimStyleTableRecord");
             g(2, styleName(i));
             g(70, 0);
-            g(3, encode(s.prefix + "<>" + s.suffix));
+            g(3, str(s.prefix + "<>" + s.suffix));
             g(40, 1);
             g(41, s.arrowSize);
             g(42, s.extensionGap);
@@ -284,7 +292,7 @@ class Writer {
         g(73, 0);
         g(74, 5);
         g(100, "AcDbLayout");
-        g(1, b.paper ? encode(l.name) : "Model");
+        g(1, b.paper ? str(l.name) : "Model");
         g(70, 1);
         g(71, index);
         g(10, 0);
@@ -302,8 +310,8 @@ class Writer {
             g(1000, "SHEET");
             g(1070, l.frame ? 1 : 0);
             g(1070, l.stamp ? 1 : 0);
-            g(1000, encode(l.designation));
-            g(1000, encode(l.title));
+            g(1000, str(l.designation));
+            g(1000, str(l.title));
         }
     }
     void entity(const Entity& e, const Document& doc, const std::string& owner = "6", bool paper = false,
@@ -536,7 +544,7 @@ class Writer {
         table("BLOCK_RECORD", "5", int(blocks.size()));
         for (auto& b : blocks) {
             row("BLOCK_RECORD", "5", "AcDbBlockTableRecord", b.handle);
-            g(2, encode(b.name));
+            g(2, str(b.name));
             if (!b.layoutHandle.empty())
                 g(340, b.layoutHandle);
         }
@@ -557,7 +565,7 @@ class Writer {
         };
         size_t paperNumber = 1; // active paper (block 1) is written in ENTITIES
         for (auto& b : blocks) {
-            auto owner = b.handle, name = encode(b.name);
+            auto owner = b.handle, name = str(b.name);
             record("BLOCK", owner);
             g(100, "AcDbEntity");
             g(8, "0");
@@ -603,7 +611,7 @@ class Writer {
             g(281, 1);
             for (auto& b : blocks)
                 if (!b.layoutHandle.empty()) {
-                    g(3, b.paper ? encode(b.paper->name) : "Model");
+                    g(3, b.paper ? str(b.paper->name) : "Model");
                     g(350, b.layoutHandle);
                 }
             int index = 0;
@@ -623,7 +631,7 @@ class Writer {
 IoResult DxfHandler::write(const fs::path& p, const Document& d) const {
     return checked([&](IoResult&) {
         auto f = output(p);
-        Writer(f, version_).drawing(d);
+        Writer(f, version_, ascii_).drawing(d);
         f.close();
         if (fs::file_size(p) > maxFileBytes)
             throw Failure(IoStatus::Unsupported, "DXF output exceeds size limit");

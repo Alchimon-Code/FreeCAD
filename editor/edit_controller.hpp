@@ -33,7 +33,17 @@ class EditController final : public QObject {
         Insert,
         Explode,
         Layout,
-        DimStyle
+        DimStyle,
+        Circle,
+        Arc,
+        Polyline,
+        Rectangle,
+        Polygon,
+        Chamfer,
+        Array,
+        MatchProp,
+        Distance,
+        Area
     };
     enum class Step {
         Idle,
@@ -58,7 +68,10 @@ class EditController final : public QObject {
         InsertSpec,
         Insertion,
         LayoutSpec,
-        StyleSpec
+        StyleSpec,
+        Sides,
+        ChamferDistance,
+        ArraySpec
     };
     explicit EditController(pd::Document& d)
         : doc_(d), subscription_(d.observe([this](auto changes) {
@@ -77,6 +90,19 @@ class EditController final : public QObject {
     static std::optional<Tool> named(const QString& global);
     [[nodiscard]] Step step() const { return step_; }
     [[nodiscard]] bool active() const { return step_ != Step::Idle; }
+    // Steps whose answer is free text: Space must stay a literal character there.
+    [[nodiscard]] bool expectsFreeText() const {
+        switch (step_) {
+        case Step::BlockName:
+        case Step::LayoutSpec:
+        case Step::StyleSpec:
+        case Step::InsertSpec:
+        case Step::HatchOptions:
+            return true;
+        default:
+            return false;
+        }
+    }
     [[nodiscard]] bool pickingEntity() const {
         return step_ == Step::Target || step_ == Step::FirstLine || step_ == Step::SecondLine;
     }
@@ -112,6 +138,8 @@ class EditController final : public QObject {
     void setPolarDegrees(int);
     [[nodiscard]] pd::edit::Tracking tracking() const { return mode_; }
     [[nodiscard]] int polarDegrees() const { return degrees_; }
+    // The base point of the current gesture, for dynamic input and typed coordinates.
+    [[nodiscard]] std::optional<pd::Vec2> basePoint() const { return base_; }
   signals:
     void activeLayerChanged();
     void stateChanged(); // phase/precision change, NOT every hover
@@ -129,6 +157,10 @@ class EditController final : public QObject {
     pd::BlockId blockId_ = 0;
     pd::Vec2 factors_{1, 1};
     double rotation_ = 0;
+    int sides_ = 4;
+    bool circumscribed_ = false;
+    double chamfer1_ = 0, chamfer2_ = 0;
+    std::vector<pd::Vec2> points_;
     QString selectionDone(Ids);
     QString transition(Step);
     QString number(double);

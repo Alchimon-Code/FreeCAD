@@ -20,7 +20,10 @@ const std::vector<const char*>& builtins() {
             QT_TRANSLATE_NOOP("CommandNames", "UNDO"),      QT_TRANSLATE_NOOP("CommandNames", "REDO"),
             QT_TRANSLATE_NOOP("CommandNames", "RUNSCRIPT"), QT_TRANSLATE_NOOP("CommandNames", "OPEN"),
             QT_TRANSLATE_NOOP("CommandNames", "SAVE"),      QT_TRANSLATE_NOOP("CommandNames", "SAVEAS"),
-            QT_TRANSLATE_NOOP("CommandNames", "EXPORTSVG"), QT_TRANSLATE_NOOP("CommandNames", "EXPORTPDF")};
+            QT_TRANSLATE_NOOP("CommandNames", "EXPORTSVG"), QT_TRANSLATE_NOOP("CommandNames", "EXPORTPDF"),
+            QT_TRANSLATE_NOOP("CommandNames", "ZOOM"),       QT_TRANSLATE_NOOP("CommandNames", "COPYCLIP"),
+            QT_TRANSLATE_NOOP("CommandNames", "CUTCLIP"),    QT_TRANSLATE_NOOP("CommandNames", "PASTECLIP"),
+            QT_TRANSLATE_NOOP("CommandNames", "COPYBASE")};
         for (auto entry : EditController::vocabulary())
             v.push_back(entry.global);
         return v;
@@ -88,10 +91,31 @@ QStringList CommandSession::completions() const {
     return names;
 }
 
+QHash<QString, QString> CommandSession::defaultAliases() {
+    // The classic acad.pgp set, plus the Russian keyboard names requested for the RU interface.
+    // Aliases are matched exactly like command names: typing the alias at the prompt runs the
+    // global command, so the table works in both UI languages.
+    return {
+        {"L", "LINE"},         {"ОТ", "LINE"},          {"PL", "PLINE"},       {"ПЛ", "PLINE"},
+        {"C", "CIRCLE"},       {"К", "CIRCLE"},         {"A", "ARC"},          {"Д", "ARC"},
+        {"REC", "RECTANG"},    {"ПРЯМ", "RECTANG"},     {"POL", "POLYGON"},    {"МН", "POLYGON"},
+        {"M", "MOVE"},         {"П", "MOVE"},           {"CO", "COPY"},        {"CP", "COPY"},
+        {"КОП", "COPY"},       {"RO", "ROTATE"},        {"ПОВ", "ROTATE"},     {"SC", "SCALE"},
+        {"М", "SCALE"},        {"MI", "MIRROR"},        {"ЗЕР", "MIRROR"},     {"TR", "TRIM"},
+        {"ОБР", "TRIM"},       {"EX", "EXTEND"},        {"УДЛ", "EXTEND"},     {"O", "OFFSET"},
+        {"СМ", "OFFSET"},      {"F", "FILLET"},         {"СОПР", "FILLET"},    {"CHA", "CHAMFER"},
+        {"ФАС", "CHAMFER"},    {"E", "ERASE"},          {"СТ", "ERASE"},       {"H", "HATCH"},
+        {"Ш", "HATCH"},        {"B", "BLOCK"},          {"Б", "BLOCK"},        {"I", "INSERT"},
+        {"ВСТ", "INSERT"},     {"X", "EXPLODE"},        {"РАСЧ", "EXPLODE"},   {"Z", "ZOOM"},
+        {"З", "ZOOM"},         {"DI", "DIST"},          {"ДИСТ", "DIST"},      {"AA", "AREA"},
+        {"ПЛОЩАДЬ", "AREA"},   {"AR", "ARRAY"},         {"МАССИВ", "ARRAY"},   {"MA", "MATCHPROP"},
+        {"КОПИРОВАТЬСВ", "MATCHPROP"}};
+}
+
 void CommandSession::loadAliases(const QString& iniPath) {
     QSettings ini(iniPath, QSettings::IniFormat);
     ini.beginGroup("aliases");
-    aliases_.clear();
+    aliases_ = defaultAliases();
     for (const auto& key : ini.childKeys()) {
         static const QRegularExpression validKey(QStringLiteral("\\A[\\p{L}][\\p{L}\\p{N}_]*\\z"));
         static const QRegularExpression globalName(QStringLiteral("\\A[A-Z][A-Z0-9_]{0,31}\\z"));
@@ -236,6 +260,7 @@ QString CommandSession::runScript(QString path) {
 CommandSession::CommandSession(QObject* parent)
     : QObject(parent), editor_(document_), registry_(reservedNames()), plugins_(registry_),
       scripts_(pd::makeLispEngine(registry_)) {
+    aliases_ = defaultAliases();
     subscription_ = document_.observe([this](std::span<const pd::Change> changes) {
         // Qt slots (including queued connections) may outlive the borrowed core batch.
         if (changes.front().kind == pd::Change::Kind::Reset)
@@ -258,6 +283,136 @@ std::optional<pd::EntityId> CommandSession::addLine(pd::Vec2 start, pd::Vec2 end
     } catch (const std::invalid_argument&) {
         return std::nullopt;
     }
+}
+
+namespace {
+// One transaction for the whole selection so Undo removes the change as a unit.
+QString restyle(pd::Document& d, const std::vector<pd::EntityId>& ids,
+                const std::function<void(pd::EntityTraits&)>& change) {
+    if (ids.empty())
+        return CommandSession::tr("Select objects first.");
+    const auto before = ids.size();
+    std::size_t locked = 0;
+    d.transact([&](pd::Transaction& tx) {
+        for (auto id : ids) {
+            auto e = d.entity(id);
+            if (!e)
+                continue;
+            if (auto layer = d.layer(e->traits.layer); layer && layer->isLocked) {
+                ++locked;
+                continue;
+            }
+            auto copy = e->clone();
+            change(copy->traits);
+            tx.replace(id, *copy);
+        }
+    });
+    if (locked)
+        return CommandSession::tr("%1 selected objects are on a locked layer.").arg(locked);
+    return before ? CommandSession::tr("Changed %1 object(s).").arg(before)
+                  : CommandSession::tr("Select objects first.");
+}
+} // namespace
+
+QString CommandSession::copySelection(const std::vector<pd::EntityId>& ids, std::optional<pd::Vec2> base) {
+    Clipboard next;
+    for (auto id : ids)
+        if (auto e = document_.entity(id))
+            next.items.push_back(std::shared_ptr<pd::Entity>(e->clone().release()));
+    if (next.items.empty())
+        return tr("Select objects first.");
+    for (auto lid : document_.layerIds())
+        next.layers.push_back(*document_.layer(lid));
+    next.base = base ? *base : pd::midpoint(next.items.front()->getBounds().min(),
+                                            next.items.front()->getBounds().max());
+    clip_ = std::move(next);
+    return tr("Copied %1 object(s).").arg(clip_.items.size());
+}
+
+QString CommandSession::cutSelection(const std::vector<pd::EntityId>& ids, std::optional<pd::Vec2> base) {
+    if (ids.empty())
+        return tr("Select objects first.");
+    auto reply = copySelection(ids, base);
+    if (clip_.items.empty())
+        return reply;
+    std::size_t removed = 0;
+    document_.transact([&](pd::Transaction& tx) {
+        for (auto id : ids) {
+            auto e = document_.entity(id);
+            if (!e)
+                continue;
+            if (auto layer = document_.layer(e->traits.layer); layer && layer->isLocked)
+                continue;
+            tx.remove(id);
+            ++removed;
+        }
+    });
+    return tr("Cut %1 object(s).").arg(removed);
+}
+
+QString CommandSession::pasteClipboard(std::optional<pd::Vec2> at) {
+    if (clip_.items.empty())
+        return tr("The clipboard is empty.");
+    const auto target = at ? *at : clip_.base;
+    const auto shift = target - clip_.base;
+    std::size_t added = 0, skipped = 0;
+    try {
+        document_.transact([&](pd::Transaction& tx) {
+            // Layer identities travel by name, so a paste keeps the visible result of the source.
+            std::map<std::string, pd::LayerId> layers;
+            for (auto lid : document_.layerIds())
+                layers[document_.layer(lid)->name] = lid;
+            for (const auto& source : clip_.layers) {
+                if (layers.contains(source.name))
+                    continue;
+                layers[source.name] = tx.addLayer(source);
+            }
+            std::vector<std::pair<pd::LayerId, pd::LayerId>> remap;
+            for (const auto& source : clip_.layers) {
+                const auto it = layers.find(source.name);
+                if (it != layers.end())
+                    remap.emplace_back(source.id(), it->second);
+            }
+            for (const auto& item : clip_.items) {
+                if (auto ref = dynamic_cast<const pd::BlockReference*>(item.get());
+                    ref && !document_.block(ref->definition().id()))
+                    continue; // the block definition does not exist in this drawing
+                auto copy = item->clone();
+                for (auto [from, to] : remap)
+                    if (copy->traits.layer == from) {
+                        copy->traits.layer = to;
+                        break;
+                    }
+                copy->transform(pd::Matrix3x3::translation(shift));
+                tx.add(*copy);
+                ++added;
+            }
+        });
+    } catch (const std::exception& e) {
+        return tr("Paste failed: %1").arg(QString::fromUtf8(e.what()));
+    }
+    return skipped ? tr("Pasted %1 object(s); %2 skipped.").arg(added).arg(skipped)
+                   : tr("Pasted %1 object(s).").arg(added);
+}
+
+QString CommandSession::repeatLast() {
+    if (lastCommand_.isEmpty())
+        return tr("No previous command.");
+    return execute("_" + lastCommand_);
+}
+
+QString CommandSession::setLayer(const std::vector<pd::EntityId>& ids, pd::LayerId layer) {
+    if (!document_.layer(layer))
+        return tr("Unknown layer.");
+    return restyle(document_, ids, [layer](pd::EntityTraits& t) { t.layer = layer; });
+}
+QString CommandSession::setColor(const std::vector<pd::EntityId>& ids,
+                                 std::variant<pd::ByLayer, pd::ByBlock, pd::Color> color) {
+    return restyle(document_, ids, [&color](pd::EntityTraits& t) { t.color = color; });
+}
+QString CommandSession::setLineWeight(const std::vector<pd::EntityId>& ids,
+                                      std::variant<pd::ByLayer, pd::ByBlock, double> weight) {
+    return restyle(document_, ids, [&weight](pd::EntityTraits& t) { t.lineWeight = weight; });
 }
 
 QString CommandSession::drawLine(pd::Vec2 first, pd::Vec2 last) {
@@ -318,8 +473,38 @@ QString CommandSession::execute(const QString& input) {
         return {};
     if (name.isEmpty())
         return tr("Unknown command: %1").arg(token);
+    lastCommand_ = name;
+    recent_.removeAll(name);
+    recent_.prepend(name);
+    while (recent_.size() > 8)
+        recent_.removeLast();
     if (name == "OPEN" || name == "SAVE" || name == "SAVEAS" || name == "EXPORTSVG" || name == "EXPORTPDF")
         return fileCommand(name, tail);
+    if (name == "COPYCLIP" || name == "CUTCLIP") {
+        auto ids = selected();
+        if (ids.empty())
+            return tr("Select objects first.");
+        return name == "COPYCLIP" ? copySelection(ids) : cutSelection(ids);
+    }
+    if (name == "COPYBASE") {
+        auto ids = selected();
+        if (ids.empty())
+            return tr("Select objects first.");
+        if (auto p = EditController::coordinate(tail))
+            return copySelection(ids, *p);
+        return tr("Use: _COPYBASE x,y with objects selected.");
+    }
+    if (name == "PASTECLIP")
+        return pasteClipboard(EditController::coordinate(tail));
+    if (name == "ZOOM") {
+        auto option = tail.trimmed().toUpper();
+        if (!option.isEmpty() && option != "E" && option != "ВСЕ" && option != "EXTENTS")
+            return tr("Use ZOOM or ZOOM E (extents).");
+        if (!zoomExtents_)
+            return tr("Zoom is available in the drawing window.");
+        zoomExtents_();
+        return tr("Zoomed to the drawing extents.");
+    }
     if (name == "LAYOUT")
         return tail.isEmpty() ? editor_.start(EditController::Tool::Layout, {}) : layoutCommand(tail);
     if (!space_.isEmpty() && name != "UNDO" && name != "REDO")
@@ -344,6 +529,28 @@ QString CommandSession::execute(const QString& input) {
         return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
     }
     if (auto tool = EditController::named(name)) {
+        // Construction commands accept their arguments on the command line as well as prompts:
+        // _RECTANG 0,0 100,50, _POLYGON 6 0,0 C 10,0, _CIRCLE 0,0 25, _ARRAY R 2 3 100 50 ...
+        if (!tail.isEmpty() && !name.startsWith("DIM") &&
+            *tool != EditController::Tool::Insert && *tool != EditController::Tool::Explode &&
+            *tool != EditController::Tool::Hatch && *tool != EditController::Tool::Block) {
+            if (editor_.active())
+                return tr("Finish the active command first.");
+            auto msg = editor_.start(*tool, selected());
+            if (!editor_.active())
+                return msg;
+            if (*tool == EditController::Tool::Array || *tool == EditController::Tool::Chamfer)
+                return editor_.tryAnswer(tail, {}).value_or(msg);
+            for (const auto& token : tail.split(' ', Qt::SkipEmptyParts)) {
+                auto reply = editor_.tryAnswer(token, {});
+                if (!reply)
+                    return msg;
+                msg = *reply;
+                if (!editor_.active())
+                    break;
+            }
+            return msg;
+        }
         if (!tail.isEmpty() && name.startsWith("DIM")) {
             auto tokens = tail.simplified().split(' ');
             int count = name == "DIMANGULAR" ? 4 : 3;

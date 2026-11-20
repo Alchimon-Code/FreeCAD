@@ -127,6 +127,66 @@
         <source>DIMSTYLE</source>
         <translation>РАЗМСТИЛЬ</translation>
     </message>
+    <message>
+        <source>RECTANG</source>
+        <translation>ПРЯМОУГ</translation>
+    </message>
+    <message>
+        <source>POLYGON</source>
+        <translation>МН-УГОЛ</translation>
+    </message>
+    <message>
+        <source>CHAMFER</source>
+        <translation>ФАСКА</translation>
+    </message>
+    <message>
+        <source>ARRAY</source>
+        <translation>МАССИВ</translation>
+    </message>
+    <message>
+        <source>MATCHPROP</source>
+        <translation>КОПИРОВАТЬСВ</translation>
+    </message>
+    <message>
+        <source>DIST</source>
+        <translation>ДИСТ</translation>
+    </message>
+    <message>
+        <source>AREA</source>
+        <translation>ПЛОЩАДЬ</translation>
+    </message>
+    <message>
+        <source>CIRCLE</source>
+        <translation>КРУГ</translation>
+    </message>
+    <message>
+        <source>ARC</source>
+        <translation>ДУГА</translation>
+    </message>
+    <message>
+        <source>PLINE</source>
+        <translation>ПОЛИЛИНИЯ</translation>
+    </message>
+    <message>
+        <source>ZOOM</source>
+        <translation>ПОКАЗАТЬ</translation>
+    </message>
+    <message>
+        <source>COPYCLIP</source>
+        <translation>КОПИРОВАТЬВБУФЕР</translation>
+    </message>
+    <message>
+        <source>CUTCLIP</source>
+        <translation>ВЫРЕЗАТЬВБУФЕР</translation>
+    </message>
+    <message>
+        <source>PASTECLIP</source>
+        <translation>ВСТАВИТЬИЗБУФЕРА</translation>
+    </message>
+    <message>
+        <source>COPYBASE</source>
+        <translation>КОПИРОВАТЬСТОЧКОЙ</translation>
+    </message>
 </context>
 <context>
     <name>CommandSession</name>
@@ -269,6 +329,70 @@
     <message>
         <source>Use: _LAYOUT name A4/A3/A2/A1 L/P 1:N centre [PLAIN], name, MODEL, VIEW/ADDVIEW min max centre 1:N, MARGINS left bottom right top, or STAMP designation title</source>
         <translation>Синтаксис: _LAYOUT имя A4/A3/A2/A1 L/P 1:N центр [PLAIN], имя, MODEL, VIEW/ADDVIEW мин макс центр 1:N, MARGINS слева снизу справа сверху или STAMP обозначение название</translation>
+    </message>
+    <message>
+        <source>%1 selected objects are on a locked layer.</source>
+        <translation>%1 выбранных объектов на заблокированном слое.</translation>
+    </message>
+    <message>
+        <source>Changed %1 object(s).</source>
+        <translation>Изменено объектов: %1.</translation>
+    </message>
+    <message>
+        <source>Copied %1 object(s).</source>
+        <translation>Скопировано объектов: %1.</translation>
+    </message>
+    <message>
+        <source>Cut %1 object(s).</source>
+        <translation>Вырезано объектов: %1.</translation>
+    </message>
+    <message>
+        <source>No previous command.</source>
+        <translation>Предыдущей команды нет.</translation>
+    </message>
+    <message>
+        <source>Paste failed: %1</source>
+        <translation>Не удалось вставить: %1</translation>
+    </message>
+    <message>
+        <source>Pasted %1 object(s).</source>
+        <translation>Вставлено объектов: %1.</translation>
+    </message>
+    <message>
+        <source>Pasted %1 object(s); %2 skipped.</source>
+        <translation>Вставлено объектов: %1; пропущено: %2.</translation>
+    </message>
+    <message>
+        <source>Select objects first.</source>
+        <translation>Сначала выберите объекты.</translation>
+    </message>
+    <message>
+        <source>The clipboard is empty.</source>
+        <translation>Буфер обмена пуст.</translation>
+    </message>
+    <message>
+        <source>Unknown layer.</source>
+        <translation>Неизвестный слой.</translation>
+    </message>
+    <message>
+        <source>Use ZOOM or ZOOM E (extents).</source>
+        <translation>Используйте ZOOM или ZOOM E (границы).</translation>
+    </message>
+    <message>
+        <source>Use: _COPYBASE x,y with objects selected.</source>
+        <translation>Используйте: _COPYBASE x,y при выбранных объектах.</translation>
+    </message>
+    <message>
+        <source>Zoom is available in the drawing window.</source>
+        <translation>Масштабирование доступно в окне чертежа.</translation>
+    </message>
+    <message>
+        <source>Zoomed to the drawing extents.</source>
+        <translation>Показаны границы чертежа.</translation>
+    </message>
+    <message>
+        <source>Finish the active command first.</source>
+        <translation>Сначала завершите активную команду.</translation>
     </message>
 </context>
 <context>
@@ -520,6 +644,90 @@
     <message>
         <source>ESKD</source>
         <translation>ЕСКД</translation>
+    </message>
+    <message>
+        <source>A closed polyline needs at least three vertices.</source>
+        <translation>Для замкнутой полилинии нужно минимум три вершины.</translation>
+    </message>
+    <message>
+        <source>Area %1 mm².</source>
+        <translation>Площадь %1 мм².</translation>
+    </message>
+    <message>
+        <source>Array: R rows columns dx dy, or P centreX,centreY count [fill angle]:</source>
+        <translation>Массив: R строки столбцы dx dy или P X,Y количество [угол заполнения]:</translation>
+    </message>
+    <message>
+        <source>Centre:</source>
+        <translation>Центр:</translation>
+    </message>
+    <message>
+        <source>Chamfer distances from the corner (d1 or d1,d2):</source>
+        <translation>Длины фасок от угла (d1 или d1,d2):</translation>
+    </message>
+    <message>
+        <source>Distance %1 mm, angle %2°.</source>
+        <translation>Расстояние %1 мм, угол %2°.</translation>
+    </message>
+    <message>
+        <source>First corner:</source>
+        <translation>Первый угол:</translation>
+    </message>
+    <message>
+        <source>Next vertex; Enter finishes, C closes:</source>
+        <translation>Следующая вершина; Enter завершает, C замыкает:</translation>
+    </message>
+    <message>
+        <source>Number of sides (3..1024):</source>
+        <translation>Число сторон (3..1024):</translation>
+    </message>
+    <message>
+        <source>Other corner (or D width height):</source>
+        <translation>Противоположный угол (или D ширина высота):</translation>
+    </message>
+    <message>
+        <source>Pick a closed circle or polyline (or type #ID):</source>
+        <translation>Укажите окружность или замкнутую полилинию (или введите #ID):</translation>
+    </message>
+    <message>
+        <source>Pick the source object (or type #ID):</source>
+        <translation>Укажите исходный объект (или введите #ID):</translation>
+    </message>
+    <message>
+        <source>Point on polygon; C toggles inscribed/circumscribed:</source>
+        <translation>Точка многоугольника; C переключает вписанный/описанный:</translation>
+    </message>
+    <message>
+        <source>Point on the arc:</source>
+        <translation>Точка на дуге:</translation>
+    </message>
+    <message>
+        <source>Radius or point on circle:</source>
+        <translation>Радиус или точка окружности:</translation>
+    </message>
+    <message>
+        <source>Second point:</source>
+        <translation>Вторая точка:</translation>
+    </message>
+    <message>
+        <source>Select exactly two lines to chamfer.</source>
+        <translation>Выберите ровно две линии для фаски.</translation>
+    </message>
+    <message>
+        <source>Select two lines to chamfer.</source>
+        <translation>Выберите две линии для фаски.</translation>
+    </message>
+    <message>
+        <source>Start point:</source>
+        <translation>Начальная точка:</translation>
+    </message>
+    <message>
+        <source>Use a different point on the arc.</source>
+        <translation>Укажите другую точку дуги.</translation>
+    </message>
+    <message>
+        <source>Use a different vertex.</source>
+        <translation>Укажите другую вершину.</translation>
     </message>
 </context>
 <context>
@@ -879,6 +1087,134 @@
         <source>This file is open in another tab. Choose a different name.</source>
         <translation>Файл открыт в другой вкладке. Выберите другое имя.</translation>
     </message>
+    <message>
+        <source>Home</source>
+        <translation>Главная</translation>
+    </message>
+    <message>
+        <source>Insert</source>
+        <translation>Вставка</translation>
+    </message>
+    <message>
+        <source>Annotate</source>
+        <translation>Аннотации</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>Управление</translation>
+    </message>
+    <message>
+        <source>Draw</source>
+        <translation>Черчение</translation>
+    </message>
+    <message>
+        <source>Modify</source>
+        <translation>Редактирование</translation>
+    </message>
+    <message>
+        <source>Layers</source>
+        <translation>Слои</translation>
+    </message>
+    <message>
+        <source>Blocks</source>
+        <translation>Блоки</translation>
+    </message>
+    <message>
+        <source>Properties</source>
+        <translation>Свойства</translation>
+    </message>
+    <message>
+        <source>Line weight</source>
+        <translation>Вес линии</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Блок</translation>
+    </message>
+    <message>
+        <source>Import and scripts</source>
+        <translation>Импорт и скрипты</translation>
+    </message>
+    <message>
+        <source>Dimensions</source>
+        <translation>Размеры</translation>
+    </message>
+    <message>
+        <source>Measure</source>
+        <translation>Измерения</translation>
+    </message>
+    <message>
+        <source>Zoom and grid</source>
+        <translation>Масштаб и сетка</translation>
+    </message>
+    <message>
+        <source>Drafting aids</source>
+        <translation>Средства черчения</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>Оформление</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Плагины</translation>
+    </message>
+    <message>
+        <source>Scripts</source>
+        <translation>Скрипты</translation>
+    </message>
+    <message>
+        <source>Application</source>
+        <translation>Приложение</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>Вырезать</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Копировать</translation>
+    </message>
+    <message>
+        <source>Copy with base point</source>
+        <translation>Копировать с базовой точкой</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Вставить</translation>
+    </message>
+    <message>
+        <source>Erase</source>
+        <translation>Стереть</translation>
+    </message>
+    <message>
+        <source>Repeat %1</source>
+        <translation>Повторить %1</translation>
+    </message>
+    <message>
+        <source>Repeat last command</source>
+        <translation>Повторить последнюю команду</translation>
+    </message>
+    <message>
+        <source>Dynamic input</source>
+        <translation>Динамический ввод</translation>
+    </message>
+    <message>
+        <source>Length and angle beside the crosshair (F12)</source>
+        <translation>Длина и угол у перекрестия (F12)</translation>
+    </message>
+    <message>
+        <source>Ribbon</source>
+        <translation>Лента</translation>
+    </message>
+    <message>
+        <source>Recent commands</source>
+        <translation>Недавние команды</translation>
+    </message>
+    <message>
+        <source>repeat</source>
+        <translation>повтор</translation>
+    </message>
 </context>
 <context>
     <name>PropertyInspector</name>
@@ -1079,6 +1415,25 @@
     <message>
         <source>Shader error: %1</source>
         <translation>Ошибка шейдера: %1</translation>
+    </message>
+    <message>
+        <source>L %1  ∠ %2°</source>
+        <translation>L %1  ∠ %2°</translation>
+    </message>
+</context>
+<context>
+    <name>Ribbon</name>
+    <message>
+        <source>By layer</source>
+        <translation>По слою</translation>
+    </message>
+    <message>
+        <source>By block</source>
+        <translation>По блоку</translation>
+    </message>
+    <message>
+        <source>Current layer of the selection</source>
+        <translation>Слой выбранных объектов</translation>
     </message>
 </context>
 </TS>

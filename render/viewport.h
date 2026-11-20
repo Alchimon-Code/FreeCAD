@@ -6,6 +6,7 @@
 #include <QPointer>
 
 #include <QElapsedTimer>
+#include <QLabel>
 #include <QOpenGLWidget>
 #include <QTimer>
 #include <memory>
@@ -37,6 +38,14 @@ class Viewport final : public QOpenGLWidget {
         refreshCursor();
     }
     void setSelection(pd::SelectionManager::Ids ids);
+    // F12 dynamic input: length/angle fields beside the crosshair, Tab switches the field.
+    void setDynamicInput(bool on);
+    [[nodiscard]] bool dynamicInput() const { return dynamicInput_; }
+    [[nodiscard]] QString dynamicInputText() const;
+    // World position under the crosshair, if the mouse is over the drawing.
+    [[nodiscard]] std::optional<pd::Vec2> cursorPoint() const {
+        return overlay_.cursor ? std::optional(camera_.screenToWorld(*overlay_.cursor)) : std::nullopt;
+    }
 
     [[nodiscard]] const pd::Camera2D& camera() const { return camera_; }
     [[nodiscard]] const pd::SelectionManager& selection() const { return selection_; }
@@ -46,6 +55,9 @@ class Viewport final : public QOpenGLWidget {
     void interactionMessage(const QString&);
     void commandText(const QString&);
     void eraseRequested();
+    void contextMenuRequested(const QPoint& globalPos);
+    void enterRequested(); // Space outside text entry, handled as Enter/repeat by the window
+    void dynamicInputChanged(bool on);
     void selectionChanged();
     void cursorPosition(bool valid, double x, double y);
 
@@ -56,6 +68,7 @@ class Viewport final : public QOpenGLWidget {
     void showEvent(QShowEvent*) override;
     void wheelEvent(QWheelEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseDoubleClickEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
@@ -82,7 +95,14 @@ class Viewport final : public QOpenGLWidget {
     bool grid_ = true, snapEnabled_ = true, fitOnShow_ = false;
     pd::SnapType snapMask_ = pd::SnapEngine::modes;
     bool gripPressed_ = false;
+    bool dynamicInput_ = true;
+    int dynField_ = 0;
+    QString dynLength_, dynAngle_;
+    QLabel* dynInput_ = nullptr;
     bool selecting() const;
+    bool typeDynamic(QKeyEvent*);
+    void refreshDynamicInput();
+    void applyDynamicInput();
     std::optional<std::pair<pd::EntityId, size_t>> gripAt(pd::Vec2 screen) const;
     QTimer zoomTimer_;
     QElapsedTimer zoomTime_;

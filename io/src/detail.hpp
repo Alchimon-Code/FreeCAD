@@ -48,9 +48,15 @@ std::string utf16hex(std::string_view, bool bom = true);
 constexpr std::uintmax_t maxFileBytes = 128u * 1024 * 1024;
 class DxfHandler final : public IFormatHandler {
     DxfVersion version_;
+    bool ascii_;
+    bool tolerant_;
 
   public:
-    explicit DxfHandler(DxfVersion v = DxfVersion::R2000) : version_(v) {}
+    // ascii: write every non-ASCII character as \U+XXXX (used for the DWG exchange file).
+    // tolerant: an unreadable record from an external converter is skipped and reported, while a
+    // malformed user DXF still fails as a whole. The DWG bridge only trusts the latter strictly.
+    explicit DxfHandler(DxfVersion v = DxfVersion::R2000, bool ascii = false, bool tolerant = false)
+        : version_(v), ascii_(ascii), tolerant_(tolerant) {}
     IoResult read(const fs::path&, Document&) const override;
     IoResult write(const fs::path&, const Document&) const override;
 };
@@ -66,7 +72,9 @@ class PdfExporter final : public IFormatHandler {
 };
 std::unique_ptr<IFormatHandler> dwgHandler(DwgTools);
 #ifdef PD_ENABLE_LIBREDWG
+// version: optional "-a" output version. Empty keeps the source DWG's own DXF version, which
+// avoids LibreDWG's lossy downgrade of newer MTEXT records.
 std::string runWorker(const fs::path& tool, const fs::path& input, const fs::path& output,
-                      const fs::path& work);
+                      const fs::path& work, const std::string& version = {});
 #endif
 } // namespace pd::io

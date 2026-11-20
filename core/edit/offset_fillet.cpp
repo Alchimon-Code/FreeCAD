@@ -185,4 +185,30 @@ Plan fillet(const Document& d, EntityId a, Vec2 pickA, EntityId b, Vec2 pickB, d
     }
     return plan;
 }
+Plan chamfer(const Document& d, EntityId a, Vec2 pickA, EntityId b, Vec2 pickB, double d1, double d2) {
+    require(a != b && std::isfinite(d1) && std::isfinite(d2) && d1 >= 0 && d2 >= 0 &&
+                pickA.finite() && pickB.finite(),
+            "Invalid chamfer parameters.");
+    auto la = dynamic_cast<const Line*>(&entity(d, a)), lb = dynamic_cast<const Line*>(&entity(d, b));
+    require(la && lb, "Chamfer requires two lines.");
+    auto hit = intersectSupports(Segment{la->start(), la->end()}, Segment{lb->start(), lb->end()});
+    require(hit.kind == Intersection::Kind::OnePoint, "Parallel lines cannot be chamfered.");
+    auto corner = hit.first;
+    auto x = keep(*la, corner, pickA), y = keep(*lb, corner, pickB);
+    Plan plan(d);
+    auto cut = [&](const Line& l, const KeptRay& k, double distance) {
+        require((k.outer - corner).length() - distance > EPSILON, "Chamfer distance is too large.");
+        auto p = corner + k.unit * distance;
+        plan.put(l.id(),
+                 styled(l, std::make_unique<Line>(k.keepStart ? k.outer : p, k.keepStart ? p : k.outer)));
+        return p;
+    };
+    auto first = cut(*la, x, d1), second = cut(*lb, y, d2);
+    if (d1 > EPSILON && d2 > EPSILON) {
+        auto line = std::make_unique<Line>(first, second);
+        line->traits = la->traits;
+        plan.put(0, std::move(line));
+    }
+    return plan;
+}
 } // namespace pd::edit

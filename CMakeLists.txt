@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 cmake_minimum_required(VERSION 3.24)
-project(PlaneDraft VERSION 0.1.0 LANGUAGES C CXX)
+project(PlaneDraft VERSION 0.2.0 LANGUAGES C CXX)
 
 include(CTest)
 option(PLANEDRAFT_BUILD_GUI "Build the Qt application and command host" ON)
 option(PLANEDRAFT_TEST_EXCHANGE_AUDIT "Verify DXF and page exports with external Python test readers" OFF)
 option(PLANEDRAFT_TEST_GL "Register the desktop OpenGL framebuffer smoke test in CTest" OFF)
 option(PLANEDRAFT_SANITIZE "Instrument host, modules and tests with ASan/UBSan (GCC/Clang)" OFF)
+option(PLANEDRAFT_BUNDLE_LIBREDWG
+    "Build the pinned LibreDWG converters and ship them beside the application" ON)
+option(PD_ENABLE_LIBREDWG "Exchange DWG through separate LibreDWG processes (never linked)" ON)
 if(PLANEDRAFT_SANITIZE)
     if(MSVC OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         message(FATAL_ERROR "Use a GCC/Clang headless build for ASan+UBSan")
@@ -27,9 +30,13 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+if(PD_ENABLE_LIBREDWG AND PLANEDRAFT_BUNDLE_LIBREDWG)
+    include(cmake/libredwg.cmake)
+endif()
+
 add_library(pd_core STATIC
     core/math/geometry.cpp core/math/curves.cpp core/math/edges.cpp
-    core/edit/plan.cpp core/edit/trim_extend.cpp core/edit/offset_fillet.cpp
+    core/edit/plan.cpp core/edit/trim_extend.cpp core/edit/offset_fillet.cpp core/edit/construct.cpp
     core/drafting/dimension.cpp core/drafting/hatch.cpp core/drafting/drawing.cpp core/drafting/layout.cpp
     core/entities/primitives.cpp core/entities/block.cpp
     core/spatial/r_tree.cpp core/document/transaction.cpp core/document/document.cpp)
@@ -72,6 +79,10 @@ configure_file(examples/scripts/pattern.pdl examples/scripts/pattern.pdl COPYONL
 
 if(PLANEDRAFT_BUILD_GUI)
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Svg LinguistTools)
+    if(BUILD_TESTING)
+        # Only the UI test binary drives real key/mouse events.
+        find_package(Qt6 6.5 REQUIRED COMPONENTS Test)
+    endif()
     add_library(pd_editor STATIC editor/edit_controller.cpp editor/drafting_commands.cpp)
     target_include_directories(pd_editor PUBLIC editor)
     target_link_libraries(pd_editor PUBLIC pd_core Qt6::Core)
@@ -87,7 +98,7 @@ if(PLANEDRAFT_BUILD_GUI)
     target_link_libraries(pd_render PUBLIC pd_editor pd_view_math Qt6::OpenGLWidgets Qt6::OpenGL)
 
     add_library(pd_ui STATIC ui/main_window.cpp ui/desktop_chrome.cpp ui/drawing_page.cpp
-        ui/property_inspector.cpp ui/layer_manager.cpp resources/pd_icons.qrc)
+        ui/property_inspector.cpp ui/layer_manager.cpp ui/ribbon.cpp resources/pd_icons.qrc)
     set_target_properties(pd_ui PROPERTIES AUTORCC ON)
     target_link_libraries(pd_ui PUBLIC pd_commands pd_render Qt6::Widgets Qt6::Svg)
     set_target_properties(pd_commands pd_render pd_ui PROPERTIES AUTOMOC ON)
@@ -116,7 +127,7 @@ if(PLANEDRAFT_BUILD_GUI)
 
     set(pd_ts resources/i18n/planedraft_ru.ts)
     qt_add_lupdate(PlaneDraft TS_FILES ${pd_ts} OPTIONS -locations none
-        SOURCES ui/main.cpp ui/main_window.cpp ui/desktop_chrome.cpp ui/layer_manager.cpp ui/property_inspector.cpp
+        SOURCES ui/main.cpp ui/main_window.cpp ui/desktop_chrome.cpp ui/layer_manager.cpp ui/property_inspector.cpp ui/ribbon.cpp
                 ui/command_session.cpp render/viewport.cpp editor/edit_controller.cpp editor/drafting_commands.cpp ui/layout_commands.cpp)
     qt_add_lrelease(PlaneDraft TS_FILES ${pd_ts} QM_FILES_OUTPUT_VARIABLE pd_catalog)
     function(pd_embed_catalog target)
@@ -143,8 +154,14 @@ if(BUILD_TESTING)
         endif()
         add_dependencies(pd_io_tests pd_converter_fixture)
         target_compile_definitions(pd_io_tests PRIVATE PD_TEST_WORKER="$<TARGET_FILE:pd_converter_fixture>")
-        if(PD_DWG2DXF_EXECUTABLE AND PD_DXF2DWG_EXECUTABLE)
+        if((PD_DWG2DXF_EXECUTABLE AND PD_DXF2DWG_EXECUTABLE) OR TARGET dwg2dxf)
             target_compile_definitions(pd_io_tests PRIVATE PD_TEST_REAL_DWG)
+        endif()
+        # The pinned tarball also ships real AutoCAD-written samples for every DWG version.
+        # They stay upstream GPLv3 test data: used from the source tree, never redistributed.
+        if(EXISTS "${libredwg_SOURCE_DIR}/test/test-data/2018/Text.dwg")
+            target_compile_definitions(pd_io_tests PRIVATE
+                PD_TEST_DWG_SAMPLES="${libredwg_SOURCE_DIR}/test/test-data")
         endif()
     endif()
     if(PLANEDRAFT_TEST_EXCHANGE_AUDIT)
@@ -155,6 +172,9 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:pd_sheet_fixture>" "$<TARGET_FILE:pdconvert>")
     endif()
     add_test(NAME drawing_io COMMAND pd_io_tests)
+    if(TARGET pd_dwg_tools)
+        add_dependencies(pd_io_tests pd_dwg_tools)
+    endif()
     add_test(NAME convert_example COMMAND pdconvert "${PROJECT_SOURCE_DIR}/examples/drawings/cover.dxf"
         "${PROJECT_BINARY_DIR}/cover.pdf")
     set_tests_properties(convert_example PROPERTIES PASS_REGULAR_EXPRESSION "8 entities, 3 layers, 0 skipped")
@@ -197,8 +217,9 @@ if(BUILD_TESTING)
         pd_embed_catalog(pd_session_tests)
         add_test(NAME command_host COMMAND pd_session_tests)
 
-        add_executable(pd_window_tests tests/window_test.cpp tests/editor_window_test.cpp tests/workspace_test.cpp)
-        target_link_libraries(pd_window_tests PRIVATE pd_ui GTest::gtest)
+        add_executable(pd_window_tests tests/window_test.cpp tests/editor_window_test.cpp tests/workspace_test.cpp
+            tests/ribbon_test.cpp)
+        target_link_libraries(pd_window_tests PRIVATE pd_ui GTest::gtest Qt6::Test)
         pd_embed_catalog(pd_window_tests)
         if(WIN32)
             pd_copy_qpa(pd_window_tests Qt6::QMinimalIntegrationPlugin)

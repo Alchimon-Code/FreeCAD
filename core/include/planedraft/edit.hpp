@@ -35,6 +35,25 @@ Plan rotateToward(const Document&, Selection, Vec2 pivot, Vec2 toward);
 Plan scaleTo(const Document&, Selection, Vec2 pivot, double reference, Vec2 toward);
 Plan erase(const Document&, Selection);
 Plan line(const Document&, Vec2 a, Vec2 b, LayerId layer = DefaultLayer);
+// Everyday 2D construction commands. Each returns one Plan, i.e. exactly one Undo step.
+Plan rectangle(const Document&, Vec2 first, Vec2 second, LayerId layer = DefaultLayer);
+Plan polygon(const Document&, Vec2 center, Vec2 vertex, int sides, bool circumscribed,
+             LayerId layer = DefaultLayer);
+Plan circle(const Document&, Vec2 center, double radius, LayerId layer = DefaultLayer);
+Plan arc(const Document&, Vec2 start, Vec2 onArc, Vec2 end, LayerId layer = DefaultLayer);
+Plan polyline(const Document&, std::span<const Vec2> points, bool closed,
+              LayerId layer = DefaultLayer);
+// Chamfer between two lines. d1/d2 are measured from the corner along the picked rays.
+Plan chamfer(const Document&, EntityId a, Vec2 pickA, EntityId b, Vec2 pickB, double d1, double d2);
+Plan arrayRectangular(const Document&, Selection, int rows, int columns, Vec2 spacing);
+// fillAngle is radians; a full 2*pi turn places `count` items without a duplicate at 360 degrees.
+Plan arrayPolar(const Document&, Selection, Vec2 center, int count, double fillAngle);
+Plan matchProperties(const Document&, EntityId source, Selection targets);
+struct Measurement {
+    double distance = 0, angle = 0; // angle in radians, 0..2*pi
+};
+Measurement measure(Vec2 a, Vec2 b);
+double area(const Entity&); // closed polyline (including bulges) or circle
 // Pick identifies the interval to discard / end to extend / side on which to create the copy.
 Plan trim(const Document&, EntityId target, Selection cutters, Vec2 pick);
 Plan extend(const Document&, EntityId target, Selection boundaries, Vec2 pick);

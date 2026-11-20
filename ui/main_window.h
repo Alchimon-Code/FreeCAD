@@ -3,6 +3,8 @@
 #include <QMainWindow>
 #include <optional>
 class Viewport;
+class Ribbon;
+class QMenu;
 class QTabBar;
 class QTabWidget;
 class CommandSession;
@@ -28,10 +30,13 @@ class MainWindow : public QMainWindow {
     void newDocument();
     bool openDrawing(QString path);
     bool closeDocument(int index);
+    // One entry point for the command prompt, the ribbon, context menu and keyboard.
+    void enterOrRepeat();
 
   protected:
     bool eventFilter(QObject*, QEvent*) override;
     void closeEvent(QCloseEvent*) override;
+    void keyPressEvent(QKeyEvent*) override;
     void changeEvent(QEvent*) override;
 
   private:
@@ -49,7 +54,12 @@ class MainWindow : public QMainWindow {
     void chooseLanguage(bool);
     void choosePlugin(bool);
     void setupChrome();
+    void buildRibbon();
     void translateChrome();
+    void showContextMenu(const QPoint& globalPos);
+    void refreshContextMenu();
+    void applyRibbonMode(bool on);
+    void syncRibbon();
     void applyTheme(bool dark);
     void updateSnap();
     void showCoordinates(bool, double, double);
@@ -69,6 +79,12 @@ class MainWindow : public QMainWindow {
         *exportSvg_, *exportPdf_, *load_, *loadFolder_, *unload_, *runScript_, *quit_, *undo_, *redo_,
         *extents_, *english_, *russian_;
     QList<QAction*> editActions_;
+    QHash<QString, QAction*> commands_;
+    Ribbon* ribbon_ = nullptr;
+    QAction *dynamic_, *ribbonToggle_, *repeat_, *cut_, *copy_, *copyBase_, *paste_, *erase_, *properties_;
+    QMenu *recent_, *contextMenu_;
+    QAction* contextRepeat_;
+    QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
     QDockWidget* console_;
     QLineEdit* input_;

@@ -9,6 +9,7 @@ namespace {
 using Tool = EditController::Tool;
 using Step = EditController::Step;
 constexpr double rad = std::numbers::pi / 180;
+constexpr double EPSILON_POLYGON = 1e-6;
 std::optional<pd::EntityId> handle(QString s) {
     if (s.startsWith('#'))
         s.remove(0, 1);
@@ -53,7 +54,17 @@ std::span<const EditController::NamedTool> EditController::vocabulary() {
         {QT_TRANSLATE_NOOP("CommandNames", "INSERT"), Tool::Insert},
         {QT_TRANSLATE_NOOP("CommandNames", "EXPLODE"), Tool::Explode},
         {QT_TRANSLATE_NOOP("CommandNames", "LAYOUT"), Tool::Layout},
-        {QT_TRANSLATE_NOOP("CommandNames", "DIMSTYLE"), Tool::DimStyle}};
+        {QT_TRANSLATE_NOOP("CommandNames", "DIMSTYLE"), Tool::DimStyle},
+        {QT_TRANSLATE_NOOP("CommandNames", "CIRCLE"), Tool::Circle},
+        {QT_TRANSLATE_NOOP("CommandNames", "ARC"), Tool::Arc},
+        {QT_TRANSLATE_NOOP("CommandNames", "PLINE"), Tool::Polyline},
+        {QT_TRANSLATE_NOOP("CommandNames", "RECTANG"), Tool::Rectangle},
+        {QT_TRANSLATE_NOOP("CommandNames", "POLYGON"), Tool::Polygon},
+        {QT_TRANSLATE_NOOP("CommandNames", "CHAMFER"), Tool::Chamfer},
+        {QT_TRANSLATE_NOOP("CommandNames", "ARRAY"), Tool::Array},
+        {QT_TRANSLATE_NOOP("CommandNames", "MATCHPROP"), Tool::MatchProp},
+        {QT_TRANSLATE_NOOP("CommandNames", "DIST"), Tool::Distance},
+        {QT_TRANSLATE_NOOP("CommandNames", "AREA"), Tool::Area}};
     return names;
 }
 std::optional<Tool> EditController::named(const QString& name) {
@@ -71,11 +82,49 @@ QString EditController::prompt() const {
             return tr("Select boundary edges, then Enter (or type #IDs).");
         return tr("Select objects, then Enter (or type #IDs).");
     case Step::Base:
-        return tool_ == Tool::Line     ? tr("First point:")
-               : tool_ == Tool::Mirror ? tr("First point of mirror axis:")
-                                       : tr("Base point:");
+        switch (tool_) {
+        case Tool::Circle:
+            return tr("Centre:");
+        case Tool::Arc:
+            return tr("Start point:");
+        case Tool::Rectangle:
+            return tr("First corner:");
+        case Tool::Polygon:
+            return tr("Centre:");
+        case Tool::Polyline:
+            return tr("Start point:");
+        case Tool::Distance:
+            return tr("First point:");
+        case Tool::Line:
+            return tr("First point:");
+        case Tool::Mirror:
+            return tr("First point of mirror axis:");
+        default:
+            return tr("Base point:");
+        }
     case Step::Destination:
-        return tool_ == Tool::Line ? tr("End point:") : tr("Destination point:");
+        switch (tool_) {
+        case Tool::Line:
+            return tr("End point:");
+        case Tool::Circle:
+            return tr("Radius or point on circle:");
+        case Tool::Rectangle:
+            return tr("Other corner (or D width height):");
+        case Tool::Polygon:
+            return tr("Point on polygon; C toggles inscribed/circumscribed:");
+        case Tool::Polyline:
+            return tr("Next vertex; Enter finishes, C closes:");
+        case Tool::Distance:
+            return tr("Second point:");
+        default:
+            return tr("Destination point:");
+        }
+    case Step::Sides:
+        return tr("Number of sides (3..1024):");
+    case Step::ChamferDistance:
+        return tr("Chamfer distances from the corner (d1 or d1,d2):");
+    case Step::ArraySpec:
+        return tr("Array: R rows columns dx dy, or P centreX,centreY count [fill angle]:");
     case Step::Angle:
         return tr("Rotation angle in degrees or direction from base (+X = 0):");
     case Step::Factor:
@@ -86,6 +135,10 @@ QString EditController::prompt() const {
     case Step::Axis:
         return tr("Second point of mirror axis:");
     case Step::Target:
+        if (tool_ == Tool::Area)
+            return tr("Pick a closed circle or polyline (or type #ID):");
+        if (tool_ == Tool::MatchProp)
+            return tr("Pick the source object (or type #ID):");
         return tool_ == Tool::Trim ? tr("Pick the part to trim (or type #ID x,y):")
                                    : tr("Pick the end to extend (or type #ID x,y):");
     case Step::Distance:
@@ -96,6 +149,9 @@ QString EditController::prompt() const {
         return tr("Fillet radius (0 for sharp corner):");
     case Step::FirstLine:
         return tr("Pick the retained side of the first line (or #ID x,y):");
+    case Step::Definition:
+        if (tool_ == Tool::Arc)
+            return points_.size() < 2 ? tr("Point on the arc:") : tr("End point:");
     case Step::SecondLine:
         return tr("Pick the retained side of the second line (or #ID x,y):");
     default:
@@ -148,6 +204,27 @@ QString EditController::start(Tool tool, Ids ids) {
         return transition(Step::InsertSpec);
     if (tool == Tool::Line)
         return transition(Step::Base);
+    if (tool == Tool::Circle || tool == Tool::Rectangle || tool == Tool::Polygon ||
+        tool == Tool::Polyline || tool == Tool::Distance) {
+        ids_.clear();
+        points_.clear();
+        circumscribed_ = false;
+        return transition(tool == Tool::Polygon ? Step::Sides : Step::Base);
+    }
+    if (tool == Tool::Arc) {
+        ids_.clear();
+        points_.clear();
+        return transition(Step::Base);
+    }
+    if (tool == Tool::Area) {
+        ids_.clear();
+        return transition(Step::Target);
+    }
+    if (tool == Tool::Chamfer) {
+        if (ids.size() == 2)
+            return selectionDone(std::move(ids));
+        return transition(Step::Select);
+    }
     transition(Step::Select);
     return ids.empty() ? prompt() : selectionDone(std::move(ids));
 }
@@ -174,11 +251,15 @@ QString EditController::selectionDone(Ids ids) {
         }
         if (tool_ == Tool::Fillet && !dynamic_cast<const pd::Line*>(e))
             return tr("Select one or two lines.");
+        if (tool_ == Tool::Chamfer && !dynamic_cast<const pd::Line*>(e))
+            return tr("Select two lines to chamfer.");
     }
     if (tool_ == Tool::Offset && ids.size() != 1)
         return tr("Select exactly one object for offset.");
     if (tool_ == Tool::Fillet && ids.size() > 2)
         return tr("Select one or two lines.");
+    if (tool_ == Tool::Chamfer && ids.size() != 2)
+        return tr("Select exactly two lines to chamfer.");
     ids_ = std::move(ids);
     switch (tool_) {
     case Tool::Trim:
@@ -186,6 +267,12 @@ QString EditController::selectionDone(Ids ids) {
         return transition(Step::Target);
     case Tool::Fillet:
         return transition(Step::Radius);
+    case Tool::Chamfer:
+        return transition(Step::ChamferDistance);
+    case Tool::Array:
+        return transition(Step::ArraySpec);
+    case Tool::MatchProp:
+        return transition(Step::Target);
     case Tool::Offset:
         return transition(Step::Distance);
     case Tool::Hatch:
@@ -239,6 +326,21 @@ pd::edit::Plan EditController::proposal(pd::Vec2 p) const {
     using namespace pd::edit;
     if (dimensionKind() || tool_ == Tool::Insert)
         return draftPoint(p);
+    if (tool_ == Tool::Circle)
+        return circle(doc_, *base_, (p - *base_).length(), layer_);
+    if (tool_ == Tool::Rectangle)
+        return rectangle(doc_, *base_, p, layer_);
+    if (tool_ == Tool::Polygon)
+        return polygon(doc_, *base_, p, sides_, circumscribed_, layer_);
+    if (tool_ == Tool::Polyline) {
+        auto points = points_;
+        points.push_back(p);
+        return polyline(doc_, points, false, layer_);
+    }
+    if (tool_ == Tool::Arc && points_.size() == 2)
+        return arc(doc_, points_[0], points_[1], p, layer_);
+    if (tool_ == Tool::Arc && points_.size() == 1)
+        return arc(doc_, points_[0], p, points_[0], layer_);
     switch (tool_) {
     case Tool::Line:
         return line(doc_, *base_, p, layer_);
@@ -314,6 +416,21 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
             p = track(*base_, p).point;
         switch (step_) {
         case Step::Base:
+            if (tool_ == Tool::Polyline) {
+                base_ = p;
+                points_.assign(1, p);
+                return transition(Step::Destination);
+            }
+            if (tool_ == Tool::Arc) {
+                base_ = p;
+                points_.assign(1, p);
+                return transition(Step::Definition);
+            }
+            if (tool_ == Tool::Circle || tool_ == Tool::Rectangle || tool_ == Tool::Polygon ||
+                tool_ == Tool::Distance) {
+                base_ = p;
+                return transition(Step::Destination);
+            }
             base_ = p;
             if (tool_ == Tool::Scale) {
                 reference_ = pd::edit::referenceSize(doc_, ids_, p);
@@ -327,6 +444,18 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
         case Step::Target:
             if (!hit)
                 return prompt();
+            if (tool_ == Tool::Area) {
+                auto a = pd::edit::area(*doc_.entity(*hit));
+                cancel();
+                return tr("Area %1 mm².").arg(a, 0, 'f', 2);
+            }
+            if (tool_ == Tool::MatchProp) {
+                try {
+                    return publish(pd::edit::matchProperties(doc_, *hit, ids_));
+                } catch (const std::exception& e) {
+                    return error(e);
+                }
+            }
             return publish(tool_ == Tool::Trim ? pd::edit::trim(doc_, *hit, ids_, p)
                                                : pd::edit::extend(doc_, *hit, ids_, p));
         case Step::FirstLine:
@@ -341,6 +470,8 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
                 firstPick_ = p;
                 return transition(Step::SecondLine);
             }
+            if (tool_ == Tool::Chamfer)
+                return publish(pd::edit::chamfer(doc_, first_, firstPick_, *hit, p, chamfer1_, chamfer2_));
             return publish(pd::edit::fillet(doc_, first_, firstPick_, *hit, p, value_));
         }
         case Step::BlockBase: {
@@ -348,6 +479,12 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
             return tr("Block defined: #%1.").arg(id);
         }
         case Step::Definition:
+            if (tool_ == Tool::Arc) {
+                if ((p - points_.front()).length() <= pd::EPSILON)
+                    return tr("Use a different point on the arc.");
+                points_.push_back(p);
+                return transition(Step::Destination);
+            }
             if (!finalDimPoint()) {
                 if (!definitions_.empty() && (p - definitions_.front()).length() <= pd::EPSILON)
                     return tr("Use distinct definition points.");
@@ -363,6 +500,27 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
         case Step::Axis:
         case Step::Hot:
         case Step::Side:
+            if (tool_ == Tool::Polyline && step_ == Step::Destination) {
+                if (points_.empty())
+                    return prompt();
+                if ((p - points_.back()).length() <= pd::EPSILON)
+                    return tr("Use a different vertex.");
+                points_.push_back(p);
+                base_ = p;
+                return prompt();
+            }
+            if (tool_ == Tool::Distance && step_ == Step::Destination) {
+                auto m = pd::edit::measure(*base_, p);
+                cancel();
+                return tr("Distance %1 mm, angle %2\u00B0.")
+                    .arg(m.distance, 0, 'f', 3)
+                    .arg(m.angle * 180 / std::numbers::pi, 0, 'f', 2);
+            }
+            if (tool_ == Tool::Arc && step_ == Step::Destination) {
+                if (points_.size() < 2)
+                    return prompt();
+                return publish(pd::edit::arc(doc_, points_[0], points_[1], p, layer_));
+            }
             if (ghost_ && cursor_ == p) {
                 auto plan = std::move(*ghost_);
                 ghost_.reset();
@@ -381,6 +539,25 @@ QString EditController::number(double n) {
         return tr("Enter a finite number.");
     try {
         switch (step_) {
+        case Step::Sides: {
+            auto count = static_cast<int>(std::lround(n));
+            if (count < 3 || count > 1024 || std::abs(n - count) > EPSILON_POLYGON)
+                return prompt();
+            sides_ = count;
+            return transition(Step::Base);
+        }
+        case Step::ChamferDistance:
+            if (n < 0)
+                return prompt();
+            chamfer1_ = chamfer2_ = n;
+            return transition(Step::FirstLine);
+        case Step::Destination:
+            if (tool_ == Tool::Circle) {
+                if (n <= 0)
+                    return prompt();
+                return publish(pd::edit::circle(doc_, *base_, n, layer_));
+            }
+            return prompt();
         case Step::Distance:
             if (n <= 0)
                 return prompt();
@@ -410,6 +587,11 @@ QString EditController::number(double n) {
 QString EditController::enter(Ids ids) {
     if (step_ == Step::Select)
         return selectionDone(std::move(ids));
+    if (step_ == Step::Destination && tool_ == Tool::Polyline) {
+        if (points_.size() < 2)
+            return prompt();
+        return publish(pd::edit::polyline(doc_, points_, false, layer_));
+    }
     return cursor_ ? pick(*cursor_, hit_) : prompt();
 }
 std::optional<QString> EditController::tryAnswer(const QString& text, Ids selection) {
@@ -445,11 +627,95 @@ std::optional<QString> EditController::tryAnswer(const QString& text, Ids select
     }
     if (step_ == Step::Factor && s.compare("R", Qt::CaseInsensitive) == 0)
         return transition(Step::Reference);
+    if (pickingEntity() && words.size() == 1) {
+        if (auto id = handle(words.front())) {
+            auto box = doc_.entity(*id)->getBounds();
+            if (!box.empty())
+                return pick(midpoint(box.min(), box.max()), *id);
+        }
+    }
     if (pickingEntity() && words.size() == 2) {
         auto id = handle(words.front());
         auto p = coordinate(words.back());
         if (id)
             return p ? pick(*p, *id) : prompt();
+    }
+    if (step_ == Step::Sides) {
+        bool ok;
+        int n = s.toInt(&ok);
+        if (!ok || n < 3 || n > 1024)
+            return prompt();
+        sides_ = n;
+        return transition(Step::Base);
+    }
+    if (step_ == Step::ChamferDistance) {
+        auto parts = s.split(',');
+        if (parts.size() > 2)
+            return prompt();
+        bool a, b;
+        double d1 = parts[0].trimmed().toDouble(&a);
+        double d2 = parts.size() == 2 ? parts[1].trimmed().toDouble(&b) : d1;
+        if (!a || (parts.size() == 2 && !b) || !std::isfinite(d1) || !std::isfinite(d2) || d1 < 0 ||
+            d2 < 0)
+            return prompt();
+        chamfer1_ = d1;
+        chamfer2_ = d2;
+        return transition(Step::FirstLine);
+    }
+    if (step_ == Step::ArraySpec) {
+        auto words = s.split(' ', Qt::SkipEmptyParts);
+        try {
+            if (words.size() == 5 && (words[0].compare("R", Qt::CaseInsensitive) == 0 ||
+                                      words[0] == "Р" || words[0] == "р")) {
+                bool r, c;
+                int rows = words[1].toInt(&r), columns = words[2].toInt(&c);
+                bool x, y;
+                double dx = words[3].toDouble(&x), dy = words[4].toDouble(&y);
+                if (!r || !c || !x || !y || rows < 1 || columns < 1 || rows * columns < 2)
+                    return prompt();
+                return publish(pd::edit::arrayRectangular(doc_, ids_, rows, columns, {dx, dy}));
+            }
+            if ((words.size() == 3 || words.size() == 4) &&
+                (words[0].compare("P", Qt::CaseInsensitive) == 0 || words[0] == "К" ||
+                 words[0] == "к")) {
+                auto centre = coordinate(words[1]);
+                bool c, f = true;
+                int count = words[2].toInt(&c);
+                double fill = 360;
+                if (words.size() == 4)
+                    fill = words[3].toDouble(&f);
+                if (!centre || !c || !f || count < 2 || std::abs(fill) <= pd::EPSILON ||
+                    std::abs(fill) > 360)
+                    return prompt();
+                return publish(pd::edit::arrayPolar(doc_, ids_, *centre, count,
+                                                    fill * std::numbers::pi / 180));
+            }
+        } catch (const std::exception& e) {
+            return error(e);
+        }
+        return prompt();
+    }
+    if (step_ == Step::Destination && tool_ == Tool::Polygon &&
+        (s.compare("C", Qt::CaseInsensitive) == 0 || s == "О")) {
+        circumscribed_ = !circumscribed_;
+        return prompt();
+    }
+    if (step_ == Step::Destination && tool_ == Tool::Polyline &&
+        (s.compare("C", Qt::CaseInsensitive) == 0 || s == "З" || s == "з")) {
+        if (points_.size() < 3)
+            return tr("A closed polyline needs at least three vertices.");
+        return publish(pd::edit::polyline(doc_, points_, true, layer_));
+    }
+    if (step_ == Step::Destination && tool_ == Tool::Rectangle) {
+        auto words = s.split(' ', Qt::SkipEmptyParts);
+        if (words.size() == 3 && (words[0].compare("D", Qt::CaseInsensitive) == 0 ||
+                                  words[0] == "Р" || words[0] == "р")) {
+            bool w, h;
+            double width = words[1].toDouble(&w), height = words[2].toDouble(&h);
+            if (!w || !h)
+                return prompt();
+            return publish(pd::edit::rectangle(doc_, *base_, *base_ + pd::Vec2{width, height}, layer_));
+        }
     }
     if (auto p = coordinate(s))
         return pick(*p);

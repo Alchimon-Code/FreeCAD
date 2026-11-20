@@ -304,6 +304,107 @@ TEST(Session, PartialForeignImportRequiresSeparateSaveAsAndReportsFirstLineAndCo
     EXPECT_EQ(file.readAll(), source);
 }
 
+TEST(Session, ClipboardCopiesCutsAndPastesAsOneUndoStep) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_LINE 0,0 10,0");
+    s.execute("_CIRCLE 20,0 5");
+    pd::Layer band("Band");
+    band.color = {12, 200, 90};
+    pd::LayerId lid = 0;
+    d.transact([&](pd::Transaction& tx) { lid = tx.addLayer(band); });
+    d.transact([&](pd::Transaction& tx) {
+        auto c = d.entity(2)->clone();
+        c->traits.layer = lid;
+        tx.replace(2, *c);
+    });
+    std::vector<pd::EntityId> ids{1, 2};
+    s.setSelectionProvider([&] { return ids; });
+    EXPECT_TRUE(s.execute("_COPYCLIP").contains("2"));
+    ASSERT_FALSE(s.clipboardEmpty());
+    EXPECT_EQ(s.clipboardSize(), 2u);
+    auto before = d.size();
+    auto paste = s.execute("_PASTECLIP 100,0");
+    EXPECT_TRUE(paste.contains("2")) << paste.toStdString();
+    EXPECT_EQ(d.size(), before + 2);
+    const pd::Line* line = nullptr;
+    for (auto id : d.entityIds())
+        if (auto l = dynamic_cast<const pd::Line*>(d.entity(id)); l && l->start().x > 50)
+            line = l;
+    ASSERT_NE(line, nullptr);
+    EXPECT_DOUBLE_EQ(line->start().x, 95); // base point was the line's own centre (5,0)
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), before);
+
+    auto cut = s.execute("_CUTCLIP");
+    EXPECT_TRUE(cut.contains("2")) << cut.toStdString();
+    EXPECT_EQ(d.size(), 0u);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 2u);
+    EXPECT_EQ(d.entityIds().back(), 2u);
+
+    // Pasting into the same document keeps layer identity by name.
+    s.execute("_PASTECLIP 0,50");
+    auto pasted = d.entityIds().back();
+    EXPECT_EQ(d.entity(pasted)->traits.layer, lid);
+    ids.clear();
+    s.setSelectionProvider([&] { return ids; });
+    EXPECT_TRUE(s.execute("_COPYCLIP").contains("Select"));
+    EXPECT_TRUE(s.execute("_PASTECLIP 5,5").contains("2"));
+}
+
+TEST(Session, RepeatLastAndRecentCommandsMatchTheTypedNames) {
+    CommandSession s;
+    s.execute("L 0,0 10,0");
+    ASSERT_TRUE(s.recentCommands().contains("LINE"));
+    EXPECT_EQ(s.recentCommands().front(), "LINE");
+    auto reply = s.repeatLast();
+    EXPECT_TRUE(reply.contains("point")) << reply.toStdString();
+    EXPECT_TRUE(s.editor().active());
+    s.execute("0,5"); // finish the repeated LINE with typed points
+    s.execute("10,5");
+    EXPECT_FALSE(s.editor().active());
+    EXPECT_EQ(s.document().size(), 2u);
+    CommandSession fresh;
+    EXPECT_TRUE(fresh.repeatLast().contains("No previous command"));
+}
+
+TEST(Session, RibbonStyleControlsUseOneUndoStepPerSelection) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_LINE 0,0 10,0");
+    s.execute("_LINE 0,10 10,10");
+    pd::Layer ink("Ink");
+    pd::LayerId lid = 0;
+    d.transact([&](pd::Transaction& tx) { lid = tx.addLayer(ink); });
+    std::vector<pd::EntityId> ids{1, 2};
+    auto rev = d.revision();
+    EXPECT_TRUE(s.setLayer(ids, lid).contains("2"));
+    EXPECT_EQ(d.revision(), rev + 1);
+    EXPECT_EQ(d.entity(1)->traits.layer, lid);
+    EXPECT_EQ(d.entity(2)->traits.layer, lid);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.entity(1)->traits.layer, pd::DefaultLayer);
+    EXPECT_TRUE(s.setColor(ids, pd::Color{7, 8, 9}).contains("2"));
+    EXPECT_EQ(std::get<pd::Color>(d.entity(2)->traits.color), (pd::Color{7, 8, 9}));
+    EXPECT_TRUE(d.undo());
+    EXPECT_TRUE(s.setLineWeight(ids, 0.6).contains("2"));
+    EXPECT_DOUBLE_EQ(std::get<double>(d.entity(1)->traits.lineWeight), 0.6);
+    EXPECT_TRUE(d.undo());
+    EXPECT_TRUE(s.setColor({}, pd::ByLayer{}).contains("Select"));
+    // A locked layer is reported, not silently edited.
+    pd::Layer locked("Locked");
+    d.transact([&](pd::Transaction& tx) { lid = tx.addLayer(locked); });
+    d.transact([&](pd::Transaction& tx) {
+        auto e = d.entity(1)->clone();
+        e->traits.layer = lid;
+        tx.replace(1, *e);
+    });
+    locked.isLocked = true;
+    d.transact([&](pd::Transaction& tx) { tx.updateLayer(lid, locked); });
+    EXPECT_TRUE(s.setColor(ids, pd::ByLayer{}).contains("locked"));
+}
+
 int main(int argc, char** argv) {
     QCoreApplication app(argc, argv); // No window, GL context or display server needed.
     ::testing::InitGoogleTest(&argc, argv);

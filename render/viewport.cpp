@@ -9,6 +9,7 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 #include <QResizeEvent>
+#include <QMouseEvent>
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
@@ -24,6 +25,13 @@ Viewport::Viewport(const pd::Document& doc, QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::BlankCursor);
     camera_.resize(width(), height());
+    dynInput_ = new QLabel(this);
+    dynInput_->setObjectName("dynamicInput");
+    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
+    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
+                             " background: palette(base); color: palette(text); }");
+    dynInput_->hide();
     zoomTimer_.setTimerType(Qt::PreciseTimer);
     zoomTimer_.setInterval(12);
     connect(&zoomTimer_, &QTimer::timeout, this, [this] {
@@ -100,6 +108,13 @@ void Viewport::showEvent(QShowEvent* event) {
 void Viewport::resizeEvent(QResizeEvent* e) {
     zoomTimer_.stop();
     camera_.resize(width(), height());
+    dynInput_ = new QLabel(this);
+    dynInput_->setObjectName("dynamicInput");
+    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
+    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
+                             " background: palette(base); color: palette(text); }");
+    dynInput_->hide();
     refreshCursor();
     QOpenGLWidget::resizeEvent(e);
 }
@@ -122,6 +137,13 @@ void Viewport::zoomExtents() {
     fitOnShow_ = !isVisible();
     zoomTimer_.stop();
     camera_.resize(width(), height());
+    dynInput_ = new QLabel(this);
+    dynInput_->setObjectName("dynamicInput");
+    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
+    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
+                             " background: palette(base); color: palette(text); }");
+    dynInput_->hide();
     camera_.fit(page_ ? pd::BoundingBox2D({}, page_->size()) : doc_.extents());
     refreshCursor();
 }
@@ -196,6 +218,7 @@ void Viewport::refreshCursor() {
             (*overlay_.effective - overlay_.snap->point).length() > pd::EPSILON)
             overlay_.snap.reset();
     }
+    refreshDynamicInput();
     update();
 }
 void Viewport::wheelEvent(QWheelEvent* e) {
@@ -241,6 +264,13 @@ void Viewport::showSpace(std::optional<pd::Layout> page) {
     else {
         camera_ = savedModel_;
         camera_.resize(width(), height());
+    dynInput_ = new QLabel(this);
+    dynInput_->setObjectName("dynamicInput");
+    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
+    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
+                             " background: palette(base); color: palette(text); }");
+    dynInput_->hide();
         refreshCursor();
     }
 }
@@ -304,12 +334,26 @@ void Viewport::mousePressEvent(QMouseEvent* e) {
                 gripPressed_ = true;
             }
         }
+    } else if (e->button() == Qt::RightButton) {
+        emit contextMenuRequested(e->globalPosition().toPoint());
     } else {
         QOpenGLWidget::mousePressEvent(e);
         return;
     }
     refreshCursor();
     e->accept();
+}
+
+void Viewport::mouseDoubleClickEvent(QMouseEvent* e) {
+    // Classic AutoCAD middle-double-click: zoom to the drawing extents.
+    if (e->button() == Qt::MiddleButton) {
+        pan_.reset();
+        press_.reset();
+        zoomExtents();
+        e->accept();
+        return;
+    }
+    QOpenGLWidget::mouseDoubleClickEvent(e);
 }
 void Viewport::mouseMoveEvent(QMouseEvent* e) {
     const auto p = pixel(e->position());
@@ -330,6 +374,7 @@ void Viewport::mouseMoveEvent(QMouseEvent* e) {
                (p - *press_).length() >= QApplication::startDragDistance()) {
         overlay_.frameStart = press_;
     }
+    refreshDynamicInput();
     refreshCursor();
 }
 void Viewport::mouseReleaseEvent(QMouseEvent* e) {
@@ -395,7 +440,13 @@ void Viewport::escape() {
     refreshCursor();
 }
 void Viewport::keyPressEvent(QKeyEvent* e) {
-    if (e->key() == Qt::Key_Escape)
+    if (dynamicInput_ && typeDynamic(e)) {
+        e->accept();
+        return;
+    }
+    if (e->key() == Qt::Key_Space && e->modifiers() == Qt::NoModifier) {
+        emit enterRequested();
+    } else if (e->key() == Qt::Key_Escape)
         escape();
     else if (editor_ && editor_->active() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter))
         emit interactionMessage(editor_->enter(selecting() ? selectedIds() : std::vector<pd::EntityId>{}));
@@ -421,4 +472,97 @@ void Viewport::leaveEvent(QEvent* e) {
         refreshCursor();
     }
     QOpenGLWidget::leaveEvent(e);
+}
+
+void Viewport::setDynamicInput(bool on) {
+    if (dynamicInput_ == on)
+        return;
+    dynamicInput_ = on;
+    dynLength_.clear();
+    dynAngle_.clear();
+    dynField_ = 0;
+    refreshDynamicInput();
+    emit dynamicInputChanged(on);
+}
+QString Viewport::dynamicInputText() const {
+    if (!dynInput_ || dynInput_->isHidden())
+        return {};
+    return dynInput_->text();
+}
+bool Viewport::typeDynamic(QKeyEvent* e) {
+    if (!editor_ || !editor_->active() || !editor_->basePoint()) {
+        dynInput_->hide();
+        return false;
+    }
+    if (e->key() == Qt::Key_Tab) {
+        dynField_ = dynField_ ? 0 : 1;
+        refreshDynamicInput();
+        return true;
+    }
+    if (e->key() == Qt::Key_Backspace) {
+        auto& field = dynField_ ? dynAngle_ : dynLength_;
+        if (!field.isEmpty())
+            field.chop(1);
+        refreshDynamicInput();
+        return true;
+    }
+    if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+        applyDynamicInput();
+        return true;
+    }
+    const auto text = e->text();
+    if (text.isEmpty() || !(text.front().isDigit() || text.front() == '.' || text.front() == '-' ||
+                            text.front() == ','))
+        return false;
+    auto& field = dynField_ ? dynAngle_ : dynLength_;
+    if (field.size() < 16)
+        field += text.front() == ',' ? QChar('.') : text.front();
+    refreshDynamicInput();
+    return true;
+}
+void Viewport::applyDynamicInput() {
+    if (!editor_ || !editor_->basePoint())
+        return;
+    const auto base = *editor_->basePoint();
+    const auto cursor = overlay_.cursor ? camera_.screenToWorld(*overlay_.cursor) : base;
+    const auto delta = cursor - base;
+    bool okLength = false, okAngle = false;
+    const double typedLength = dynLength_.toDouble(&okLength);
+    const double typedAngle = dynAngle_.toDouble(&okAngle);
+    const double length = okLength ? typedLength : delta.length();
+    const double angle = okAngle ? typedAngle * 3.14159265358979323846 / 180
+                                 : std::atan2(delta.y, delta.x);
+    dynLength_.clear();
+    dynAngle_.clear();
+    dynField_ = 0;
+    if (!(length > 0)) {
+        refreshDynamicInput();
+        return;
+    }
+    const auto point = base + pd::Vec2{length * std::cos(angle), length * std::sin(angle)};
+    auto reply = editor_->pick(point, {});
+    overlay_.cursor = camera_.worldToScreen(point);
+    emit interactionMessage(reply);
+    refreshDynamicInput();
+    refreshCursor();
+}
+void Viewport::refreshDynamicInput() {
+    if (!dynInput_)
+        return;
+    const bool show = dynamicInput_ && editor_ && editor_->active() && editor_->basePoint() &&
+                      overlay_.cursor.has_value();
+    if (!show) {
+        dynInput_->hide();
+        return;
+    }
+    auto mark = [this](const QString& s, int field) {
+        return dynField_ == field ? QStringLiteral("[%1]").arg(s.isEmpty() ? QStringLiteral("…") : s)
+                                  : (s.isEmpty() ? QStringLiteral("…") : s);
+    };
+    dynInput_->setText(tr("L %1  ∠ %2°").arg(mark(dynLength_, 0), mark(dynAngle_, 1)));
+    dynInput_->adjustSize();
+    const auto pos = overlay_.cursor.value() + pd::Vec2{18, 18};
+    dynInput_->move(QPoint(qRound(pos.x), qRound(pos.y)));
+    dynInput_->show();
+    dynInput_->raise();
 }

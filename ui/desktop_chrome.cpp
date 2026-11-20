@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "command_session.h"
+#include "drawing_page.h"
 #include "language.h"
 #include "layer_manager.h"
 #include "main_window.h"
 #include "property_inspector.h"
+#include "ribbon.h"
 #include "viewport.h"
 #include <QApplication>
 #include <QFile>
@@ -18,6 +20,7 @@
 #include <QSvgRenderer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QComboBox>
 namespace {
 // Render the original SVG at the painter's actual device scale, using the current palette.
 class DraftIcon final : public QIconEngine {
@@ -82,19 +85,30 @@ void MainWindow::setupChrome() {
     add(2, undo_, "undo");
     add(2, redo_, "redo");
     bars_[2]->addSeparator();
+    const QStringList draw{"line", "pline", "circle", "arc", "rectang", "polygon", "hatch"};
+    const QStringList modify{"move", "copy", "rotate", "scale", "mirror", "trim", "extend",
+                             "offset", "fillet", "chamfer", "array", "matchprop", "erase", "explode"};
+    const QStringList annotate{"dist", "area"};
     for (auto a : editActions_) {
         auto k = a->data().toString().toLower();
-        if (QStringList{"line", "block", "insert"}.contains(k))
+        a->setIcon(icon(k));
+        if (draw.contains(k))
             add(1, a, k);
-        else if (QStringList{"move", "copy", "rotate", "scale", "mirror", "trim", "extend", "offset",
-                             "fillet", "erase", "explode"}
-                     .contains(k))
+        else if (modify.contains(k))
             add(2, a, k);
-        else if (k.startsWith("dim") || k == "hatch")
+        else if (k.startsWith("dim") || k == "hatch" || annotate.contains(k))
             add(3, a, k);
         else if (k == "layout")
             add(4, a, k);
     }
+    cut_->setIcon(icon("cut"));
+    copy_->setIcon(icon("copy"));
+    copyBase_->setIcon(icon("copy"));
+    paste_->setIcon(icon("paste"));
+    properties_->setIcon(icon("properties"));
+    erase_->setIcon(icon("erase"));
+    repeat_->setIcon(icon("redo"));
+    exportPdf_->setIcon(icon("pdf"));
     add(4, extents_, "extents");
     grid_ = view_->addAction(QString());
     grid_->setObjectName("gridMode");
@@ -158,6 +172,101 @@ void MainWindow::setupChrome() {
         }
     }
     statusBar()->addPermanentWidget(entityCount_);
+    ribbonToggle_ = view_->addAction(QString());
+    ribbonToggle_->setObjectName("ribbonToggle");
+    ribbonToggle_->setCheckable(true);
+    ribbonToggle_->setChecked(cfg.value("ui/ribbon", true).toBool());
+    connect(ribbonToggle_, &QAction::toggled, this, [this](bool on) {
+        applyRibbonMode(on);
+        translateChrome();
+    });
+    buildRibbon();
+    if (ribbonToggle_->isChecked())
+        applyRibbonMode(true);
+    else
+        ribbon_->hide();
+    connect(layers_, &LayerManager::message, this, [this] { syncRibbon(); });
+    connect(ribbon_, &Ribbon::layerPicked, this, [this](const QString& name) {
+        for (auto id : session_->document().layerIds())
+            if (session_->document().layer(id)->name == name.toStdString()) {
+                const auto reply = session_->setLayer(canvas_->selectedIds(), id);
+                page_->append(reply);
+                return;
+            }
+    });
+    connect(ribbon_, &Ribbon::colorPicked, this, [this](const QVariant& value) {
+        pd::Color color;
+        bool literal = false;
+        if (value.canConvert<QColor>() && value.value<QColor>().isValid()) {
+            auto c = value.value<QColor>();
+            color = pd::Color{static_cast<std::uint8_t>(c.red()), static_cast<std::uint8_t>(c.green()),
+                              static_cast<std::uint8_t>(c.blue())};
+            literal = true;
+        }
+        auto ids = canvas_->selectedIds();
+        const auto reply = literal ? session_->setColor(ids, color)
+                                   : value.toString() == "ByBlock" ? session_->setColor(ids, pd::ByBlock{})
+                                                                   : session_->setColor(ids, pd::ByLayer{});
+        page_->append(reply);
+    });
+    connect(ribbon_, &Ribbon::weightPicked, this, [this](const QVariant& value) {
+        auto ids = canvas_->selectedIds();
+        bool ok = false;
+        const double mm = value.toDouble(&ok);
+        const auto reply = ok ? session_->setLineWeight(ids, mm)
+                              : value.toString() == "ByBlock"
+                                    ? session_->setLineWeight(ids, pd::ByBlock{})
+                                    : session_->setLineWeight(ids, pd::ByLayer{});
+        page_->append(reply);
+    });
+}
+
+void MainWindow::buildRibbon() {
+    ribbon_->addPage("home");
+    ribbon_->addPage("insert");
+    ribbon_->addPage("annotate");
+    ribbon_->addPage("view");
+    ribbon_->addPage("manage");
+    auto* separator = new QAction(ribbon_);
+    separator->setSeparator(true);
+    ribbon_->setQuickAccess({new_, open_, save_, exportPdf_, separator, undo_, redo_});
+    auto act = [this](const char* name) -> QAction* { return commands_.value(QString::fromLatin1(name)); };
+    auto list = [&](std::initializer_list<const char*> names) {
+        QList<QAction*> actions;
+        for (auto* name : names)
+            if (auto* a = act(name))
+                actions << a;
+        return actions;
+    };
+    ribbon_->addPanel("home", tr("Draw"),
+                      list({"LINE", "PLINE", "CIRCLE", "ARC", "RECTANG", "POLYGON", "HATCH"}), 4);
+    ribbon_->addPanel("home", tr("Modify"),
+                      list({"MOVE", "COPY", "ROTATE", "SCALE", "MIRROR", "TRIM", "EXTEND", "OFFSET",
+                            "FILLET", "CHAMFER", "ARRAY", "MATCHPROP", "ERASE", "EXPLODE"}),
+                      5);
+    ribbon_->addPanel("home", tr("Annotate"),
+                      list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
+                            "DIMSTYLE", "DIST", "AREA"}),
+                      4);
+    ribbon_->addPanelWidget("home", tr("Layers"), ribbon_->layerBox());
+    ribbon_->addPanel("home", tr("Blocks"), list({"BLOCK", "INSERT"}));
+    ribbon_->addPanelWidget("home", tr("Properties"), ribbon_->colorBox());
+    ribbon_->addPanelWidget("home", tr("Line weight"), ribbon_->weightBox());
+    ribbon_->addPanel("insert", tr("Block"), list({"BLOCK", "INSERT"}));
+    ribbon_->addPanel("insert", tr("Import and scripts"), {open_, runScript_});
+    ribbon_->addPanel("annotate", tr("Dimensions"),
+                      list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
+                            "DIMSTYLE"}),
+                      3);
+    ribbon_->addPanel("annotate", tr("Measure"), list({"DIST", "AREA", "HATCH"}));
+    ribbon_->addPanel("view", tr("Zoom and grid"), {extents_, grid_});
+    ribbon_->addPanel("view", tr("Drafting aids"), {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
+    ribbon_->addPanel("view", tr("Appearance"), {theme_, panels_->menuAction()});
+    ribbon_->addPanel("manage", tr("Plugins"), {load_, unload_, loadFolder_});
+    ribbon_->addPanel("manage", tr("Scripts"), {runScript_});
+    ribbon_->addPanel("manage", tr("Application"), {quit_});
+    ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+    syncRibbon();
 }
 void MainWindow::showCoordinates(bool valid, double x, double y) {
     coords_->setText(valid ? QString("X %1   Y %2").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3)

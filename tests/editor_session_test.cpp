@@ -299,3 +299,184 @@ TEST(PublishingSession, DefineInsertExplodeAndHatchFromInteractiveSelection) {
     EXPECT_GT(h.primitives().size(), 20u);
 }
 } // namespace
+
+TEST(EditSession, ConstructionCommandsCreateExactClosedGeometry) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_RECTANG 0,0 40,25");
+    ASSERT_EQ(d.size(), 1u);
+    auto& box = dynamic_cast<const Polyline&>(*d.entity(1));
+    EXPECT_TRUE(box.closed());
+    ASSERT_EQ(box.vertices().size(), 4u);
+    EXPECT_EQ(d.extents().max(), (Vec2{40, 25}));
+    s.execute("_CIRCLE 100,0 10");
+    auto& c = dynamic_cast<const Circle&>(*d.entity(2));
+    EXPECT_DOUBLE_EQ(c.radius(), 10);
+    s.execute("_POLYGON 5 200,0 10,0");
+    auto& penta = dynamic_cast<const Polyline&>(*d.entity(3));
+    EXPECT_EQ(penta.vertices().size(), 5u);
+    s.execute("_POLYGON 4 300,0 C 310,0");
+    auto& square = dynamic_cast<const Polyline&>(*d.entity(4));
+    for (std::size_t i = 0; i < square.vertices().size(); ++i) {
+        auto a = square.vertices()[i].point, b = square.vertices()[(i + 1) % 4].point;
+        EXPECT_NEAR((midpoint(a, b) - Vec2{300, 0}).length(), 10, 1e-9);
+    }
+    s.execute("_ARC 0,100 5,105 10,100");
+    EXPECT_NEAR(dynamic_cast<const Arc&>(*d.entity(5)).curve().radius(), 5, 1e-9);
+    s.execute("_PLINE 0,200 10,200 10,210 C");
+    auto& closed = dynamic_cast<const Polyline&>(*d.entity(6));
+    EXPECT_TRUE(closed.closed());
+    EXPECT_EQ(closed.vertices().size(), 3u);
+    s.execute("_PLINE 20,200 30,200");
+    s.execute(""); // Enter ends an open polyline
+    auto& open = dynamic_cast<const Polyline&>(*d.entity(7));
+    EXPECT_FALSE(open.closed());
+    EXPECT_EQ(open.vertices().size(), 2u);
+    EXPECT_FALSE(s.execute("_POLYGON 2 0,0 1,0").isEmpty());
+    EXPECT_EQ(d.size(), 7u);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 6u);
+}
+
+TEST(EditSession, ChamferArrayMatchPropDistanceAndAreaWorkAtThePrompt) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_LINE 0,0 20,0");
+    s.execute("_LINE 0,0 0,20");
+    s.setSelectionProvider([] { return std::vector<EntityId>{1, 2}; });
+    s.execute("_CHAMFER 5,2");
+    s.execute("#1 10,0");
+    auto reply = s.execute("#2 0,10");
+    EXPECT_TRUE(reply.contains("completed")) << reply.toStdString();
+    ASSERT_EQ(d.size(), 3u);
+    EXPECT_NEAR(dynamic_cast<const Line&>(*d.entity(1)).start().x, 5, 1e-9);
+    auto& connector = dynamic_cast<const Line&>(*d.entity(3));
+    EXPECT_NEAR((connector.end() - connector.start()).length(), std::sqrt(29.), 1e-9);
+
+    s.execute("_CIRCLE 100,0 5");
+    auto circle = d.entityIds().back();
+    s.setSelectionProvider([circle] { return std::vector<EntityId>{circle}; });
+    s.execute("_ARRAY R 2 3 30 20");
+    EXPECT_EQ(d.size(), 4u + 5u);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 4u);
+    s.execute("_ARRAY P 100,0 4");
+    EXPECT_EQ(d.size(), 4u + 3u);
+    EXPECT_TRUE(d.undo());
+
+    s.execute("_CIRCLE 50,50 4");
+    auto source = d.entityIds().back();
+    s.execute("_LINE 200,0 210,0");
+    auto targetId = d.entityIds().back();
+    Layer red("Red");
+    red.color = Color{250, 5, 5};
+    LayerId lid = 0;
+    d.transact([&](Transaction& tx) { lid = tx.addLayer(red); });
+    d.transact([&](Transaction& tx) {
+        auto l = d.entity(source)->clone();
+        l->traits.layer = lid;
+        l->traits.color = Color{1, 2, 3};
+        l->traits.lineWeight = .7;
+        tx.replace(source, *l);
+    });
+    s.setSelectionProvider([targetId] { return std::vector<EntityId>{targetId}; });
+    s.execute(QString("_MATCHPROP #%1").arg(source));
+    auto& target = dynamic_cast<const Line&>(*d.entity(targetId));
+    EXPECT_EQ(target.traits.layer, lid);
+    EXPECT_EQ(std::get<Color>(target.traits.color), (Color{1, 2, 3}));
+    EXPECT_DOUBLE_EQ(std::get<double>(target.traits.lineWeight), .7);
+
+    auto distance = s.execute("_DIST 0,0 3,4");
+    EXPECT_TRUE(distance.contains("5.000")) << distance.toStdString();
+    EXPECT_TRUE(distance.contains("53.13")) << distance.toStdString();
+    auto areaReply = s.execute(QString("_AREA #%1").arg(source));
+    EXPECT_TRUE(areaReply.contains("mm²")) << areaReply.toStdString();
+    auto value = areaReply.mid(areaReply.indexOf(' ') + 1);
+    EXPECT_NEAR(std::stod(value.toStdString()), std::numbers::pi * 16, .01);
+}
+
+TEST(EditSession, ShortAliasesResolveInEnglishAndRussian) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("L 0,0 10,0");
+    ASSERT_EQ(d.size(), 1u);
+    ASSERT_NE(dynamic_cast<const Line*>(d.entity(1)), nullptr);
+    s.execute("ОТ 0,10 10,10");
+    EXPECT_EQ(d.size(), 2u);
+    s.execute("REC 20,0 30,10");
+    EXPECT_EQ(d.size(), 3u);
+    EXPECT_TRUE(dynamic_cast<const Polyline&>(*d.entity(d.entityIds().back())).closed());
+    s.execute("К 40,0 5");
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Circle&>(*d.entity(d.entityIds().back())).radius(), 5);
+    s.execute("PL 50,0 60,0 60,10");
+    s.execute("");
+    EXPECT_EQ(d.size(), 5u);
+    EXPECT_FALSE(dynamic_cast<const Polyline&>(*d.entity(d.entityIds().back())).closed());
+    s.execute("Д 100,0 105,5 110,0");
+    EXPECT_EQ(d.size(), 6u);
+    s.setSelectionProvider([] { return std::vector<EntityId>{1}; });
+    s.execute("M 0,0 0,5");
+    EXPECT_NEAR(dynamic_cast<const Line&>(*d.entity(1)).start().y, 5, 1e-9);
+    s.execute("CO 0,0 10,0");
+    ASSERT_EQ(d.size(), 7u);
+    auto copy = d.entityIds().back();
+    s.execute(QString("E #%1").arg(copy));
+    EXPECT_EQ(d.size(), 6u);
+    EXPECT_TRUE(d.undo());
+    EXPECT_EQ(d.size(), 7u);
+    // An unknown name fails cleanly, and the built-in table survives an empty user file.
+    EXPECT_NE(s.execute("LISPX"), QString{});
+    EXPECT_EQ(d.size(), 7u);
+    s.loadAliases(QStringLiteral("/nonexistent/planedraft-aliases.ini"));
+    EXPECT_EQ(CommandSession::defaultAliases().value("ОБР"), QStringLiteral("TRIM"));
+    s.execute("ОТ 0,20 10,20");
+    EXPECT_EQ(d.size(), 8u);
+}
+
+
+TEST(EditSession, RussianNamesOfTheNewCommandsResolve) {
+    CommandSession s;
+    auto& d = s.document();
+    Language lang;
+    ASSERT_TRUE(lang.setRussian(true));
+    for (auto name : {"ПРЯМОУГ", "МН-УГОЛ", "ФАСКА", "МАССИВ", "КОПИРОВАТЬСВ", "ДИСТ",
+                      "ПЛОЩАДЬ", "КРУГ", "ДУГА", "ПОЛИЛИНИЯ", "ПОКАЗАТЬ", "КОПИРОВАТЬВБУФЕР",
+                      "ВЫРЕЗАТЬВБУФЕР", "ВСТАВИТЬИЗБУФЕРА"})
+        EXPECT_TRUE(s.completions().contains(QString::fromUtf8(name))) << name;
+    s.execute("ПРЯМОУГ 0,0 20,10");
+    ASSERT_EQ(d.size(), 1u);
+    EXPECT_TRUE(dynamic_cast<const Polyline&>(*d.entity(1)).closed());
+    s.execute("КРУГ 100,0 5");
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Circle&>(*d.entity(2)).radius(), 5);
+    s.execute("МН-УГОЛ 5 200,0 10,0");
+    EXPECT_EQ(dynamic_cast<const Polyline&>(*d.entity(3)).vertices().size(), 5u);
+    auto distance = s.execute("ДИСТ 0,0 3,4");
+    EXPECT_TRUE(distance.contains("5.000")) << distance.toStdString();
+    auto area = s.execute("ПЛОЩАДЬ #1");
+    EXPECT_TRUE(area.contains("40")) << area.toStdString();
+    s.setSelectionProvider([] { return std::vector<EntityId>{1}; });
+    s.execute("КОПИРОВАТЬВБУФЕР");
+    ASSERT_FALSE(s.clipboardEmpty());
+    s.execute("ВСТАВИТЬИЗБУФЕРА 0,50");
+    EXPECT_EQ(d.size(), 4u);
+    s.setSelectionProvider([] { return std::vector<EntityId>{4}; });
+    s.execute("ВЫРЕЗАТЬВБУФЕР");
+    EXPECT_EQ(d.size(), 3u);
+    auto missing = s.execute("ПОКАЗАТЬ");
+    EXPECT_FALSE(missing.isEmpty());
+    ASSERT_TRUE(lang.setRussian(false));
+}
+
+TEST(EditSession, ZoomIsRoutedToTheActiveViewport) {
+    CommandSession s;
+    int calls = 0;
+    s.setZoomExtentsHandler([&] { ++calls; });
+    EXPECT_NE(s.execute("Z").toStdString().find("extents"), std::string::npos);
+    EXPECT_EQ(calls, 1);
+    s.execute("ZOOM E");
+    EXPECT_EQ(calls, 2);
+    EXPECT_NE(s.execute("ZOOM W").toStdString().find("ZOOM E"), std::string::npos);
+    EXPECT_EQ(calls, 2);
+    s.setZoomExtentsHandler({});
+    EXPECT_NE(s.execute("Z").toStdString().find("drawing window"), std::string::npos);
+}

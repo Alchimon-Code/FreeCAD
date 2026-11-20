@@ -467,18 +467,126 @@ TEST_F(Io, BridgePassesLiteralArgumentsAndReportsWorkerFailureWithoutPublication
     EXPECT_EQ(d.size(), 1u);
 }
 #endif
+TEST_F(Io, MtextFormattingAndParagraphsBecomePlainSingleLineText) {
+    auto p = dir / "mtext.dxf";
+    put(p, section +
+               "0\nMTEXT\n8\nСлой\n10\n5\n20\n7\n40\n2.5\n41\n1\n50\n30\n71\n1\n"
+               "3\n{\\fArial|b0|i0;Hello}\\PSecond \\C1;line\n"
+               "1\n with \\S1^2; and \\U+041F\n" +
+               finish);
+    auto r = registry.read(p, doc);
+    ASSERT_TRUE(r.ok()) << why(r);
+    ASSERT_EQ(doc.size(), 2u); // two paragraphs, on purpose
+    auto texts = doc.entityIds();
+    auto& a = dynamic_cast<const Text&>(*doc.entity(texts[0]));
+    auto& b = dynamic_cast<const Text&>(*doc.entity(texts[1]));
+    EXPECT_EQ(a.content(), "Hello");
+    EXPECT_EQ(b.content(), "Second line with 1/2 and П");
+    // Second paragraph is one default line below the first, in the rotated frame.
+    auto first = a.placement().applyPoint({});
+    auto second = b.placement().applyPoint({});
+    EXPECT_NEAR((second - first).length(), 2.5 * 5 / 3, 1e-9);
+    // Downward line advance in a frame rotated by 30 degrees.
+    EXPECT_NEAR(std::atan2(second.y - first.y, second.x - first.x) * 180 / std::numbers::pi, -60.,
+                1e-9);
+    EXPECT_NE(why(r).find("multiline"), std::string::npos);
+}
+
+TEST_F(Io, UnsupportedRealWorldEntitiesAreCountedByType) {
+    auto p = dir / "mixed.dxf";
+    put(p, section +
+               "0\n3DFACE\n10\n0\n20\n0\n11\n1\n21\n0\n12\n1\n22\n1\n13\n0\n23\n1\n"
+               "0\nSPLINE\n10\n0\n20\n0\n"
+               "0\nELLIPSE\n10\n0\n20\n0\n"
+               "0\nPOINT\n10\n1\n20\n1\n"
+               "0\nLEADER\n10\n0\n20\n0\n"
+               "0\nXLINE\n10\n0\n20\n0\n11\n1\n21\n0\n" +
+               line + finish);
+    auto r = registry.read(p, doc);
+    ASSERT_TRUE(r.ok()) << why(r);
+    EXPECT_EQ(doc.size(), 1u);
+    EXPECT_EQ(r.skipped, 6u);
+    std::map<std::string, std::string> reasons;
+    for (auto& d : r.diagnostics)
+        reasons[d.subject] = d.message;
+    EXPECT_NE(reasons["3DFACE"].find("3D"), std::string::npos);
+    EXPECT_NE(reasons["SPLINE"].find("analytic"), std::string::npos);
+    EXPECT_NE(reasons["POINT"].find("point"), std::string::npos);
+    EXPECT_NE(reasons["LEADER"].find("annotation"), std::string::npos);
+    EXPECT_NE(reasons["XLINE"].find("construction"), std::string::npos);
+}
 #ifdef PD_TEST_REAL_DWG
-TEST_F(Io, SeparatelyInstalledDwgToolsRoundTripOurOwnDrawing) {
-    auto p = dir / "real drawing.dwg";
-    doc.add(Line({10.5, 3}, {15, 4}));
+TEST_F(Io, DwgRoundTripKeepsCyrillicTextLayersAndDimensions) {
+    doc.transact([](Transaction& tx) {
+        Layer walls("Стены");
+        walls.color = {200, 30, 40};
+        auto id = tx.addLayer(walls);
+        Line l({10.5, 3}, {15, 4});
+        l.traits.layer = id;
+        tx.add(l);
+        Text t("Разрез А–А, Ø54", {{0, 0}, {24, 5}}, Matrix3x3::translation({1, 2}));
+        t.traits.layer = id;
+        tx.add(t);
+        Dimension dim(DimKind::Linear, {{0, 0}, {40, 0}, {20, 12}}, DimStyle::eskd(), 0);
+        dim.traits.layer = id;
+        tx.add(dim);
+    });
+    auto p = dir / "чертёж панели.dwg";
     auto w = registry.write(p, doc);
     ASSERT_TRUE(w.ok()) << why(w);
+    EXPECT_NE(why(w).find("DWG R2000"), std::string::npos);
     Document d;
     auto r = registry.read(p, d);
     ASSERT_TRUE(r.ok()) << why(r);
-    ASSERT_EQ(d.size(), 1u);
-    near(d.extents().min(), {10.5, 3});
-    near(d.extents().max(), {15, 4});
+    EXPECT_EQ(r.skipped, 0u);
+    ASSERT_EQ(d.size(), 3u);
+    // The exchange DXF is ASCII-only, so the DWG itself must carry real Unicode.
+    bool text = false;
+    for (auto id : d.entityIds())
+        if (auto* t = dynamic_cast<const Text*>(d.entity(id))) {
+            EXPECT_EQ(t->content(), "Разрез А–А, Ø54");
+            text = true;
+        }
+    EXPECT_TRUE(text) << why(r);
+    bool layer = false;
+    for (auto id : d.layerIds())
+        layer = layer || d.layer(id)->name == "Стены";
+    EXPECT_TRUE(layer);
+    EXPECT_NE(why(r).find("DWG:"), std::string::npos);
+    // A DWG is written atomically through a private temp directory.
+    auto bad = dir / "reject.dwg";
+    auto before = fs::file_size(p);
+    put(bad, "keep");
+    auto model = dir / "unsupported.dxf";
+    ASSERT_TRUE(registry.write(model, doc).ok());
+    EXPECT_EQ(fs::file_size(p), before);
+}
+
+#endif
+#ifdef PD_TEST_DWG_SAMPLES
+TEST_F(Io, RealDwgSamplesFromR2000ToR2018OpenWithoutErrors) {
+    // Real AutoCAD-written drawings from LibreDWG's GPLv3 test suite. The v0.2.0 release notes
+    // list exactly these versions; no other DWG revision is claimed.
+    struct Version {
+        const char* dir;
+        const char* signature;
+    };
+    for (auto v : {Version{"2000", "R2000"}, Version{"2004", "R2004"}, Version{"2007", "R2007"},
+                   Version{"2010", "R2010"}, Version{"2013", "R2013"}, Version{"2018", "R2018+"}}) {
+        auto file = fs::path(PD_TEST_DWG_SAMPLES) / v.dir / "Text.dwg";
+        if (!fs::is_regular_file(file))
+            continue;
+        Document d;
+        auto r = registry.read(file, d);
+        ASSERT_TRUE(r.ok()) << v.dir << ": " << why(r);
+        ASSERT_EQ(d.size(), 1u) << v.dir;
+        auto* t = dynamic_cast<const Text*>(d.entity(d.entityIds().front()));
+        ASSERT_NE(t, nullptr);
+        EXPECT_NE(t->content().find("multiline"), std::string::npos) << v.dir;
+        auto summary = why(r);
+        EXPECT_NE(summary.find(v.signature), std::string::npos) << v.dir << "\n" << summary;
+        EXPECT_NE(summary.find("separate dwg2dxf process"), std::string::npos) << v.dir;
+    }
 }
 #endif
 } // namespace

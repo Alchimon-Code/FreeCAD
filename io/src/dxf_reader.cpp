@@ -173,6 +173,101 @@ double weight(const Record& r, int w) {
 struct UnsupportedPart : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
+
+// MTEXT stores formatting in the string itself. PlaneDraft's model text is single-line, so
+// paragraphs become separate Text entities and the inline formatting is removed explicitly
+// rather than leaking control sequences into the drawing.
+std::vector<std::string> mtextParagraphs(std::string_view raw) {
+    std::string plain;
+    plain.reserve(raw.size());
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        char c = raw[i];
+        if (c != '\\' || i + 1 >= raw.size()) {
+            if (c == '{' || c == '}')
+                continue; // grouping braces, not content
+            plain += c;
+            continue;
+        }
+        char next = raw[++i];
+        switch (next) {
+        case 'P':
+            plain += '\n';
+            break;
+        case '~':
+            plain += ' ';
+            break;
+        case '\\':
+        case '{':
+        case '}':
+            plain += next;
+            break;
+        case 'L':
+        case 'l':
+        case 'O':
+        case 'o':
+        case 'K':
+        case 'k':
+            break; // underline/overline/strike toggles have no value
+        case 'S': {
+            // Stacked fraction: a^b or a#b becomes a single-line a/b.
+            auto end = raw.find(';', i + 1);
+            if (end == std::string_view::npos)
+                break;
+            auto body = raw.substr(i + 1, end - i - 1);
+            for (auto ch : body)
+                plain += (ch == '^' || ch == '#') ? '/' : ch;
+            i = end;
+            break;
+        }
+        default:
+            // \A, \C, \c, \f, \F, \H, \Q, \T, \W and \p take a value up to ';'.
+            if (std::string_view("ACcfFHQTWp").find(next) != std::string_view::npos) {
+                auto end = raw.find(';', i + 1);
+                i = end == std::string_view::npos ? raw.size() : end;
+            } else {
+                plain += next;
+            }
+            break;
+        }
+    }
+    std::vector<std::string> paragraphs;
+    std::string line;
+    for (char c : plain) {
+        if (c == '\n') {
+            paragraphs.push_back(line);
+            line.clear();
+        } else if (c != '\r') {
+            line += c;
+        }
+    }
+    paragraphs.push_back(line);
+    return paragraphs;
+}
+
+// Why a record is not part of the 2D model. The reason is reported per type and counted, so a
+// real DWG import produces a short summary instead of one line per ignored object.
+const char* unsupportedReason(const std::string& type) {
+    static const std::set<std::string> solid{"3DFACE", "3DSOLID", "BODY", "REGION", "SURFACE",
+                                             "MESH", "PLANESURFACE", "EXTRUDEDSURFACE",
+                                             "LOFTEDSURFACE", "REVOLVEDSURFACE", "SWEPTSURFACE"};
+    if (solid.contains(type))
+        return "3D or solid entity skipped by the 2D model";
+    if (type == "SPLINE" || type == "ELLIPSE")
+        return "analytic curve entity skipped (not converted to a polyline)";
+    if (type == "POINT")
+        return "point entity skipped by the 2D model";
+    if (type == "LEADER" || type == "MLEADER" || type == "MULTILEADER" || type == "MLINE")
+        return "leader/multiline annotation skipped";
+    if (type == "IMAGE" || type == "WIPEOUT" || type == "PDFUNDERLAY" || type == "DWFUNDERLAY" ||
+        type == "DGNUNDERLAY")
+        return "external underlay skipped";
+    if (type == "RAY" || type == "XLINE")
+        return "construction line skipped";
+    if (type == "POLYLINE")
+        return "legacy POLYLINE skipped; only LWPOLYLINE is imported";
+    return "unsupported entity type";
+}
+
 struct Ocs {
     double sign;
     Vec2 world(Vec2 v) const { return {sign * v.x, v.y}; }
@@ -442,7 +537,13 @@ struct Import {
         } else
             throw UnsupportedPart("unsupported dimension type");
         auto it = styles.find(symbolKey(text(r, 3, "Standard")));
-        return std::make_unique<Dimension>(k, p, it == styles.end() ? DimStyle{} : it->second, r.n(50) * rad);
+        // Linear dimensions are rotated by group 50. LibreDWG 0.14 drops that group for vertical
+        // dimensions, so fall back to the direction of the definition points instead of measuring
+        // the projection that would be zero.
+        double axis = r.n(50) * rad;
+        if (kind == 0 && !r.get(50) && std::abs(p[1].y - p[0].y) > std::abs(p[1].x - p[0].x))
+            axis = std::numbers::pi / 2;
+        return std::make_unique<Dimension>(k, p, it == styles.end() ? DimStyle{} : it->second, axis);
     }
     std::unique_ptr<Entity> geometry(const Record& r, Ocs o) {
         if (r.type == "INSERT") {
@@ -509,15 +610,60 @@ struct Import {
             throw std::invalid_argument("incorrect LWPOLYLINE vertex count");
         return std::make_unique<Polyline>(std::move(vertices), (r.i(70) & 1) != 0);
     }
-    std::unique_ptr<Entity> entity(const Record& r) {
+    std::vector<std::unique_ptr<Entity>> mtext(const Record& r, Ocs o) {
+        std::string raw;
+        for (auto& g : r.groups)
+            if (g.code == 3 || g.code == 1)
+                raw += stringValue(g.value); // 3: leading chunks, 1: final chunk
+        auto paragraphs = mtextParagraphs(raw);
+        double h = r.n(40, 2.5), width = r.n(41, 1), a = r.n(50) * rad;
+        if (!(h > 0) || !(width > 0) || !std::isfinite(h) || !std::isfinite(width))
+            throw UnsupportedPart("invalid MTEXT height or width factor");
+        int attachment = r.i(71, 1);
+        if (attachment < 1 || attachment > 9)
+            attachment = 1;
+        // AutoCAD: default line spacing is 1.66 x the character height; attachment 1..3 top,
+        // 4..6 middle, 7..9 bottom, columns left/centre/right by the remainder.
+        double lineHeight = h * 5 / 3;
+        double total = paragraphs.size() > 1 ? (paragraphs.size() - 1) * lineHeight : 0;
+        double first = attachment <= 3 ? -h : attachment >= 7 ? total : (total - h) / 2;
+        auto origin = o.world({});
+        std::vector<std::unique_ptr<Entity>> out;
+        bool formatting = false;
+        for (std::size_t i = 0; i < paragraphs.size(); ++i) {
+            auto& text = paragraphs[i];
+            if (text.find_first_not_of(" \t") == std::string::npos && paragraphs.size() > 1)
+                continue; // empty paragraph keeps its vertical advance only
+            if (text.empty())
+                continue;
+            double w = .6 * h * static_cast<double>(unicode(text).size());
+            double dx = attachment % 3 == 2 ? -w / 2 : attachment % 3 == 0 ? -w : 0;
+            auto placement = Matrix3x3::translation(origin) * Matrix3x3::scaling(o.sign, 1) *
+                             Matrix3x3::rotation(a) *
+                             Matrix3x3::translation({dx, first - static_cast<double>(i) * lineHeight}) *
+                             Matrix3x3::scaling(width, 1);
+            out.push_back(std::make_unique<Text>(text, BoundingBox2D{{0, 0}, {w, h}}, placement));
+            if (raw.find("\\P") != std::string::npos || raw.find('{') != std::string::npos ||
+                raw.find("\\f") != std::string::npos || raw.find("\\H") != std::string::npos)
+                formatting = true;
+        }
+        if (out.empty())
+            throw UnsupportedPart("empty MTEXT");
+        res.warn(r.line, "MTEXT",
+                 "multiline text imported as single-line text; inline formatting and columns are not kept");
+        if (formatting && out.size() > 1)
+            res.warn(r.line, "MTEXT", "paragraphs were placed with the default line spacing");
+        return out;
+    }
+    std::vector<std::unique_ptr<Entity>> entity(const Record& r) {
         auto skip = [&](const char* why) {
             ++res.skipped;
             res.warn(r.line, r.type.substr(0, 80), why);
         };
         if (r.type != "LINE" && r.type != "CIRCLE" && r.type != "ARC" && r.type != "TEXT" &&
-            r.type != "LWPOLYLINE" && r.type != "INSERT" && r.type != "HATCH" && r.type != "DIMENSION" &&
-            r.type != "SOLID") {
-            skip("unsupported entity");
+            r.type != "MTEXT" && r.type != "LWPOLYLINE" && r.type != "INSERT" &&
+            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID") {
+            skip(unsupportedReason(r.type));
             return {};
         }
         double nz = r.n(230, 1);
@@ -537,42 +683,48 @@ struct Import {
             res.warn(r.line, r.type, "projected elevation/thickness to XY");
         if (++entities > maxEntities)
             throw std::invalid_argument("too many entities");
-        std::unique_ptr<Entity> e;
+        std::vector<std::unique_ptr<Entity>> out;
         try {
-            e = geometry(r, {nz < 0 ? -1. : 1.});
+            if (r.type == "MTEXT")
+                out = mtext(r, {nz < 0 ? -1. : 1.});
+            else
+                out.push_back(geometry(r, {nz < 0 ? -1. : 1.}));
         } catch (const UnsupportedPart& err) {
             skip(err.what());
             return {};
         }
-        e->traits.layer = layerId(r);
-        e->traits.isVisible = r.i(60) == 0;
         int c = r.i(62, 256);
         if (c < -256 || c > 256)
             throw std::invalid_argument("invalid entity ACI");
-        if (c < 0) {
-            e->traits.isVisible = false;
-            c = -c;
+        for (auto& e : out) {
+            e->traits.layer = layerId(r);
+            e->traits.isVisible = r.i(60) == 0;
+            int aciValue = c;
+            if (aciValue < 0) {
+                e->traits.isVisible = false;
+                aciValue = -aciValue;
+            }
+            if (r.get(420))
+                e->traits.color = rgb(r.i(420));
+            else if (aciValue == 0)
+                e->traits.color = ByBlock{};
+            else if (aciValue != 256)
+                e->traits.color = color(r, aciValue);
+            auto lt = text(r, 6, "BYLAYER");
+            if (upper(lt) == "BYBLOCK")
+                e->traits.lineType = ByBlock{};
+            else if (upper(lt) != "BYLAYER")
+                e->traits.lineType = lt;
+            int w = r.i(370, -1);
+            if (w == -2)
+                e->traits.lineWeight = ByBlock{};
+            else if (w != -1)
+                e->traits.lineWeight = weight(r, w);
         }
-        if (r.get(420))
-            e->traits.color = rgb(r.i(420));
-        else if (c == 0)
-            e->traits.color = ByBlock{};
-        else if (c != 256)
-            e->traits.color = color(r, c);
-        auto lt = text(r, 6, "BYLAYER");
-        if (upper(lt) == "BYBLOCK")
-            e->traits.lineType = ByBlock{};
-        else if (upper(lt) != "BYLAYER")
-            e->traits.lineType = lt;
-        int w = r.i(370, -1);
-        if (w == -2)
-            e->traits.lineWeight = ByBlock{};
-        else if (w != -1)
-            e->traits.lineWeight = weight(r, w);
-        return e;
+        return out;
     }
 };
-void parse(const fs::path& path, Transaction& tx, IoResult& res) {
+void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant) {
     Records input(path);
     Import imp(tx, res);
     std::string section, table;
@@ -722,11 +874,15 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res) {
                     deps.push_back(target);
             }
     }
-    auto parseEntity = [&](const Record& r) {
+    auto parseEntity = [&](const Record& r) -> std::vector<std::unique_ptr<Entity>> {
         try {
             return imp.entity(r);
         } catch (const std::logic_error& err) {
-            throw Failure(IoStatus::InvalidData, err.what(), r.line, r.type);
+            if (!tolerant)
+                throw Failure(IoStatus::InvalidData, err.what(), r.line, r.type);
+            ++res.skipped;
+            res.warn(r.line, r.type, std::string("converter output record skipped: ") + err.what());
+            return {};
         }
     };
     for (auto& key : blockOrder(graph)) {
@@ -734,7 +890,7 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res) {
         std::vector<std::unique_ptr<Entity>> owned;
         std::vector<const Entity*> members;
         for (auto& r : b.members)
-            if (auto e = parseEntity(r)) {
+            for (auto& e : parseEntity(r)) {
                 if (b.base != Vec2{})
                     e->transform(Matrix3x3::translation(-b.base));
                 members.push_back(e.get());
@@ -748,8 +904,9 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res) {
     for (auto& r : model) {
         if (r.i(67) || layouts.contains(r.str(330)))
             papers.push_back(std::move(r));
-        else if (auto e = parseEntity(r))
-            tx.add(*e);
+        else
+            for (auto& e : parseEntity(r))
+                tx.add(*e);
     }
     for (auto& r : papers) {
         auto it = layouts.find(r.str(330));
@@ -775,7 +932,7 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res) {
             }
             l.viewports.emplace_back(box, r.xy(12) + Vec2{r.n(17), r.n(27)}, 2 * half.y / r.required(45));
         } else if (r.field("FURNITURE").empty()) {
-            if (auto e = parseEntity(r))
+            for (auto& e : parseEntity(r))
                 l.paperEntities.emplace_back(std::move(e));
         }
     }
@@ -786,6 +943,6 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res) {
 }
 } // namespace
 IoResult DxfHandler::read(const fs::path& p, Document& d) const {
-    return checked([&](IoResult& r) { d.transact([&](Transaction& tx) { parse(p, tx, r); }); });
+    return checked([&](IoResult& r) { d.transact([&](Transaction& tx) { parse(p, tx, r, tolerant_); }); });
 }
 } // namespace pd::io
