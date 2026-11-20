@@ -79,10 +79,6 @@ configure_file(examples/scripts/pattern.pdl examples/scripts/pattern.pdl COPYONL
 
 if(PLANEDRAFT_BUILD_GUI)
     find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Svg LinguistTools)
-    if(BUILD_TESTING)
-        # Only the UI test binary drives real key/mouse events.
-        find_package(Qt6 6.5 REQUIRED COMPONENTS Test)
-    endif()
     add_library(pd_editor STATIC editor/edit_controller.cpp editor/drafting_commands.cpp)
     target_include_directories(pd_editor PUBLIC editor)
     target_link_libraries(pd_editor PUBLIC pd_core Qt6::Core)
@@ -219,7 +215,7 @@ if(BUILD_TESTING)
 
         add_executable(pd_window_tests tests/window_test.cpp tests/editor_window_test.cpp tests/workspace_test.cpp
             tests/ribbon_test.cpp)
-        target_link_libraries(pd_window_tests PRIVATE pd_ui GTest::gtest Qt6::Test)
+        target_link_libraries(pd_window_tests PRIVATE pd_ui GTest::gtest)
         pd_embed_catalog(pd_window_tests)
         if(WIN32)
             pd_copy_qpa(pd_window_tests Qt6::QMinimalIntegrationPlugin)

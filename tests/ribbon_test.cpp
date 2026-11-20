@@ -7,12 +7,12 @@
 #include "viewport.h"
 #include <QAction>
 #include <QComboBox>
+#include <QKeyEvent>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QSettings>
 #include <QTabBar>
-#include <QTest>
 #include <QToolBar>
 #include <gtest/gtest.h>
 
@@ -28,6 +28,11 @@ class RibbonWorkspace : public testing::Test {
         QSettings().clear();
     }
     template <class T> T* child(const char* name) { return window->findChild<T*>(name); }
+    // Send a real key event (the vcpkg Qt build ships no Qt Test module).
+    void press(QWidget* widget, int key, const QString& text = QString{}) {
+        QKeyEvent event(QEvent::KeyPress, key, Qt::NoModifier, text);
+        QApplication::sendEvent(widget, &event);
+    }
     void type(const QString& text) {
         auto* input = child<QLineEdit>("commandInput");
         input->setText(text);
@@ -114,14 +119,14 @@ TEST_F(RibbonWorkspace, SpaceConfirmsTheStepAndRepeatsTheLastCommand) {
     ASSERT_EQ(s.document().size(), 1u);
     ASSERT_FALSE(s.editor().active());
     input->setText(QString{});
-    QTest::keyClick(input, Qt::Key_Space);
+    press(input, Qt::Key_Space, QStringLiteral(" "));
     EXPECT_TRUE(s.editor().active()); // repeats LINE and asks for the first point
     EXPECT_EQ(s.document().size(), 1u);
     input->setText("0,10");
-    QTest::keyClick(input, Qt::Key_Space); // Space confirms "0,10"
+    press(input, Qt::Key_Space, QStringLiteral(" ")); // Space confirms "0,10"
     EXPECT_TRUE(s.editor().active());
     input->setText("10,10");
-    QTest::keyClick(input, Qt::Key_Space);
+    press(input, Qt::Key_Space, QStringLiteral(" "));
     EXPECT_FALSE(s.editor().active());
     EXPECT_EQ(s.document().size(), 2u);
     // Free-text steps keep the literal space; the command line still owns its own text.
@@ -130,7 +135,7 @@ TEST_F(RibbonWorkspace, SpaceConfirmsTheStepAndRepeatsTheLastCommand) {
     ASSERT_TRUE(s.editor().active());
     EXPECT_TRUE(s.editor().expectsFreeText());
     input->setText("Frame");
-    QTest::keyClick(input, Qt::Key_Space);
+    press(input, Qt::Key_Space, QStringLiteral(" "));
     EXPECT_EQ(input->text(), QStringLiteral("Frame ")); // the space stayed literal
     input->clear();
     s.editor().cancel();

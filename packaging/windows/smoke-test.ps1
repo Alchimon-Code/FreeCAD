@@ -23,6 +23,8 @@ function CheckPayload([string]$root) {
         'bin/msvcp140.dll','bin/vcruntime140.dll','plugins/sample_line.dll','plugins/frame_generator.dll',
         'include/pd_plugin_api.h','examples/scripts/pattern.pdl','examples/drawings/cover.dxf',
         'examples/drawings/panel.dxf','THIRD_PARTY_NOTICES.md','RUNTIME_INVENTORY.md',
+        'tools/libredwg/dwg2dxf.exe','tools/libredwg/dxf2dwg.exe',
+        'LICENSES/LibreDWG-0.14-GPL-3.0.txt',
         'LICENSES/ports/qtbase/copyright','LICENSES/ports/qtsvg/vcpkg.spdx.json')) {
         if (!(Test-Path -LiteralPath (Join-Path $root $path))) { throw "Missing from payload: $path" }
     }
@@ -32,6 +34,13 @@ function CheckPayload([string]$root) {
     if ($LASTEXITCODE -ne 0) { throw 'CLI sheet export failed' }
     $pdf = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$tmp/smoke.pdf"))
     if (!$pdf.StartsWith('%PDF-') -or $pdf -notmatch '/MediaBox\s*\[0 0 ([.0-9]+) ([.0-9]+)\]') { throw 'Missing vector PDF page' }
+    # DWG out of the box: the bundled LibreDWG programs are found beside the executable.
+    & "$root/bin/pdconvert.exe" "$root/examples/drawings/panel.dxf" "$tmp/smoke.dwg"
+    if ($LASTEXITCODE -ne 0 -or (Get-Item "$tmp/smoke.dwg").Length -lt 1000) { throw 'DWG export failed' }
+    & "$root/bin/pdconvert.exe" "$tmp/smoke.dwg" "$tmp/smoke-dwg.dxf"
+    if ($LASTEXITCODE -ne 0) { throw 'DWG import failed' }
+    $roundtrip = Get-Content -Raw "$tmp/smoke-dwg.dxf"
+    if ($roundtrip -notmatch 'ENTITIES' -or $roundtrip -notmatch 'CIRCLE') { throw 'DWG round-trip lost geometry' }
     $culture = [Globalization.CultureInfo]::InvariantCulture
     if ([Math]::Abs([double]::Parse($Matches[1], $culture) * 25.4 / 72 - 297) -gt 0.01 -or
         [Math]::Abs([double]::Parse($Matches[2], $culture) * 25.4 / 72 - 210) -gt 0.01) { throw 'Wrong A4 sheet dimensions' }

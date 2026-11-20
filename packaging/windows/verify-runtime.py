@@ -47,6 +47,12 @@ def verify(root, installed=False):
         count += 1
         if owner.startswith(("PlaneDraft (", "Microsoft Visual C++ Redistributable (")):
             continue
+        if owner.startswith("LibreDWG "):
+            # GPLv3 converter programs stay separate processes; only the upstream licence travels.
+            if not list((root / "LICENSES").glob("LibreDWG-*-GPL-3.0.txt")):
+                raise ValueError("Missing LibreDWG GPLv3 licence text")
+            records["libredwg"] = owner
+            continue
         port = owner.partition(" ")[0]
         if not re.fullmatch(r"[a-z0-9-]+", port):
             raise ValueError(f"Invalid port name: {port!r}")

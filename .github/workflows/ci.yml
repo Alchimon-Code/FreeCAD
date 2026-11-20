@@ -116,7 +116,7 @@ jobs:
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
-          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=${{ matrix.preset == 'windows-core' && 'ON' || 'OFF' }} || exit /b 1
+          python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=ON || exit /b 1
           python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
           python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
       - name: Ensure the Inno Setup compiler is available
