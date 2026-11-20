@@ -14,6 +14,7 @@
 #include <QSettings>
 #include <QTabBar>
 #include <QToolBar>
+#include <QToolButton>
 #include <gtest/gtest.h>
 
 namespace {
@@ -205,6 +206,26 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     const auto text = view->dynamicInputText();
     EXPECT_TRUE(text.contains("L")) << text.toStdString();
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
+}
+
+// A ribbon is read by label, not by tooltip: every visible button must fit its own caption at the
+// documented 1520x880 window instead of falling back to "От...".
+TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    QStringList clipped;
+    for (auto* button : ribbon->findChildren<QToolButton*>()) {
+        const auto text = button->text();
+        if (text.isEmpty() || button->isHidden())
+            continue;
+        const int needed = button->fontMetrics().horizontalAdvance(text);
+        if (button->width() < needed)
+            clipped << QStringLiteral("%1: %2 < %3").arg(text).arg(button->width()).arg(needed);
+    }
+    EXPECT_TRUE(clipped.isEmpty()) << clipped.join(QStringLiteral(", ")).toStdString();
 }
 
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {
