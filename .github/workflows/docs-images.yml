@@ -1,9 +1,11 @@
 name: Documentation screenshots
 
 # Rebuilds the README captures from the running application under Xvfb + software Mesa, then
-# commits them back to the dispatched branch. Triggered manually; the ordinary CI workflow never
-# writes to the repository.
+# commits them back to the pushed branch. Touch docs/capture-request.txt to request a refresh;
+# the ordinary CI workflow never writes to the repository.
 on:
+  push:
+    paths: ['docs/capture-request.txt']
   workflow_dispatch:
 
 permissions:
