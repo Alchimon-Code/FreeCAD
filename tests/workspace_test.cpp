@@ -6,6 +6,7 @@
 #include "pointer_input.hpp"
 #include "property_inspector.h"
 #include <QAbstractItemDelegate>
+#include <QApplication>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QLabel>

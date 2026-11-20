@@ -6,6 +6,7 @@
 #include "ribbon.h"
 #include "viewport.h"
 #include <QAction>
+#include <QApplication>
 #include <QComboBox>
 #include <QKeyEvent>
 #include <QLineEdit>

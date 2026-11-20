@@ -4,6 +4,7 @@
 #include "main_window.h"
 #include "pointer_input.hpp"
 #include <QAction>
+#include <QApplication>
 #include <QFile>
 #include <QLineEdit>
 #include <QTabBar>
