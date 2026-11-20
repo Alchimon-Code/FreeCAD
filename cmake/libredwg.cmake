@@ -13,6 +13,36 @@ set(PD_LIBREDWG_SHA256 "711061f5ce860cd6c1e1a2ef1d3125c29aacc7b55bdc80e1a7e01557
     CACHE STRING "SHA-256 of PD_LIBREDWG_URL")
 set(PD_LIBREDWG_SOURCE_DIR "" CACHE PATH
     "Use an already extracted LibreDWG source tree instead of downloading the archive")
+set(PD_LIBREDWG_PREBUILT_DIR "" CACHE PATH
+    "Use converters built elsewhere (dwg2dxf/dxf2dwg plus COPYING); skips fetching LibreDWG")
+
+# MSVC miscompiles the 0.14 encoder into an endless loop (verified on windows-2022, Release, both
+# in this project and when the same tarball is built standalone), while the MinGW-w64 build of the
+# very same sources behaves like the Linux one. Windows therefore ships converters produced by
+# packaging/windows/build-converters.ps1 instead of building them with the host compiler.
+if(PD_LIBREDWG_PREBUILT_DIR)
+    file(TO_CMAKE_PATH "${PD_LIBREDWG_PREBUILT_DIR}" pd_prebuilt)
+    set(pd_tools "${pd_prebuilt}/dwg2dxf${CMAKE_EXECUTABLE_SUFFIX}"
+                 "${pd_prebuilt}/dxf2dwg${CMAKE_EXECUTABLE_SUFFIX}")
+    foreach(required IN LISTS pd_tools)
+        if(NOT EXISTS "${required}")
+            message(FATAL_ERROR "PD_LIBREDWG_PREBUILT_DIR has no ${required}")
+        endif()
+    endforeach()
+    if(NOT EXISTS "${pd_prebuilt}/COPYING")
+        message(FATAL_ERROR "PD_LIBREDWG_PREBUILT_DIR must contain LibreDWG's COPYING")
+    endif()
+    add_custom_target(pd_dwg_tools ALL
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tools/libredwg"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${pd_tools}
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tools/libredwg"
+        COMMENT "Stage prebuilt LibreDWG converters beside the build products"
+        VERBATIM)
+    install(PROGRAMS ${pd_tools} DESTINATION tools/libredwg)
+    install(FILES "${pd_prebuilt}/COPYING"
+            RENAME "LibreDWG-${PD_LIBREDWG_VERSION}-GPL-3.0.txt" DESTINATION LICENSES)
+    return()
+endif()
 
 include(FetchContent)
 if(PD_LIBREDWG_SOURCE_DIR)
