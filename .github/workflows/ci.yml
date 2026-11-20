@@ -119,6 +119,43 @@ jobs:
           python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=ON || exit /b 1
           python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
           python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
+      - name: Diagnose a stalled DWG writer with a native stack
+        if: matrix.preset == 'windows-msvc'
+        shell: pwsh
+        run: |
+          # The same source converts instantly when built standalone, but spins inside this
+          # project. Capture the busy thread's stack once instead of guessing at the cause.
+          $exe = 'build/windows-msvc/bin/tools/libredwg/dxf2dwg.exe'
+          if (!(Test-Path $exe)) { Write-Output '::error::dxf2dwg.exe is missing'; exit 0 }
+          $tiny = Join-Path $env:RUNNER_TEMP 'tiny.dxf'
+          @(
+            '0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC',
+            '0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0',
+            '11','10.0','21','0.0','0','ENDSEC','0','EOF'
+          ) | Set-Content -LiteralPath $tiny -Encoding ascii
+          $out = Join-Path $env:RUNNER_TEMP 'tiny.dwg'
+          $p = Start-Process -FilePath $exe -PassThru -NoNewWindow `
+            -ArgumentList @('-o', $out, $tiny) `
+            -RedirectStandardOutput ($out + '.out') -RedirectStandardError ($out + '.err')
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) {
+            Write-Output "dxf2dwg exited with $($p.ExitCode): $((Get-Content -Raw ($out + '.out')))"
+            exit 0
+          }
+          $cdb = @(
+            'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe',
+            'C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe'
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $symbols = (Get-ChildItem -Recurse -Filter '*.pdb' build/windows-msvc |
+            ForEach-Object { Split-Path -Parent $_.FullName } | Select-Object -Unique) -join ';'
+          $dump = 'cdb.exe is not installed'
+          if ($cdb) {
+            $dump = & $cdb -p $p.Id -y $symbols -c '~*kb 12; q' 2>&1 | Out-String
+          }
+          $p.Kill()
+          $flat = ($dump -replace '\s+', ' ').Trim()
+          if ($flat.Length -gt 3500) { $flat = $flat.Substring(0, 3500) }
+          Write-Output "::error title=DWG writer stack::$flat"
       - name: Ensure the Inno Setup compiler is available
         if: matrix.preset == 'windows-msvc'
         shell: pwsh
