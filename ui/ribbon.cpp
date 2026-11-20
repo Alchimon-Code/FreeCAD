@@ -14,6 +14,7 @@
 #include <QTabBar>
 #include <QToolBar>
 #include <QSignalBlocker>
+#include <QStyle>
 #include <QToolButton>
 #include <QIcon>
 #include <QVBoxLayout>
@@ -39,14 +40,17 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     return frame;
 }
 // Fit the whole command name instead of eliding it to "Сопр...": a CAD ribbon must be readable
-// without hovering. The width comes from the button's own size hint, which is the only measure that
-// already includes the style margins around the caption; adding a guessed padding left the longest
-// Russian labels a character short. Captions are translated after the panel exists, so the same
-// helper runs again whenever the action changes.
+// without hovering. Captions are translated after the panel exists, so the same helper runs again
+// whenever the action changes.
 void fitCaption(QToolButton* button) {
-    button->setMinimumWidth(0);
-    button->setMaximumWidth(QWIDGETSIZE_MAX);
-    const int needed = std::max(54, button->sizeHint().width());
+    // The style elides against the label rectangle it derives from the button margins, and those
+    // margins are larger than the size hint reserves. Both are measured here, so the caption is
+    // painted in full instead of as "Полилиния...".
+    const auto* style = button->style();
+    const int margins = 2 * style->pixelMetric(QStyle::PM_ButtonMargin, nullptr, button) +
+                        2 * style->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button);
+    const int caption = button->fontMetrics().horizontalAdvance(button->text());
+    const int needed = std::max(54, caption + margins + 14);
     button->setMinimumWidth(needed);
     button->setMaximumWidth(needed);
 }
@@ -61,7 +65,7 @@ class PageScroll : public QScrollArea {
         const QWidget* content = widget();
         if (!content)
             return QScrollArea::sizeHint();
-        return {240, content->sizeHint().height() + 16};
+        return {240, content->sizeHint().height() + 24};
     }
     QSize minimumSizeHint() const override { return sizeHint(); }
 };

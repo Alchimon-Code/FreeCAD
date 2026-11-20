@@ -17,6 +17,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStyle>
 #include <QTabBar>
 #include <QToolBar>
 #include <QToolButton>
@@ -228,17 +229,15 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         if (text.isEmpty() || button->isHidden() ||
             button->toolButtonStyle() == Qt::ToolButtonIconOnly)
             continue;
-        const int needed = button->fontMetrics().horizontalAdvance(text);
-        // The hint is what Qt needs for the full caption, margins included; a maximum below it is
-        // exactly what used to squeeze "Полилиния" into "Полил...".
-        const int hint = button->sizeHint().width();
-        if (button->minimumWidth() < needed || button->maximumWidth() < hint)
-            clipped << QStringLiteral("%1: %2/%3 < %4/%5")
+        // Ask the painter's own question: would the style elide this caption in the space the
+        // button reserves? That is exactly the difference between "Полилиния" and "Полилиния...".
+        const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
+        const int room = button->minimumWidth() - 2 * margin;
+        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room) != text)
+            clipped << QStringLiteral("%1: %2 < %3")
                            .arg(text)
-                           .arg(button->minimumWidth())
-                           .arg(button->maximumWidth())
-                           .arg(needed)
-                           .arg(hint);
+                           .arg(room)
+                           .arg(button->fontMetrics().horizontalAdvance(text));
     }
     for (const auto& item : clipped)
         std::cerr << "clipped caption " << item.toStdString() << '\n';

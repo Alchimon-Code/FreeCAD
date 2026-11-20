@@ -16,6 +16,7 @@
 #include <QMouseEvent>
 #include <QDockWidget>
 #include <QPainter>
+#include <QThread>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QSettings>
@@ -23,8 +24,18 @@
 #include <iostream>
 
 namespace {
+// A theme switch or a page change restyles the whole window over several event-loop turns. Grabbing
+// right after them catches half-relaid geometry, which used to print captions of the previous page
+// as ghosts, so wait for the frame to settle instead of hoping one processEvents() is enough.
+void settle() {
+    for (int i = 0; i < 12; ++i) {
+        QApplication::processEvents(QEventLoop::AllEvents, 50);
+        QThread::msleep(10);
+    }
+}
 bool saveFrame(MainWindow& window, const QString& path) {
-    QApplication::processEvents();
+    settle();
+    window.repaint();
     auto image = window.grab();
     auto* view = window.activeView();
     auto frame = view->grabFramebuffer();
