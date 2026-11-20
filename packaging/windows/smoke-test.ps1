@@ -52,6 +52,43 @@ function CheckPayload([string]$root) {
     }
     Invoke-Converter "$root/tools/libredwg/dwg2dxf.exe" @('--help') 60 | Out-Null
     Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" @('--help') 60 | Out-Null
+    # A one-line drawing: separates "the encoder cannot start at all" from "this drawing loops".
+    $tiny = @'
+0
+SECTION
+2
+HEADER
+9
+$ACADVER
+1
+AC1015
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+0
+LINE
+8
+0
+10
+0.0
+20
+0.0
+11
+10.0
+21
+0.0
+0
+ENDSEC
+0
+EOF
+'@
+    Set-Content -LiteralPath "$tmp/tiny.dxf" -Value $tiny -Encoding ascii
+    Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
+        @('-o', "$tmp/tiny.dwg", "$tmp/tiny.dxf") 90 | Out-Null
+    Remove-Item "$tmp/tiny.dwg"
     $written = Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
         @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") 180
     if ($written -notmatch 'Writing DWG file') {
