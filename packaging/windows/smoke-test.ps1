@@ -34,6 +34,10 @@ function CheckPayload([string]$root) {
     if ($LASTEXITCODE -ne 0) { throw 'CLI sheet export failed' }
     $pdf = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$tmp/smoke.pdf"))
     if (!$pdf.StartsWith('%PDF-') -or $pdf -notmatch '/MediaBox\s*\[0 0 ([.0-9]+) ([.0-9]+)\]') { throw 'Missing vector PDF page' }
+    # Checked right here: later commands overwrite $Matches with their own captures.
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    if ([Math]::Abs([double]::Parse($Matches[1], $culture) * 25.4 / 72 - 297) -gt 0.01 -or
+        [Math]::Abs([double]::Parse($Matches[2], $culture) * 25.4 / 72 - 210) -gt 0.01) { throw 'Wrong A4 sheet dimensions' }
     # Exercise the shipped GPLv3 programs on their own first: a hang or crash here is a converter
     # problem, not a bridge one, and console output names the phase that failed.
     function Invoke-Converter([string]$exe, [string[]]$arguments, [int]$seconds) {
@@ -73,9 +77,6 @@ function CheckPayload([string]$root) {
     if ($LASTEXITCODE -ne 0) { throw 'DWG import failed' }
     $roundtrip = Get-Content -Raw "$tmp/smoke-dwg.dxf"
     if ($roundtrip -notmatch 'ENTITIES' -or $roundtrip -notmatch 'CIRCLE') { throw 'DWG round-trip lost geometry' }
-    $culture = [Globalization.CultureInfo]::InvariantCulture
-    if ([Math]::Abs([double]::Parse($Matches[1], $culture) * 25.4 / 72 - 297) -gt 0.01 -or
-        [Math]::Abs([double]::Parse($Matches[2], $culture) * 25.4 / 72 - 210) -gt 0.01) { throw 'Wrong A4 sheet dimensions' }
     Remove-Item "$tmp/smoke.pdf"
 }
 try {
