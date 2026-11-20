@@ -1,0 +1,80 @@
+name: Converter probe
+
+# Temporary diagnostic: builds the pinned LibreDWG write program on Windows with two optimisation
+# settings, runs it on a one-line DXF and commits the observed behaviour to docs/probe-results.txt,
+# because the job log itself cannot be read from the sandbox.
+on:
+  push:
+    paths: ['docs/probe-request.txt']
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    name: Probe dxf2dwg on Windows
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Fetch and unpack the pinned LibreDWG archive
+        shell: pwsh
+        run: |
+          $url = 'https://codeload.github.com/LibreDWG/libredwg/tar.gz/refs/tags/0.14'
+          Invoke-WebRequest -Uri $url -OutFile libredwg.tgz
+          $hash = (Get-FileHash libredwg.tgz -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '711061f5ce860cd6c1e1a2ef1d3125c29aacc7b55bdc80e1a7e015579917462b') { throw "hash $hash" }
+          New-Item -ItemType Directory src | Out-Null
+          tar -xzf libredwg.tgz -C src --strip-components=1
+      - name: Build and run both variants
+        shell: pwsh
+        run: |
+          $report = @()
+          $tiny = Join-Path $env:RUNNER_TEMP 'tiny.dxf'
+          @(
+            '0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC',
+            '0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0',
+            '11','10.0','21','0.0','0','ENDSEC','0','EOF'
+          ) | Set-Content -LiteralPath $tiny -Encoding ascii
+          foreach ($variant in @('default', 'no-opt')) {
+            $build = "build-$variant"
+            $extra = @()
+            if ($variant -eq 'no-opt') { $extra = @('-DCMAKE_C_FLAGS_RELEASE=/Od') }
+            cmake -S src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF `
+              -DBUILD_TESTING=OFF -DLIBREDWG_LIBONLY=OFF -DLIBREDWG_DISABLE_JSON=ON -DENABLE_LTO=OFF `
+              -DDISABLE_WERROR=ON @extra | Out-Null
+            if ($LASTEXITCODE -ne 0) { $report += "variant=$variant configure failed"; continue }
+            cmake --build $build --target dxf2dwg --parallel 2 | Select-Object -Last 3 | Out-Null
+            if ($LASTEXITCODE -ne 0) { $report += "variant=$variant build failed"; continue }
+            $exe = Get-ChildItem -Recurse -Filter dxf2dwg.exe $build | Select-Object -First 1
+            $out = Join-Path $env:RUNNER_TEMP "$variant.dwg"
+            $p = Start-Process -FilePath $exe.FullName -PassThru -NoNewWindow `
+              -ArgumentList @('-o', $out, $tiny) `
+              -RedirectStandardOutput ($out + '.out') -RedirectStandardError ($out + '.err')
+            $finished = $p.WaitForExit(60000)
+            $cpu = if ($finished) { 'n/a' } else { try { [math]::Round($p.TotalProcessorTime.TotalSeconds, 2) } catch { 'n/a' } }
+            $stdout = if (Test-Path ($out + '.out')) { Get-Content -Raw ($out + '.out') } else { '' }
+            $stderr = if (Test-Path ($out + '.err')) { Get-Content -Raw ($out + '.err') } else { '' }
+            $size = if (Test-Path $out) { (Get-Item $out).Length } else { 0 }
+            if (!$finished) { $p.Kill() }
+            $flat = { param($t) if ($null -eq $t) { '' } else { ($t -replace "\r?\n", ' / ').Trim() } }
+            $report += "variant=$variant finished=$finished cpu=$cpu size=$size stdout=$(& $flat $stdout) stderr=$(& $flat $stderr)"
+            Remove-Item $out -ErrorAction SilentlyContinue
+          }
+          $cdb = @(
+            'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe',
+            'C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe'
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $report += "cdb=$cdb"
+          $report | Set-Content -LiteralPath docs/probe-results.txt -Encoding utf8
+          Get-Content docs/probe-results.txt
+      - name: Commit the report
+        shell: pwsh
+        run: |
+          git config user.name 'PlaneDraft CI'
+          git config user.email 'ci@users.noreply.github.com'
+          git add docs/probe-results.txt
+          git commit -m 'Record the converter probe result [skip ci]'
+          git push origin HEAD:${{ github.ref_name }}
