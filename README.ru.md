@@ -102,6 +102,6 @@ pdconvert examples/drawings/cover.dxf cover.svg
 
 **Windows x64 v0.1.0: проверено на MSVC 2022.** [Все пять заданий CI прошли](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855). [Задание Windows](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855/job/135535007043) запустило переносимую и установленную копии с чистым `PATH`, выпустило лист 297 × 210 мм, проверило необязательную регистрацию DXF и удаление. В фактическом реестре **25 файлов исполнения**: 4 файла PlaneDraft, 8 DLL Microsoft CRT, 7 библиотек Qt 6.9.3 (включая Network и SVG), `qwindows.dll`, `qtbase_ru.qm` и DLL double-conversion, libpng, PCRE2-16, zlib. GTest и конвертеры DWG не поставляются.
 
-Комплект кандидата: `PlaneDraft-0.1.0-windows-x64.zip`, `PlaneDraft-0.1.0-windows-x64-setup.exe`, а также `SHA256SUMS` и `RUNTIME_INVENTORY.md` той же сборки. Черновик не отменяет [проверку условий публичной поставки](docs/LICENSING.md).
+[Черновик v0.2.0](https://github.com/Alchimon-Code/FreeCAD/releases/tag/v0.2.0): `PlaneDraft-0.2.0-windows-x64.zip`, `PlaneDraft-0.2.0-windows-x64-setup.exe`, а также `SHA256SUMS` и `RUNTIME_INVENTORY.md` той же сборки — файлы взяты из проверенного прогона, без пересборки. Он остаётся черновиком, пока не решён [вопрос условий публичной поставки](docs/LICENSING.md); подготовка черновика этот рубеж не снимает.
 
 [Изменения](CHANGELOG.md) · [Релизы](https://github.com/Alchimon-Code/FreeCAD/releases) · [Карта архитектуры](ARCHITECTURE.md) · [Участие и тесты](CONTRIBUTING.ru.md)

@@ -102,6 +102,6 @@ pdconvert examples/drawings/cover.dxf cover.svg
 
 **Windows x64 v0.1.0: verified on MSVC 2022.** [All five CI jobs passed](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855). The [Windows job](https://github.com/Alchimon-Code/FreeCAD/actions/runs/44516861855/job/135535007043) launched the portable and installed copies with a clean `PATH`, exported the 297 × 210 mm sheet, tested opt-in DXF registration and uninstalled. The actual inventory had **25 runtime files**: 4 PlaneDraft binaries, 8 Microsoft CRT DLLs, 7 Qt 6.9.3 libraries (including Network and SVG), `qwindows.dll`, `qtbase_ru.qm`, and DLLs for double-conversion, libpng, PCRE2-16 and zlib. No GTest or DWG converter was shipped.
 
-The release candidate pairs `PlaneDraft-0.1.0-windows-x64.zip` and `PlaneDraft-0.1.0-windows-x64-setup.exe` with `SHA256SUMS` and `RUNTIME_INVENTORY.md` from their own build. Preparing a draft does not bypass the [distribution review](docs/LICENSING.md).
+The [v0.2.0 draft release](https://github.com/Alchimon-Code/FreeCAD/releases/tag/v0.2.0) pairs `PlaneDraft-0.2.0-windows-x64.zip` and `PlaneDraft-0.2.0-windows-x64-setup.exe` with `SHA256SUMS` and `RUNTIME_INVENTORY.md` from their own build; the assets are copied from the verified run, never rebuilt. It stays a draft until the [distribution review](docs/LICENSING.md) is settled — preparing a draft does not bypass it.
 
 [Changelog](CHANGELOG.md) · [Releases](https://github.com/Alchimon-Code/FreeCAD/releases) · [Architecture map](ARCHITECTURE.md) · [Contributing & tests](CONTRIBUTING.md)
