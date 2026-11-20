@@ -53,53 +53,19 @@ function CheckPayload([string]$root) {
     }
     Invoke-Converter "$root/tools/libredwg/dwg2dxf.exe" @('--help') 60 | Out-Null
     Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" @('--help') 60 | Out-Null
-    # A one-line drawing: separates "the encoder cannot start at all" from "this drawing loops".
-    $tiny = @'
-0
-SECTION
-2
-HEADER
-9
-$ACADVER
-1
-AC1015
-0
-ENDSEC
-0
-SECTION
-2
-ENTITIES
-0
-LINE
-8
-0
-10
-0.0
-20
-0.0
-11
-10.0
-21
-0.0
-0
-ENDSEC
-0
-EOF
-'@
-    Set-Content -LiteralPath "$tmp/tiny.dxf" -Value $tiny -Encoding ascii
-    $buildExe = "$PSScriptRoot/../../build/windows-msvc/bin/tools/libredwg/dxf2dwg.exe"
-    $shipped = (Get-ChildItem "$root/tools/libredwg" | ForEach-Object { $_.Name }) -join ','
+    # Real drawing through the shipped writer, before the bridge: this is where an unusable
+    # converter (a wrong build, a missing DLL, an endless loop) shows up on its own.
     try {
-        Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" @('-o', "$tmp/tiny.dwg", "$tmp/tiny.dxf") 90 | Out-Null
-        Remove-Item "$tmp/tiny.dwg"
+        Invoke-Converter "$root/tools/libredwg/dxf2dwg.exe" `
+            @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") 120 | Out-Null
     } catch {
-        $buildResult = 'absent'
-        if (Test-Path $buildExe) {
-            try { Invoke-Converter $buildExe @('-o', "$tmp/tiny-build.dwg", "$tmp/tiny.dxf") 30 | Out-Null
-                  $buildResult = 'works' } catch { $buildResult = "fails: $_" }
-        }
-        throw "Payload converter failed. dir=[$shipped] buildtree=$buildResult`n$_"
+        $shipped = (Get-ChildItem "$root/tools/libredwg" | ForEach-Object { $_.Name }) -join ','
+        throw "Shipped dxf2dwg is unusable (directory: $shipped)`n$_"
     }
+    if (!(Test-Path "$tmp/direct.dwg") -or (Get-Item "$tmp/direct.dwg").Length -lt 1000) {
+        throw 'Shipped dxf2dwg produced no usable DWG'
+    }
+    Remove-Item "$tmp/direct.dwg"
     # DWG out of the box: the bundled LibreDWG programs are found beside the executable.
     & "$root/bin/pdconvert.exe" "$root/examples/drawings/panel.dxf" "$tmp/smoke.dwg"
     if ($LASTEXITCODE -ne 0 -or (Get-Item "$tmp/smoke.dwg").Length -lt 1000) { throw 'DWG export failed' }
