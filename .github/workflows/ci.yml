@@ -143,7 +143,7 @@ jobs:
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 || exit /b 1
-          ctest --preset ${{ matrix.preset }} --rerun-failed --output-on-failure || exit /b 0
+          ctest --preset ${{ matrix.preset }} --rerun-failed --output-on-failure
       - name: Show the verified runtime inventory and release checksums on the check
         if: matrix.preset == 'windows-msvc'
         shell: pwsh

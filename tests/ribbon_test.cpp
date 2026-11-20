@@ -12,6 +12,8 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QTabBar>
 #include <QToolBar>
@@ -209,8 +211,8 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
 }
 
-// A ribbon is read by label, not by tooltip: every visible button must fit its own caption at the
-// documented 1520x880 window instead of falling back to "От...".
+// A ribbon is read by label, not by tooltip: no button may ask for less than its own caption, so
+// the layout never has to fall back to "От...".
 TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
     window->resize(1520, 880);
     window->show();
@@ -223,10 +225,14 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         if (text.isEmpty() || button->isHidden())
             continue;
         const int needed = button->fontMetrics().horizontalAdvance(text);
-        if (button->width() < needed)
-            clipped << QStringLiteral("%1: %2 < %3").arg(text).arg(button->width()).arg(needed);
+        if (button->minimumWidth() < needed)
+            clipped << QStringLiteral("%1: %2 < %3").arg(text).arg(button->minimumWidth()).arg(needed);
     }
     EXPECT_TRUE(clipped.isEmpty()) << clipped.join(QStringLiteral(", ")).toStdString();
+    // A narrow window scrolls the page rather than squeezing the captions.
+    auto* scroll = ribbon->findChild<QScrollArea*>("ribbonScroll");
+    ASSERT_NE(scroll, nullptr);
+    EXPECT_EQ(scroll->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
 }
 
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {
