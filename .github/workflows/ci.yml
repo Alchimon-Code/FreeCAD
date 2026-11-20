@@ -119,6 +119,47 @@ jobs:
           python .github/scripts/checked.py cmake --preset ${{ matrix.preset }} -DVCPKG_MANIFEST_INSTALL=OFF -DPD_ENABLE_LIBREDWG=ON || exit /b 1
           python .github/scripts/checked.py cmake --build --preset ${{ matrix.preset }} || exit /b 1
           python .github/scripts/checked.py ctest --preset ${{ matrix.preset }} --timeout 180
+      - name: Probe the MSVC-built DWG writer when it stalls
+        if: matrix.preset == 'windows-core'
+        shell: pwsh
+        run: |
+          # The shipped dxf2dwg.exe never returns on Windows even for one line, while the same
+          # source works on Linux. Sample the CPU and, if available, the native stack so the
+          # failure names the function instead of "timed out".
+          $exe = Get-ChildItem -Recurse -Filter dxf2dwg.exe build/windows-core | Select-Object -First 1
+          if (!$exe) { throw 'dxf2dwg.exe was not built' }
+          $dir = Split-Path -Parent $exe.FullName
+          $tiny = Join-Path $env:RUNNER_TEMP 'tiny.dxf'
+          @(
+            '0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC',
+            '0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0',
+            '11','10.0','21','0.0','0','ENDSEC','0','EOF'
+          ) | Set-Content -LiteralPath $tiny -Encoding ascii
+          $out = Join-Path $env:RUNNER_TEMP 'tiny.dwg'
+          $p = Start-Process -FilePath $exe.FullName -PassThru -NoNewWindow `
+            -ArgumentList @('-o', $out, $tiny) `
+            -RedirectStandardOutput ($out + '.out') -RedirectStandardError ($out + '.err')
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) {
+            "dxf2dwg finished with exit code $($p.ExitCode); output: $((Get-Content -Raw ($out + '.out')))"
+            exit 0
+          }
+          $cpu = $p.TotalProcessorTime.TotalSeconds
+          $threads = $p.Threads.Count
+          $cdb = @(
+            'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe',
+            'C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe'
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $stack = 'cdb.exe is not installed'
+          if ($cdb) {
+            $symbols = (Get-ChildItem -Recurse -Filter dxf2dwg.pdb build/windows-core | Select-Object -First 1)
+            $symbolPath = if ($symbols) { Split-Path -Parent $symbols.FullName } else { $dir }
+            $stack = & $cdb -p $p.Id -y $symbolPath -c '~*kb 20; q' 2>&1 | Out-String
+          }
+          $stdout = Get-Content -Raw ($out + '.out')
+          $stderr = Get-Content -Raw ($out + '.err')
+          $p.Kill()
+          throw ("dxf2dwg is stuck: cpu=${cpu}s threads=$threads`nSTDOUT: $stdout`nSTDERR: $stderr`n$stack")
       - name: Ensure the Inno Setup compiler is available
         if: matrix.preset == 'windows-msvc'
         shell: pwsh

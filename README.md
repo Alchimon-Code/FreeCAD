@@ -25,6 +25,15 @@ PlaneDraft is a desktop drafting application for Windows x64 and Linux. Edit geo
 
 ![A4 paper space with a 1:2 viewport, hatched section A–A and title block](docs/images/layout-eskd.png)
 
+The v0.2.0 workbench, captured from the running application rather than drawn:
+
+| Ribbon, dynamic input, DWG |
+|---|
+| ![Home page of the ribbon in the dark Russian UI](docs/images/ribbon-dark-ru.png) |
+| ![Insert page of the ribbon in the light English UI](docs/images/ribbon-light-en.png) |
+| ![Length and angle fields beside the crosshair while a line is drawn](docs/images/dynamic-input.png) |
+| ![A DWG written and read back by the bundled converters, open in its own tab](docs/images/dwg-open.png) |
+
 [Dark workspace in Russian](docs/images/workspace-dark-ru.png) · [PDF rendered at 144 dpi](docs/images/pdf-output.png) · [How these images were made](docs/images/README.md)
 
 ## Architecture & design rationale

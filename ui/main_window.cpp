@@ -655,6 +655,10 @@ void MainWindow::activate(int index) {
     page_ = static_cast<DrawingPage*>(documents_->widget(index));
     session_ = page_->session;
     canvas_ = page_->canvas;
+    // The F12 toggle is restored before any canvas exists, so a stored "on" never reached the
+    // viewport. Apply it with the rest of the per-page view state.
+    if (dynamic_)
+        canvas_->setDynamicInput(dynamic_->isChecked());
     history_->setDocument(page_->transcript);
     input_->setText(page_->draft);
     inspector_->bind(session_, canvas_);

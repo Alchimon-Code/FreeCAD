@@ -36,7 +36,8 @@ bool saveFrame(MainWindow& window, const QString& path) {
         paint.drawImage(QRect(view->mapTo(&window, QPoint()), view->size()), frame);
         // The dynamic-input hint is a plain child widget of the GL viewport, so window.grab()
         // misses it for exactly the same reason.
-        if (auto* hint = window.findChild<QLabel*>("dynamicInput"); hint && !hint->isHidden())
+        // Every page owns its own hint label, so ask this page, not the first one in the window.
+        if (auto* hint = view->findChild<QLabel*>("dynamicInput"); hint && !hint->isHidden())
             paint.drawPixmap(hint->mapTo(&window, QPoint()), hint->grab());
     }
     return image.save(path);
