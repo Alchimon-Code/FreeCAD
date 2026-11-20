@@ -35,6 +35,9 @@ jobs:
           $report = 'docs/probe-results.txt'
           'probe start' | Set-Content -LiteralPath $report -Encoding utf8
           Add-Content $report "perl=$((Get-Command perl -ErrorAction SilentlyContinue).Source)"
+          Add-Content $report ("cl=" + [string]((Get-Command cl -ErrorAction SilentlyContinue).Source) +
+            " gcc=" + [string]((Get-Command gcc -ErrorAction SilentlyContinue).Source) +
+            " cc=" + $env:CC + " cxx=" + $env:CXX)
           $tiny = Join-Path $env:RUNNER_TEMP 'tiny.dxf'
           @(
             '0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC',
@@ -52,6 +55,12 @@ jobs:
                 -DBUILD_TESTING=OFF -DLIBREDWG_LIBONLY=OFF -DLIBREDWG_DISABLE_JSON=ON -DENABLE_LTO=OFF `
                 -DDISABLE_WERROR=ON @extra *> $log
               Add-Content $report "variant=$variant configure_exit=$LASTEXITCODE"
+              $cache = Join-Path $build 'CMakeCache.txt'
+              if (Test-Path $cache) {
+                $lines = Get-Content $cache | Where-Object {
+                  $_ -match '^CMAKE_C_COMPILER(:|_ID|_VERSION)' -or $_ -match '^CMAKE_GENERATOR:' }
+                Add-Content $report ("variant=$variant " + ($lines -join ' '))
+              }
               if ($LASTEXITCODE -ne 0) {
                 Add-Content $report ("configure_tail=" + (& $flat ((Get-Content $log -Tail 12) -join "`n")))
                 continue
