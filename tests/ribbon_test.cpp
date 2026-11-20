@@ -5,6 +5,7 @@
 #include "main_window.h"
 #include "ribbon.h"
 #include "viewport.h"
+#include <algorithm>
 #include <iostream>
 
 #include <QAction>
@@ -17,6 +18,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStackedWidget>
 #include <QStyle>
 #include <QTabBar>
 #include <QToolBar>
@@ -233,28 +235,32 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         // button reserves? That is exactly the difference between "Полилиния" and "Полилиния...".
         const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
         const int room = button->minimumWidth() - 2 * margin;
-        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room) != text)
-            clipped << QStringLiteral("%1: %2 < %3")
+        const int advance = button->fontMetrics().horizontalAdvance(text);
+        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room - 24) != text)
+            clipped << QStringLiteral("%1: min %2 room %3 advance %4")
                            .arg(text)
+                           .arg(button->minimumWidth())
                            .arg(room)
-                           .arg(button->fontMetrics().horizontalAdvance(text));
+                           .arg(advance);
     }
     for (const auto& item : clipped)
         std::cerr << "clipped caption " << item.toStdString() << '\n';
     EXPECT_TRUE(clipped.isEmpty());
     // A narrow window scrolls the page rather than squeezing the captions.
     const auto pages = ribbon->findChildren<QScrollArea*>("ribbonScroll");
-    ASSERT_FALSE(pages.isEmpty());
+    ASSERT_EQ(pages.size(), 5);
+    // The strip is as tall as its tallest page: the third row of Modify and the panel captions under
+    // it stay inside the ribbon instead of being cut by a fixed height. Inactive pages are hidden by
+    // the stack and keep no geometry, so the stack itself is what has to cover every page hint.
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    int tallest = 0;
     for (auto* scroll : pages) {
         EXPECT_EQ(scroll->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
-        // The strip is as tall as its tallest page: the third row of Modify and the panel captions
-        // underneath it stay inside the ribbon instead of being cut by a fixed height.
-        auto* content = scroll->widget();
-        ASSERT_NE(content, nullptr);
-        const int needed = content->sizeHint().height();
-        EXPECT_GE(scroll->height(), needed)
-            << "clipped page: " << scroll->height() << " < " << needed;
+        ASSERT_NE(scroll->widget(), nullptr);
+        tallest = std::max(tallest, scroll->sizeHint().height());
     }
+    EXPECT_GE(stack->height(), tallest) << "clipped page: " << stack->height() << " < " << tallest;
 }
 
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {
