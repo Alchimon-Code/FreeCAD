@@ -34,6 +34,17 @@ function CheckPayload([string]$root) {
     if ($LASTEXITCODE -ne 0) { throw 'CLI sheet export failed' }
     $pdf = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$tmp/smoke.pdf"))
     if (!$pdf.StartsWith('%PDF-') -or $pdf -notmatch '/MediaBox\s*\[0 0 ([.0-9]+) ([.0-9]+)\]') { throw 'Missing vector PDF page' }
+    # Exercise the shipped GPLv3 program on its own first: a hang or crash here is a converter
+    # problem, not a bridge one, and its console output names the failing phase.
+    $writer = Start-Process -FilePath "$root/tools/libredwg/dxf2dwg.exe" -NoNewWindow -PassThru `
+        -ArgumentList @('-o', "$tmp/direct.dwg", "$root/examples/drawings/panel.dxf") `
+        -RedirectStandardOutput "$tmp/writer.out" -RedirectStandardError "$tmp/writer.err"
+    if (!$writer.WaitForExit(180000)) { $writer.Kill(); throw 'Bundled dxf2dwg did not finish' }
+    if ($writer.ExitCode -ne 0) {
+        throw "Bundled dxf2dwg failed: $($writer.ExitCode) $(Get-Content -Raw "$tmp/writer.err")"
+    }
+    if ((Get-Item "$tmp/direct.dwg").Length -lt 1000) { throw 'Bundled dxf2dwg produced no DWG' }
+    Remove-Item "$tmp/direct.dwg"
     # DWG out of the box: the bundled LibreDWG programs are found beside the executable.
     & "$root/bin/pdconvert.exe" "$root/examples/drawings/panel.dxf" "$tmp/smoke.dwg"
     if ($LASTEXITCODE -ne 0 -or (Get-Item "$tmp/smoke.dwg").Length -lt 1000) { throw 'DWG export failed' }

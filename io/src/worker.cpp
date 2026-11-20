@@ -83,7 +83,9 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
                         &si.StartupInfo, &pi))
         throw Failure(IoStatus::BackendUnavailable, "cannot start DWG converter");
     CloseHandle(pi.hThread);
-    auto w = WaitForSingleObject(pi.hProcess, 60000);
+    // First execution of a freshly deployed converter can be slowed down by on-access virus
+    // scanning, so Windows waits longer than the same call on Linux.
+    auto w = WaitForSingleObject(pi.hProcess, 180000);
     DWORD code = 1;
     if (w != WAIT_OBJECT_0) {
         TerminateProcess(pi.hProcess, 1);
@@ -91,8 +93,13 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
     } else
         GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hProcess);
-    if (w != WAIT_OBJECT_0)
-        throw Failure(IoStatus::BackendError, "DWG converter timed out");
+    if (w != WAIT_OBJECT_0) {
+        std::ifstream tail(log, std::ios::binary);
+        std::string seen(1024, '\0');
+        tail.read(seen.data(), static_cast<std::streamsize>(seen.size()));
+        seen.resize(static_cast<size_t>(tail.gcount()));
+        throw Failure(IoStatus::BackendError, "DWG converter timed out: " + seen);
+    }
 #else
     std::vector<std::string> args{tool.string()};
     if (!version.empty()) {
@@ -133,7 +140,11 @@ std::string runWorker(const fs::path& tool, const fs::path& in, const fs::path& 
             kill(pid, SIGKILL);
             while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
             }
-            throw Failure(IoStatus::BackendError, "DWG converter timed out");
+            std::ifstream tail(log, std::ios::binary);
+            std::string seen(1024, '\0');
+            tail.read(seen.data(), static_cast<std::streamsize>(seen.size()));
+            seen.resize(static_cast<size_t>(tail.gcount()));
+            throw Failure(IoStatus::BackendError, "DWG converter timed out: " + seen);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }

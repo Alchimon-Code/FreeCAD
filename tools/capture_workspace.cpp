@@ -10,6 +10,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QDockWidget>
@@ -185,7 +186,13 @@ int main(int argc, char** argv) {
     converter += ".exe";
 #endif
     const auto dwg = settings.filePath("panel.dwg");
-    if (QProcess::execute(converter, {drawings.filePath("panel.dxf"), dwg}) != 0)
+    QProcess writer;
+    writer.setWorkingDirectory(settings.path());
+    writer.start(converter, {"-o", dwg, QFileInfo(drawings.filePath("panel.dxf")).absoluteFilePath()});
+    if (!writer.waitForFinished(120000) || writer.exitStatus() != QProcess::NormalExit ||
+        writer.exitCode() != 0)
+        return 1;
+    if (!QFileInfo::exists(dwg))
         return 1;
     window.findChild<QDockWidget*>("CommandLine")->show();
     window.findChild<QAction*>("localeSwitch")->trigger();
