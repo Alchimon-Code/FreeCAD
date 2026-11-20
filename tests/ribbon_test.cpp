@@ -5,6 +5,8 @@
 #include "main_window.h"
 #include "ribbon.h"
 #include "viewport.h"
+#include <iostream>
+
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
@@ -228,7 +230,9 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         if (button->minimumWidth() < needed)
             clipped << QStringLiteral("%1: %2 < %3").arg(text).arg(button->minimumWidth()).arg(needed);
     }
-    EXPECT_TRUE(clipped.isEmpty()) << clipped.join(QStringLiteral(", ")).toStdString();
+    for (const auto& item : clipped)
+        std::cerr << "clipped caption " << item.toStdString() << '\n';
+    EXPECT_TRUE(clipped.isEmpty());
     // A narrow window scrolls the page rather than squeezing the captions.
     auto* scroll = ribbon->findChild<QScrollArea*>("ribbonScroll");
     ASSERT_NE(scroll, nullptr);
