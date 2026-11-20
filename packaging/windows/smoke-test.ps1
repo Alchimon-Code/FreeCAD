@@ -43,7 +43,11 @@ function CheckPayload([string]$root) {
     function Invoke-Converter([string]$exe, [string[]]$arguments, [int]$seconds) {
         $out = "$tmp/convert.out"
         $err = "$tmp/convert.err"
-        $p = Start-Process -FilePath $exe -NoNewWindow -PassThru -ArgumentList $arguments `
+        # The installer check deliberately uses a path with spaces; Start-Process joins a list
+        # without quoting, so quote the arguments that need it ourselves.
+        $argumentLine = ($arguments | ForEach-Object {
+            if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        $p = Start-Process -FilePath $exe -NoNewWindow -PassThru -ArgumentList $argumentLine `
             -RedirectStandardOutput $out -RedirectStandardError $err
         if (!$p.WaitForExit($seconds * 1000)) {
             $cpu = try { [math]::Round($p.TotalProcessorTime.TotalSeconds, 2) } catch { -1 }
