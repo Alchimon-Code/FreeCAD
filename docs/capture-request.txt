@@ -1,1 +1,1 @@
-panel titles after the source-keyed fix 2026-11-20T12:45:52Z
+fixed panel heights and the Annotate tab 2026-11-20T12:58:27Z

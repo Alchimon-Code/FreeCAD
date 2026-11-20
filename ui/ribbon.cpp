@@ -28,6 +28,9 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     frame->setFrameShape(QFrame::NoFrame);
     frame->setObjectName("ribbonPanel");
     frame->setStyleSheet("#ribbonPanel { border-right: 1px solid palette(mid); }");
+    // A short page (Insert has three small panels) must keep its buttons at the top: stretching the
+    // frame spreads a two-row grid over the whole strip, which reads as a broken layout.
+    frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* box = new QVBoxLayout(frame);
     box->setContentsMargins(8, 4, 8, 2);
     box->setSpacing(2);
@@ -185,6 +188,7 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     columns = std::max(1, columns);
     for (int i = 0; i < actions.size(); ++i)
         grid->addWidget(ribbonButton(actions[i], buttons), i / columns, i % columns);
+    grid->setRowStretch((actions.size() + columns - 1) / columns, 1);
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, buttons);
     row->insertWidget(row->count() - 1, frame, 0, Qt::AlignTop);
@@ -197,6 +201,7 @@ void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidge
     QLabel* label = nullptr;
     auto* frame = panelFrame(title, &label, target);
     auto* holder = new QWidget(frame);
+    holder->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* vbox = new QVBoxLayout(holder);
     vbox->setContentsMargins(0, 2, 0, 2);
     vbox->addWidget(widget);

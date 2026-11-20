@@ -20,6 +20,7 @@
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QSettings>
+#include <QTabBar>
 #include <QTemporaryDir>
 #include <iostream>
 
@@ -158,8 +159,8 @@ int main(int argc, char** argv) {
     if (!saveFrame(window, out.filePath("ribbon-dark-ru.png")))
         return 1;
 
-    // Same window in the light English UI, ribbon on the Insert page; classic toolbars for the
-    // v0.1 captures above, so the gallery shows both interaction modes.
+    // Same window in the light English UI, ribbon on the Annotate page: a page that is populated
+    // enough to show the strip, unlike the three small Insert panels.
     window.findChild<QAction*>("localeSwitch")->trigger();
     window.findChild<QAction*>("themeSwitch")->trigger();
     app.processEvents();
@@ -167,7 +168,15 @@ int main(int argc, char** argv) {
     command("_DIMSTYLE ISO-25");
     view.setSelection(circles);
     pointAt(view, {-94, -43});
-    ribbon->setCurrentPage(1);
+    // Visit every tab once: a page that was never shown keeps the palette and the geometry it was
+    // built with, so the light theme would photograph it in the previous theme's colours.
+    for (int i = 0; i < ribbon->tabs()->count(); ++i) {
+        ribbon->setCurrentPage(i);
+        app.processEvents();
+    }
+    ribbon->setCurrentPage(0);
+    app.processEvents();
+    ribbon->setCurrentPage(2); // the Annotate tab: dimensions and measure, three columns
     app.processEvents();
     if (!saveFrame(window, out.filePath("ribbon-light-en.png")))
         return 1;
