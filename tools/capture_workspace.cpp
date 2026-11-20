@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QDockWidget>
@@ -33,6 +34,10 @@ bool saveFrame(MainWindow& window, const QString& path) {
     {
         QPainter paint(&image);
         paint.drawImage(QRect(view->mapTo(&window, QPoint()), view->size()), frame);
+        // The dynamic-input hint is a plain child widget of the GL viewport, so window.grab()
+        // misses it for exactly the same reason.
+        if (auto* hint = window.findChild<QLabel*>("dynamicInput"); hint && !hint->isHidden())
+            paint.drawPixmap(hint->mapTo(&window, QPoint()), hint->grab());
     }
     return image.save(path);
 }
@@ -128,10 +133,11 @@ int main(int argc, char** argv) {
     if (!saveFrame(window, out.filePath("workspace-dark-ru.png")))
         return 1;
 
-    // v0.2.0 ribbon captures: dark Russian Home page, then light English Insert page.
+    // v0.2.0 ribbon captures. Dark Russian Home page first, with the colour/weight drop-downs.
     setRibbon(true);
     auto* ribbon = window.findChild<Ribbon*>();
-    if (!ribbon)
+    auto* dynamicInput = window.findChild<QAction*>("dynamicInputToggle");
+    if (!ribbon || !dynamicInput)
         return 1;
     ribbon->setCurrentPage(0);
     view.setSelection(circles);
@@ -140,6 +146,8 @@ int main(int argc, char** argv) {
     if (!saveFrame(window, out.filePath("ribbon-dark-ru.png")))
         return 1;
 
+    // Same window in the light English UI, ribbon on the Insert page; classic toolbars for the
+    // v0.1 captures above, so the gallery shows both interaction modes.
     window.findChild<QAction*>("localeSwitch")->trigger();
     window.findChild<QAction*>("themeSwitch")->trigger();
     app.processEvents();
@@ -147,27 +155,30 @@ int main(int argc, char** argv) {
     command("_DIMSTYLE ISO-25");
     view.setSelection(circles);
     pointAt(view, {-94, -43});
-    if (language.russian() || !saveFrame(window, out.filePath("workspace-light-en.png")))
-        return 1;
-
     ribbon->setCurrentPage(1);
     app.processEvents();
     if (!saveFrame(window, out.filePath("ribbon-light-en.png")))
         return 1;
 
-    // Dynamic input beside the crosshair: a base point, a hovered destination and F12 on.
+    // Dynamic input beside the crosshair in the dark Russian UI: F12 on, base point and a hover.
     ribbon->setCurrentPage(0);
+    window.findChild<QAction*>("themeSwitch")->trigger();
+    window.findChild<QAction*>("localeSwitch")->trigger();
+    if (!dynamicInput->isChecked())
+        dynamicInput->trigger();
     command("_LINE -60,-40");
-    pointAt(view, {-20, -10});
-    pointAt(view, {-15, -5});
+    pointAt(view, {-24, -13});
+    pointAt(view, {-22, -9});
     app.processEvents();
     if (!saveFrame(window, out.filePath("dynamic-input.png")))
         return 1;
+    if (dynamicInput->isChecked())
+        dynamicInput->trigger();
     view.escape();
     command("_UNDO");
 
-    window.findChild<QAction*>("localeSwitch")->trigger();
-    app.processEvents();
+    // v0.1 paper space capture: light theme, classic chrome, no docks.
+    window.findChild<QAction*>("themeSwitch")->trigger();
     command("_UNDO");
     setRibbon(false);
     session.selectSpace("Панель");
@@ -180,7 +191,8 @@ int main(int argc, char** argv) {
         !saveFrame(window, out.filePath("layout-eskd.png")))
         return 1;
 
-    // A real DWG produced by the bundled LibreDWG writer and opened through the reader.
+    // A real DWG produced by the bundled LibreDWG writer and opened through the reader. Dark UI,
+    // docks and the transcript visible, so the import report is readable.
     auto converter = QCoreApplication::applicationDirPath() + "/tools/libredwg/dxf2dwg";
 #ifdef Q_OS_WIN
     converter += ".exe";
@@ -190,12 +202,12 @@ int main(int argc, char** argv) {
     writer.setWorkingDirectory(settings.path());
     writer.start(converter, {"-o", dwg, QFileInfo(drawings.filePath("panel.dxf")).absoluteFilePath()});
     if (!writer.waitForFinished(120000) || writer.exitStatus() != QProcess::NormalExit ||
-        writer.exitCode() != 0)
+        writer.exitCode() != 0 || !QFileInfo::exists(dwg))
         return 1;
-    if (!QFileInfo::exists(dwg))
-        return 1;
+    window.findChild<QAction*>("themeSwitch")->trigger();
+    properties->show();
+    layers->show();
     window.findChild<QDockWidget*>("CommandLine")->show();
-    window.findChild<QAction*>("localeSwitch")->trigger();
     window.findChild<QPlainTextEdit*>()->clear(); // keep only the import report in the transcript
     if (!window.openDrawing(dwg))
         return 1;

@@ -4,6 +4,7 @@
 #include <QAction>
 #include <QColor>
 #include <QComboBox>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -15,6 +16,8 @@
 #include <QToolButton>
 #include <QIcon>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace {
 QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
@@ -40,8 +43,14 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     button->setAutoRaise(true);
     button->setIconSize({22, 22});
-    button->setMinimumWidth(52);
-    button->setMaximumWidth(110);
+    // Fit the whole command name instead of eliding it to "Сопр...": a CAD ribbon must be readable
+    // without hovering, so the width follows the longest label the active language produces.
+    QFont font = button->font();
+    font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
+    button->setFont(font);
+    const int needed = QFontMetrics(font).horizontalAdvance(action->iconText()) + 16;
+    button->setMinimumWidth(std::clamp(needed, 54, 104));
+    button->setMaximumWidth(std::clamp(needed, 84, 120));
     return button;
 }
 const QColor kColors[] = {QColor("#e6403a"), QColor("#f0a63a"), QColor("#f5e14a"), QColor("#54c46a"),
