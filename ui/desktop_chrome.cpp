@@ -79,11 +79,11 @@ void MainWindow::setupChrome() {
         action->setIcon(icon(name));
         bars_[b]->addAction(action);
     };
-    add(0, new_, "new";
-    add(0, open_, "open";
-    add(0, save_, "save";
-    add(2, undo_, "undo";
-    add(2, redo_, "redo";
+    add(0, new_, "new");
+    add(0, open_, "open");
+    add(0, save_, "save");
+    add(2, undo_, "undo");
+    add(2, redo_, "redo");
     bars_[2]->addSeparator();
     const QStringList draw{"line", "pline", "circle", "arc", "rectang", "polygon", "hatch"};
     const QStringList modify{"move", "copy", "rotate", "scale", "mirror", "trim", "extend",
@@ -109,12 +109,12 @@ void MainWindow::setupChrome() {
     erase_->setIcon(icon("erase"));
     repeat_->setIcon(icon("redo"));
     exportPdf_->setIcon(icon("pdf"));
-    add(4, extents_, "extents";
+    add(4, extents_, "extents");
     grid_ = view_->addAction(QString());
     grid_->setObjectName("gridMode");
     grid_->setCheckable(true);
     grid_->setChecked(cfg.value("view/grid", true).toBool());
-    add(4, grid_, "grid";
+    add(4, grid_, "grid");
     grid_->setShortcut(Qt::Key_F7);
     connect(grid_, &QAction::toggled, this, [this](bool on) {
         if (canvas_)
