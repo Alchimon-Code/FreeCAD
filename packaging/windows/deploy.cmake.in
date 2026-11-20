@@ -33,6 +33,12 @@ foreach(dll IN LISTS resolved)
     endif()
 endforeach()
 
+# LibreDWG's upstream install tree is not part of the payload; only tools/libredwg ships.
+file(GLOB pd_stray "${stage}/libredwg-*")
+if(pd_stray)
+    file(REMOVE_RECURSE ${pd_stray})
+endif()
+
 set(triplet "@VCPKG_TARGET_TRIPLET@")
 set(installed "@VCPKG_INSTALLED_DIR@")
 set(crt "@CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS@")

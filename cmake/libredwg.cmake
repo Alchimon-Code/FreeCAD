@@ -48,5 +48,9 @@ add_custom_target(pd_dwg_tools ALL
 add_dependencies(pd_dwg_tools dwg2dxf dxf2dwg)
 
 install(TARGETS dwg2dxf dxf2dwg RUNTIME DESTINATION tools/libredwg)
+# Upstream's own install() rules publish dwgread/dwg2SVG and a private library tree under
+# libredwg-<version>/. PlaneDraft ships only the two exchange programs, so drop that staging copy
+# after all upstream rules have run (the converters are built statically).
+install(CODE "file(REMOVE_RECURSE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/libredwg-${PD_LIBREDWG_VERSION}\")")
 install(FILES "${libredwg_SOURCE_DIR}/COPYING" RENAME "LibreDWG-${PD_LIBREDWG_VERSION}-GPL-3.0.txt"
         DESTINATION LICENSES)
