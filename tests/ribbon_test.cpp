@@ -79,10 +79,12 @@ TEST_F(RibbonWorkspace, TabsPanelsQuickAccessAndStyleCombosExist) {
     EXPECT_EQ(ribbon->weightBox()->itemText(1), QStringLiteral("By block"));
     // Panel titles are translated from the source each label remembers, so inserting a panel cannot
     // shift the title of its neighbour (the Insert tab once read "Dimensions" above Clipboard).
-    const auto pages = ribbon->findChildren<QScrollArea*>("ribbonScroll");
-    ASSERT_EQ(pages.size(), 5);
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    auto* insert = qobject_cast<QScrollArea*>(stack->widget(1)); // tab 1 is Insert
+    ASSERT_NE(insert, nullptr);
     QStringList insertTitles;
-    for (auto* label : pages[1]->findChildren<QLabel*>("ribbonPanelTitle"))
+    for (auto* label : insert->findChildren<QLabel*>("ribbonPanelTitle"))
         insertTitles << label->property("titleSource").toString();
     EXPECT_EQ(insertTitles, QStringList({"Block", "Clipboard", "Import and scripts"}));
 }
