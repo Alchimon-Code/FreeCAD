@@ -31,50 +31,71 @@ jobs:
       - name: Build and run both variants
         shell: pwsh
         run: |
-          $report = @()
+          $ErrorActionPreference = 'Continue'
+          $report = 'docs/probe-results.txt'
+          'probe start' | Set-Content -LiteralPath $report -Encoding utf8
+          Add-Content $report "perl=$((Get-Command perl -ErrorAction SilentlyContinue).Source)"
           $tiny = Join-Path $env:RUNNER_TEMP 'tiny.dxf'
           @(
             '0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC',
             '0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0',
             '11','10.0','21','0.0','0','ENDSEC','0','EOF'
           ) | Set-Content -LiteralPath $tiny -Encoding ascii
+          $flat = { param($t) if ($null -eq $t) { '' } else { ($t -replace "\r?\n", ' / ').Trim() } }
           foreach ($variant in @('default', 'no-opt')) {
-            $build = "build-$variant"
-            $extra = @()
-            if ($variant -eq 'no-opt') { $extra = @('-DCMAKE_C_FLAGS_RELEASE=/Od') }
-            cmake -S src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF `
-              -DBUILD_TESTING=OFF -DLIBREDWG_LIBONLY=OFF -DLIBREDWG_DISABLE_JSON=ON -DENABLE_LTO=OFF `
-              -DDISABLE_WERROR=ON @extra | Out-Null
-            if ($LASTEXITCODE -ne 0) { $report += "variant=$variant configure failed"; continue }
-            cmake --build $build --target dxf2dwg --parallel 2 | Select-Object -Last 3 | Out-Null
-            if ($LASTEXITCODE -ne 0) { $report += "variant=$variant build failed"; continue }
-            $exe = Get-ChildItem -Recurse -Filter dxf2dwg.exe $build | Select-Object -First 1
-            $out = Join-Path $env:RUNNER_TEMP "$variant.dwg"
-            $p = Start-Process -FilePath $exe.FullName -PassThru -NoNewWindow `
-              -ArgumentList @('-o', $out, $tiny) `
-              -RedirectStandardOutput ($out + '.out') -RedirectStandardError ($out + '.err')
-            $finished = $p.WaitForExit(60000)
-            $cpu = if ($finished) { 'n/a' } else { try { [math]::Round($p.TotalProcessorTime.TotalSeconds, 2) } catch { 'n/a' } }
-            $stdout = if (Test-Path ($out + '.out')) { Get-Content -Raw ($out + '.out') } else { '' }
-            $stderr = if (Test-Path ($out + '.err')) { Get-Content -Raw ($out + '.err') } else { '' }
-            $size = if (Test-Path $out) { (Get-Item $out).Length } else { 0 }
-            if (!$finished) { $p.Kill() }
-            $flat = { param($t) if ($null -eq $t) { '' } else { ($t -replace "\r?\n", ' / ').Trim() } }
-            $report += "variant=$variant finished=$finished cpu=$cpu size=$size stdout=$(& $flat $stdout) stderr=$(& $flat $stderr)"
-            Remove-Item $out -ErrorAction SilentlyContinue
+            try {
+              $build = "build-$variant"
+              $extra = @()
+              if ($variant -eq 'no-opt') { $extra = @('-DCMAKE_C_FLAGS_RELEASE=/Od') }
+              $log = Join-Path $env:RUNNER_TEMP "configure-$variant.log"
+              & cmake -S src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF `
+                -DBUILD_TESTING=OFF -DLIBREDWG_LIBONLY=OFF -DLIBREDWG_DISABLE_JSON=ON -DENABLE_LTO=OFF `
+                -DDISABLE_WERROR=ON @extra *> $log
+              Add-Content $report "variant=$variant configure_exit=$LASTEXITCODE"
+              if ($LASTEXITCODE -ne 0) {
+                Add-Content $report ("configure_tail=" + (& $flat ((Get-Content $log -Tail 12) -join "`n")))
+                continue
+              }
+              & cmake --build $build --target dxf2dwg --parallel 2 *> (Join-Path $env:RUNNER_TEMP "build-$variant.log")
+              Add-Content $report "variant=$variant build_exit=$LASTEXITCODE"
+              $exe = Get-ChildItem -Recurse -Filter dxf2dwg.exe $build -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+              if (!$exe) { Add-Content $report "variant=$variant no_exe"; continue }
+              $classes = Get-ChildItem -Recurse -Filter classes.inc $build -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+              Add-Content $report "variant=$variant exe=$($exe.FullName) classes_inc=$($classes.Length)"
+              $out = Join-Path $env:RUNNER_TEMP "$variant.dwg"
+              Remove-Item $out -ErrorAction SilentlyContinue
+              $p = Start-Process -FilePath $exe.FullName -PassThru -NoNewWindow `
+                -ArgumentList @('-o', $out, $tiny) `
+                -RedirectStandardOutput ($out + '.out') -RedirectStandardError ($out + '.err')
+              $finished = $p.WaitForExit(60000)
+              $cpu = 'n/a'
+              if (!$finished) { try { $cpu = [math]::Round($p.TotalProcessorTime.TotalSeconds, 2) } catch {} }
+              $stdout = if (Test-Path ($out + '.out')) { Get-Content -Raw ($out + '.out') } else { '' }
+              $stderr = if (Test-Path ($out + '.err')) { Get-Content -Raw ($out + '.err') } else { '' }
+              $size = if (Test-Path $out) { (Get-Item $out).Length } else { 0 }
+              if (!$finished) { $p.Kill() }
+              Add-Content $report ("variant=$variant finished=$finished cpu=$cpu size=$size stdout=" +
+                (& $flat $stdout) + " stderr=" + (& $flat $stderr))
+            } catch {
+              Add-Content $report "variant=$variant exception=$_"
+            }
           }
           $cdb = @(
             'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe',
             'C:\Program Files\Windows Kits\10\Debuggers\x64\cdb.exe'
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          $report += "cdb=$cdb"
-          $report | Set-Content -LiteralPath docs/probe-results.txt -Encoding utf8
-          Get-Content docs/probe-results.txt
+          Add-Content $report "cdb=$cdb"
+          Add-Content $report 'probe done'
+          Get-Content $report
       - name: Commit the report
+        if: always()
         shell: pwsh
         run: |
           git config user.name 'PlaneDraft CI'
           git config user.email 'ci@users.noreply.github.com'
           git add docs/probe-results.txt
+          if (git diff --cached --quiet) { exit 0 }
           git commit -m 'Record the converter probe result [skip ci]'
           git push origin HEAD:${{ github.ref_name }}
