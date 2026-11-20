@@ -224,7 +224,9 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
     QStringList clipped;
     for (auto* button : ribbon->findChildren<QToolButton*>()) {
         const auto text = button->text();
-        if (text.isEmpty() || button->isHidden())
+        // The quick access toolbar shows icons only; its caption lives in the tooltip.
+        if (text.isEmpty() || button->isHidden() ||
+            button->toolButtonStyle() == Qt::ToolButtonIconOnly)
             continue;
         const int needed = button->fontMetrics().horizontalAdvance(text);
         if (button->minimumWidth() < needed)

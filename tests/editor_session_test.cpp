@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "command_session.h"
 #include "language.h"
+#include <QRegularExpression>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
@@ -454,7 +455,10 @@ TEST(EditSession, RussianNamesOfTheNewCommandsResolve) {
     auto distance = s.execute("ДИСТ 0,0 3,4");
     EXPECT_TRUE(distance.contains("5.000")) << distance.toStdString();
     auto area = s.execute("ПЛОЩАДЬ #1");
-    EXPECT_TRUE(area.contains("40")) << area.toStdString();
+    // 20 x 10 mm polygon: accept the translation and either decimal separator.
+    const auto number = QRegularExpression(QStringLiteral("([0-9]+[.,][0-9]+)")).match(area);
+    ASSERT_TRUE(number.hasMatch()) << area.toStdString();
+    EXPECT_NEAR(number.captured(1).replace(',', '.').toDouble(), 200.0, 0.01) << area.toStdString();
     s.setSelectionProvider([] { return std::vector<EntityId>{1}; });
     s.execute("КОПИРОВАТЬВБУФЕР");
     ASSERT_FALSE(s.clipboardEmpty());

@@ -38,20 +38,26 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     *out = label;
     return frame;
 }
+// Fit the whole command name instead of eliding it to "Сопр...": a CAD ribbon must be readable
+// without hovering, so the width follows the longest label the active language produces. Captions
+// are translated after the panel exists, so the same helper runs again whenever the action changes.
+void fitCaption(QToolButton* button, const QAction* action) {
+    const auto text = action->iconText();
+    const int needed = button->fontMetrics().horizontalAdvance(text) + 18;
+    button->setMinimumWidth(std::max(54, needed));
+    button->setMaximumWidth(std::max(84, needed + 16));
+}
 QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     auto* button = new QToolButton(parent);
     button->setDefaultAction(action);
     button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     button->setAutoRaise(true);
     button->setIconSize({22, 22});
-    // Fit the whole command name instead of eliding it to "Сопр...": a CAD ribbon must be readable
-    // without hovering, so the width follows the longest label the active language produces.
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
-    const int needed = QFontMetrics(font).horizontalAdvance(action->iconText()) + 18;
-    button->setMinimumWidth(std::max(54, needed));
-    button->setMaximumWidth(std::max(84, needed + 16));
+    fitCaption(button, action);
+    QObject::connect(action, &QAction::changed, button, [button, action] { fitCaption(button, action); });
     return button;
 }
 const QColor kColors[] = {QColor("#e6403a"), QColor("#f0a63a"), QColor("#f5e14a"), QColor("#54c46a"),
