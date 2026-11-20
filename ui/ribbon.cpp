@@ -7,6 +7,7 @@
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QStackedWidget>
@@ -48,9 +49,9 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
-    const int needed = QFontMetrics(font).horizontalAdvance(action->iconText()) + 16;
-    button->setMinimumWidth(std::clamp(needed, 54, 104));
-    button->setMaximumWidth(std::clamp(needed, 84, 120));
+    const int needed = QFontMetrics(font).horizontalAdvance(action->iconText()) + 18;
+    button->setMinimumWidth(std::clamp(needed, 54, 132));
+    button->setMaximumWidth(std::clamp(needed, 84, 150));
     return button;
 }
 const QColor kColors[] = {QColor("#e6403a"), QColor("#f0a63a"), QColor("#f5e14a"), QColor("#54c46a"),
@@ -121,13 +122,24 @@ void Ribbon::addPage(const QString& key) {
     row->setContentsMargins(0, 0, 0, 0);
     row->setSpacing(0);
     row->addStretch(1);
-    pages_->addWidget(widget);
+    // A page keeps its natural width instead of squeezing panel buttons until their captions
+    // elide to "От..."; a narrow window scrolls, which is what a real ribbon does too.
+    auto* scroll = new QScrollArea(pages_);
+    scroll->setObjectName("ribbonScroll");
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setWidget(widget);
+    pages_->addWidget(scroll);
+    rows_.insert(key, widget);
 }
 
 QWidget* Ribbon::page(const QString& key) {
     if (!index_.contains(key))
         addPage(key);
-    return pages_->widget(index_[key]);
+    auto* widget = rows_.value(key);
+    return widget ? widget : pages_->widget(index_[key]);
 }
 
 void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<QAction*>& actions,

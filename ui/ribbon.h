@@ -47,6 +47,7 @@ class Ribbon final : public QWidget {
     QToolBar* quickAccess_;
     QComboBox *layer_, *color_, *weight_;
     QHash<QString, int> index_;
+    QHash<QString, QWidget*> rows_; // the scrolling page content, without the viewport
     QList<QLabel*> panelLabels_;
     bool writing_ = false;
 };
