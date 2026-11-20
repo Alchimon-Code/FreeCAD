@@ -3,6 +3,7 @@
 #include "vector_sheet.hpp"
 #include <charconv>
 #include <iomanip>
+#include <numbers>
 namespace pd::io {
 namespace {
 std::string n(double v) {

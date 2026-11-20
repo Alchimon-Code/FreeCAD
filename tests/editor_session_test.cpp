@@ -4,6 +4,7 @@
 #include <QSettings>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
+#include <numbers>
 namespace {
 using namespace pd;
 using Step = EditController::Step;

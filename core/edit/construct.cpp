@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "detail.hpp"
+#include <numbers>
 
 namespace pd::edit {
 using namespace detail;

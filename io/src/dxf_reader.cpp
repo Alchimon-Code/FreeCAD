@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "dxf_common.hpp"
 #include <cmath>
+#include <numbers>
 #include <numeric>
 #include <optional>
 #include <planedraft/drafting.hpp>

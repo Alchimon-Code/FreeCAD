@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "vector_sheet.hpp"
+#include <numbers>
 #include <set>
 namespace pd::io {
 namespace {
