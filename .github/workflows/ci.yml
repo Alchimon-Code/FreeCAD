@@ -153,7 +153,11 @@ jobs:
             $dump = & $cdb -p $p.Id -y $symbols -c '~*kb 12; q' 2>&1 | Out-String
           }
           $p.Kill()
-          $flat = ($dump -replace '\s+', ' ').Trim()
+          # Keep only the frames: cdb prefixes megabytes of extension-gallery noise.
+          $frames = ($dump -split "`r?`n" |
+            Where-Object { $_ -match '\+0x[0-9a-f]+' -or $_ -match '^\s*\d+\s+Id:' }) |
+            Select-Object -First 40
+          $flat = (($frames -join ' | ') -replace '\s+', ' ').Trim()
           if ($flat.Length -gt 3500) { $flat = $flat.Substring(0, 3500) }
           Write-Output "::error title=DWG writer stack::$flat"
       - name: Ensure the Inno Setup compiler is available
