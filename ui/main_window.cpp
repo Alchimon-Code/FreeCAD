@@ -548,10 +548,8 @@ void MainWindow::retranslate() {
     layers_->retranslate();
     console_->setWindowTitle(tr("Command line"));
     completions_->setStringList(session_->completions());
-    if (ribbon_) {
-        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+    if (ribbon_)
         ribbon_->retranslate();
-    }
     (language_.russian() ? russian_ : english_)->setChecked(true);
     updatePrompt();
     updateEditState();
@@ -599,10 +597,8 @@ void MainWindow::attach(DrawingPage* p) {
     connect(s, &CommandSession::vocabularyChanged, p, [this, p] {
         if (page_ == p)
             completions_->setStringList(session_->completions());
-    if (ribbon_) {
-        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+    if (ribbon_)
         ribbon_->retranslate();
-    }
     });
     connect(&s->editor(), &EditController::stateChanged, p, [this, p] {
         if (page_ == p)
@@ -658,10 +654,8 @@ void MainWindow::activate(int index) {
     inspector_->bind(session_, canvas_);
     layers_->bind(session_);
     completions_->setStringList(session_->completions());
-    if (ribbon_) {
-        ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+    if (ribbon_)
         ribbon_->retranslate();
-    }
     updateTitle();
     updateTabs();
     updateEditState();

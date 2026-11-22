@@ -251,9 +251,14 @@ void Ribbon::setCurrentPage(int index) {
 }
 int Ribbon::currentPage() const { return tabs_->currentIndex(); }
 
-void Ribbon::setPageTitles(const QStringList& titles) {
-    for (int i = 0; i < tabs_->count() && i < titles.size(); ++i)
-        tabs_->setTabText(i, titles[i]);
+void Ribbon::setPageTitles(const QStringList& sources) {
+    pageSources_ = sources;
+    applyPageTitles();
+}
+
+void Ribbon::applyPageTitles() {
+    for (int i = 0; i < tabs_->count() && i < pageSources_.size(); ++i)
+        tabs_->setTabText(i, QCoreApplication::translate("MainWindow", pageSources_[i].toUtf8().constData()));
 }
 
 void Ribbon::retranslate() {
@@ -263,6 +268,7 @@ void Ribbon::retranslate() {
         const auto source = label->property("titleSource").toString();
         label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
     }
+    applyPageTitles();
 }
 
 void Ribbon::refreshLayers(const QStringList& names, const QString& current) {

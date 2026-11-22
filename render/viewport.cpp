@@ -25,13 +25,7 @@ Viewport::Viewport(const pd::Document& doc, QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::BlankCursor);
     camera_.resize(width(), height());
-    dynInput_ = new QLabel(this);
-    dynInput_->setObjectName("dynamicInput");
-    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
-    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
-                             " background: palette(base); color: palette(text); }");
-    dynInput_->hide();
+    ensureDynamicInput();
     zoomTimer_.setTimerType(Qt::PreciseTimer);
     zoomTimer_.setInterval(12);
     connect(&zoomTimer_, &QTimer::timeout, this, [this] {
@@ -108,13 +102,7 @@ void Viewport::showEvent(QShowEvent* event) {
 void Viewport::resizeEvent(QResizeEvent* e) {
     zoomTimer_.stop();
     camera_.resize(width(), height());
-    dynInput_ = new QLabel(this);
-    dynInput_->setObjectName("dynamicInput");
-    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
-    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
-                             " background: palette(base); color: palette(text); }");
-    dynInput_->hide();
+    ensureDynamicInput();
     refreshCursor();
     QOpenGLWidget::resizeEvent(e);
 }
@@ -137,13 +125,7 @@ void Viewport::zoomExtents() {
     fitOnShow_ = !isVisible();
     zoomTimer_.stop();
     camera_.resize(width(), height());
-    dynInput_ = new QLabel(this);
-    dynInput_->setObjectName("dynamicInput");
-    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
-    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
-                             " background: palette(base); color: palette(text); }");
-    dynInput_->hide();
+    ensureDynamicInput();
     camera_.fit(page_ ? pd::BoundingBox2D({}, page_->size()) : doc_.extents());
     refreshCursor();
 }
@@ -264,13 +246,7 @@ void Viewport::showSpace(std::optional<pd::Layout> page) {
     else {
         camera_ = savedModel_;
         camera_.resize(width(), height());
-    dynInput_ = new QLabel(this);
-    dynInput_->setObjectName("dynamicInput");
-    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
-    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
-                             " background: palette(base); color: palette(text); }");
-    dynInput_->hide();
+        ensureDynamicInput();
         refreshCursor();
     }
 }
@@ -546,6 +522,22 @@ void Viewport::applyDynamicInput() {
     refreshDynamicInput();
     refreshCursor();
 }
+
+// The label lives as long as the viewport. Re-creating it on every resize, zoom-extents and page
+// switch piled up hidden children behind the visible one and made findChild("dynamicInput") pick an
+// arbitrary label instead of the one that carries the current length and angle.
+void Viewport::ensureDynamicInput() {
+    if (dynInput_)
+        return;
+    dynInput_ = new QLabel(this);
+    dynInput_->setObjectName("dynamicInput");
+    dynInput_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dynInput_->setAttribute(Qt::WA_StyledBackground, true);
+    dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
+                             " background: palette(base); color: palette(text); }");
+    dynInput_->hide();
+}
+
 void Viewport::refreshDynamicInput() {
     if (!dynInput_)
         return;

@@ -101,6 +101,7 @@ class Viewport final : public QOpenGLWidget {
     QLabel* dynInput_ = nullptr;
     bool selecting() const;
     bool typeDynamic(QKeyEvent*);
+    void ensureDynamicInput();
     void refreshDynamicInput();
     void applyDynamicInput();
     std::optional<std::pair<pd::EntityId, size_t>> gripAt(pd::Vec2 screen) const;

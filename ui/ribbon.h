@@ -30,7 +30,9 @@ class Ribbon final : public QWidget {
     [[nodiscard]] QComboBox* layerBox() const { return layer_; }
     [[nodiscard]] QComboBox* colorBox() const { return color_; }
     [[nodiscard]] QComboBox* weightBox() const { return weight_; }
-    void setPageTitles(const QStringList& titles);
+    // Tab titles, like panel titles, keep the source string they were created from, so the three
+    // copies of the same positional list cannot drift apart.
+    void setPageTitles(const QStringList& sources);
     // Panel titles are translated from the source string each panel remembers, so adding a panel can
     // never shift the title of the panel next to it.
     void retranslate();
@@ -44,6 +46,7 @@ class Ribbon final : public QWidget {
 
   private:
     QWidget* page(const QString& key);
+    void applyPageTitles();
     QTabBar* tabs_;
     QStackedWidget* pages_;
     QToolBar* quickAccess_;
@@ -51,5 +54,6 @@ class Ribbon final : public QWidget {
     QHash<QString, int> index_;
     QHash<QString, QWidget*> rows_; // the scrolling page content, without the viewport
     QList<QLabel*> panelLabels_;
+    QStringList pageSources_;
     bool writing_ = false;
 };

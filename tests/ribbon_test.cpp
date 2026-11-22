@@ -227,6 +227,18 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
 }
 
+// The overlay label belongs to the viewport, not to the last resize: recreating it made
+// findChild("dynamicInput") return one of several stale labels.
+TEST_F(RibbonWorkspace, DynamicInputLabelIsCreatedOncePerViewport) {
+    window->show();
+    auto* view = window->activeView();
+    ASSERT_NE(view->findChild<QLabel*>("dynamicInput"), nullptr);
+    window->resize(1200, 800);
+    view->zoomExtents();
+    QApplication::processEvents();
+    EXPECT_EQ(view->findChildren<QLabel*>("dynamicInput").size(), 1);
+}
+
 // A ribbon is read by label, not by tooltip: no button may ask for less than its own caption, so
 // the layout never has to fall back to "От...".
 TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
@@ -243,7 +255,7 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
             button->toolButtonStyle() == Qt::ToolButtonIconOnly)
             continue;
         // Ask the painter's own question: would the style elide this caption in the space the
-        // button reserves? That is exactly the difference between "Полилиния" and "Полилиния...".
+        // button reserves? That is the difference between "Полилиния" and "Полилиния…".
         const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
         const int room = button->minimumWidth() - 2 * margin;
         const int advance = button->fontMetrics().horizontalAdvance(text);

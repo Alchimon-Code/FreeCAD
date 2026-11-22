@@ -253,20 +253,28 @@ void MainWindow::buildRibbon() {
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), ribbon_->colorBox());
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Line weight"), ribbon_->weightBox());
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Block"), list({"BLOCK", "INSERT"}));
-    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"), list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
-    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Import and scripts"), {open_, save_, runScript_}, 2);
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"),
+                      list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Import and scripts"),
+                      {open_, save_, runScript_}, 2);
     ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Dimensions"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE"}),
                       3);
-    ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Measure"), list({"DIST", "AREA", "HATCH"}));
+    ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Measure"),
+                      list({"DIST", "AREA", "HATCH"}));
     ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Zoom and grid"), {extents_, grid_});
-    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Drafting aids"), {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
+    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Drafting aids"),
+                      {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
     ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Appearance"), {theme_, panels_->menuAction()});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Scripts"), {runScript_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Application"), {quit_});
-    ribbon_->setPageTitles({tr("Home"), tr("Insert"), tr("Annotate"), tr("View"), tr("Manage")});
+    ribbon_->setPageTitles({QT_TRANSLATE_NOOP("MainWindow", "Home"),
+                            QT_TRANSLATE_NOOP("MainWindow", "Insert"),
+                            QT_TRANSLATE_NOOP("MainWindow", "Annotate"),
+                            QT_TRANSLATE_NOOP("MainWindow", "View"),
+                            QT_TRANSLATE_NOOP("MainWindow", "Manage")});
     syncRibbon();
 }
 void MainWindow::showCoordinates(bool valid, double x, double y) {

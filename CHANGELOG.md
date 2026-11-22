@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Dynamic input:** the length/angle label is created once per viewport. It used to be recreated on
+  every resize, zoom-extents and model/paper switch, which piled up hidden children and left
+  `findChild("dynamicInput")` pointing at an arbitrary label.
+- **Ribbon:** tab titles are translated from the source strings they were built from, exactly like
+  the panel titles, so the three copies of the same positional list in `MainWindow` are gone.
+
 ## v0.2.0
 
 Verified by the five CI jobs and by the Windows payload that ran its own converters on a real drawing and round-tripped `panel.dxf` through DWG; 27 runtime files in the inventory.
