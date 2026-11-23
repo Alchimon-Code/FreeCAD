@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
+#include <QPaintEvent>
 #include <QPlainTextEdit>
 #include <QSettings>
 #include <QStatusBar>
@@ -62,6 +63,28 @@ constexpr pd::SnapType types[] = {pd::SnapType::Endpoint,     pd::SnapType::Midp
                                   pd::SnapType::Intersection, pd::SnapType::Nearest,  pd::SnapType::Quadrant,
                                   pd::SnapType::Insertion};
 } // namespace
+namespace {
+// AutoCAD's status bar is a row of flat cells: a hairline between them and, for a pressed toggle, a
+// coloured underline instead of a raised button. The native drawing is kept and only the two lines
+// are added, so the OSNAP menu arrow and the theme's own text rendering stay intact.
+class StatusCell : public QToolButton {
+  public:
+    using QToolButton::QToolButton;
+
+  protected:
+    void paintEvent(QPaintEvent* event) override {
+        QToolButton::paintEvent(event);
+        QPainter painter(this);
+        painter.setPen(palette().color(QPalette::Mid));
+        painter.drawLine(width() - 1, 3, width() - 1, height() - 4);
+        if (isChecked()) {
+            painter.setPen(QPen(palette().color(QPalette::Highlight), 2));
+            painter.drawLine(2, height() - 1, width() - 3, height() - 1);
+        }
+    }
+};
+} // namespace
+
 void MainWindow::setupChrome() {
     Q_INIT_RESOURCE(pd_icons);
     QSettings cfg;
@@ -180,7 +203,7 @@ void MainWindow::setupChrome() {
     });
     connect(lang_, &QAction::triggered, this, [this] { chooseLanguage(!language_.russian()); });
     for (auto a : {grid_, ortho_, polar_, osnap_, lang_, theme_}) {
-        auto b = new QToolButton(this);
+        auto b = new StatusCell(this);
         b->setDefaultAction(a);
         b->setAutoRaise(true);
         b->setToolButtonStyle(Qt::ToolButtonTextOnly);

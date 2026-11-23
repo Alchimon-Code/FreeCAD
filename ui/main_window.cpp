@@ -228,6 +228,9 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     layout->addWidget(history_);
     layout->addWidget(input_);
     console_->setWidget(panel);
+    // AutoCAD's command line has no caption bar: the prompt and the history above it are the whole
+    // widget, and the dock is still reachable from View - Panels and from Ctrl+9.
+    console_->setTitleBarWidget(new QWidget(console_));
     addDockWidget(Qt::BottomDockWidgetArea, console_);
     entityCount_ = new QLabel(this);
     inspector_ = new PropertyInspector(this);

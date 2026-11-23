@@ -26,9 +26,11 @@
 #include <algorithm>
 
 namespace {
-// The panel separator is painted from the palette instead of a style-sheet rule: a style sheet on the
-// frame freezes the palettes of the buttons it polishes, so switching to the light theme left every
-// caption in the dark theme's text colour — visible only as a nearly invisible ribbon.
+// AutoCAD frames every ribbon panel as its own group with the caption inside the frame, and the tabs
+// sit on a darker band with the active tab merging into the page below. All of it is painted from the
+// palette instead of a style-sheet rule: a style sheet on the frame freezes the palettes of the
+// buttons it polishes, so switching to the light theme left every caption in the dark theme's text
+// colour — visible only as a nearly invisible ribbon.
 class PanelFrame : public QFrame {
   public:
     explicit PanelFrame(QWidget* parent = nullptr) : QFrame(parent) {
@@ -37,11 +39,50 @@ class PanelFrame : public QFrame {
     }
 
   protected:
-    void paintEvent(QPaintEvent* event) override {
-        QFrame::paintEvent(event);
+    void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
+        const QRect group = rect().adjusted(0, 0, -1, -1);
+        painter.fillRect(group, palette().color(QPalette::Base));
         painter.setPen(palette().color(QPalette::Mid));
-        painter.drawLine(width() - 1, 0, width() - 1, height() - 1);
+        painter.drawRect(group);
+    }
+};
+
+// The tab strip: a darker band with the current tab painted in the page colour, so the two read as
+// one surface the way they do in AutoCAD, instead of a browser-style tab with an accent bar under it.
+class RibbonTabBar : public QTabBar {
+  public:
+    using QTabBar::QTabBar;
+
+  protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        const QColor band = palette().color(QPalette::Window).darker(108);
+        const QColor page = palette().color(QPalette::Window);
+        const QColor ink = palette().color(QPalette::WindowText);
+        const QColor edge = palette().color(QPalette::Mid);
+        painter.fillRect(rect(), band);
+        for (int i = 0; i < count(); ++i) {
+            const QRect cell = tabRect(i);
+            if (cell.isEmpty())
+                continue;
+            if (i == currentIndex()) {
+                // The current tab merges into the page: no bottom edge, an accent line on top.
+                const QRect surface = cell.adjusted(0, 2, 0, 0);
+                painter.fillRect(surface, page);
+                painter.setPen(edge);
+                painter.drawLine(surface.topLeft(), surface.topRight());
+                painter.drawLine(surface.topLeft(), surface.bottomLeft());
+                painter.drawLine(surface.topRight(), surface.bottomRight());
+                painter.setPen(palette().color(QPalette::Highlight));
+                painter.drawLine(surface.left(), surface.top(), surface.right(), surface.top());
+            } else {
+                painter.setPen(edge);
+                painter.drawLine(cell.topRight(), cell.bottomRight());
+            }
+            painter.setPen(ink);
+            painter.drawText(cell, Qt::AlignCenter, tabText(i));
+        }
     }
 };
 
@@ -51,7 +92,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // frame spreads a two-row grid over the whole strip, which reads as a broken layout.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(8, 4, 8, 2);
+    box->setContentsMargins(9, 6, 9, 4);
     box->setSpacing(2);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
@@ -124,19 +165,18 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     quickAccess_->setMovable(false);
     quickAccess_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     box->addWidget(quickAccess_);
-    tabs_ = new QTabBar(this);
+    tabs_ = new RibbonTabBar(this);
     tabs_->setObjectName("ribbonTabs");
     tabs_->setExpanding(false);
     tabs_->setDrawBase(false);
     box->addWidget(tabs_);
-    auto* stripe = new QFrame(this);
-    stripe->setObjectName("ribbonStripe");
-    stripe->setFixedHeight(3);
-    stripe->setStyleSheet("#ribbonStripe { background: palette(highlight); }");
     pages_ = new QStackedWidget(this);
     pages_->setObjectName("ribbonPages");
     pages_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    box->addWidget(stripe);
+    // The page strip takes the window colour and the panels are drawn as their own groups on it, so
+    // the ribbon reads as a band of framed commands rather than a row of floating buttons.
+    pages_->setBackgroundRole(QPalette::Window);
+    pages_->setAutoFillBackground(true);
     box->addWidget(pages_);
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
 
@@ -174,8 +214,8 @@ void Ribbon::addPage(const QString& key) {
     index_[key] = tabs_->addTab(QString());
     auto* widget = new QWidget(pages_);
     auto* row = new QHBoxLayout(widget);
-    row->setContentsMargins(0, 0, 0, 0);
-    row->setSpacing(0);
+    row->setContentsMargins(3, 3, 3, 3);
+    row->setSpacing(3);
     row->addStretch(1);
     // A page keeps its natural width instead of squeezing panel buttons until their captions
     // elide to "От..."; a narrow window scrolls, which is what a real ribbon does too.
@@ -185,6 +225,8 @@ void Ribbon::addPage(const QString& key) {
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->viewport()->setAutoFillBackground(true);
+    scroll->viewport()->setBackgroundRole(QPalette::Window);
     scroll->setWidget(widget);
     pages_->addWidget(scroll);
     rows_.insert(key, widget);
