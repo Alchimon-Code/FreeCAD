@@ -58,7 +58,7 @@ QString commandTitle(const QByteArray& cmd, bool russian) {
         if (const auto found = english.constFind(cmd); found != english.constEnd())
             return QString::fromLatin1(*found);
     }
-    QString label = QCoreApplication::translate("CommandNames", cmd.constData());
+    QString label = QCoreApplication::translate("CommandNames", cmd.constData()).toLower();
     if (label.isEmpty())
         return QString::fromLatin1(cmd);
     label[0] = label[0].toUpper();
