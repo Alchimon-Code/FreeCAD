@@ -25,6 +25,16 @@
   `findChild("dynamicInput")` pointing at an arbitrary label.
 - **Ribbon:** tab titles are translated from the source strings they were built from, exactly like
   the panel titles, so the three copies of the same positional list in `MainWindow` are gone.
+- **Ribbon, drawn like AutoCAD's:** every panel is its own framed group on the page, the current tab
+  merges into the page on a darker band, and the strip is exactly as tall as the tab in front of the
+  user, so a short Insert page no longer leaves a block of empty ribbon. Panels lead with one large
+  command and list the rest as small entries beside it, and a double click on a tab minimizes the
+  ribbon to its tabs.
+- **Ribbon captions:** a caption is never elided — the button is measured against the label rectangle
+  the style actually paints — and commands are titled the way AutoCAD titles them (`Polyline`,
+  `Rectangle`, `Linear`), with the ellipsis kept for the entries that open a dialog.
+- **Command line and status bar:** the prompt's dock has no caption bar, and the status bar reads as
+  flat cells with a hairline and an accent line under an active toggle, like AutoCAD's.
 
 ## v0.2.0
 
