@@ -423,10 +423,12 @@ TEST(Session, RepeatLastAndRecentCommandsMatchTheTypedNames) {
     auto reply = s.repeatLast();
     EXPECT_TRUE(reply.contains("point")) << reply.toStdString();
     EXPECT_TRUE(s.editor().active());
-    s.execute("0,5"); // finish the repeated LINE with typed points
+    s.execute("0,5"); // the repeated LINE draws segment after segment ...
     s.execute("10,5");
-    EXPECT_FALSE(s.editor().active());
+    EXPECT_TRUE(s.editor().active());
     EXPECT_EQ(s.document().size(), 2u);
+    s.execute(""); // ... until Enter ends it, as in AutoCAD
+    EXPECT_FALSE(s.editor().active());
     CommandSession fresh;
     EXPECT_TRUE(fresh.repeatLast().contains("No previous command"));
 }
