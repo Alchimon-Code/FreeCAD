@@ -439,11 +439,16 @@ TEST(EditSession, ShortAliasesResolveInEnglishAndRussian) {
     EXPECT_EQ(aliases.value("U"), QStringLiteral("UNDO"));
     EXPECT_EQ(aliases.value("PA"), QStringLiteral("PASTECLIP"));
     EXPECT_EQ(aliases.value("ZE"), QStringLiteral("ZOOM"));
-    const std::pair<const char*, const char*> shorthands[] = {
-        {"SE", "DIMSTYLE"},   {"DL", "DIMLINEAR"},    {"DLI", "DIMLINEAR"}, {"DAL", "DIMALIGNED"},
-        {"DRA", "DIMRADIUS"}, {"DDI", "DIMDIAMETER"}, {"DAN", "DIMANGULAR"}};
-    for (auto [alias, target] : shorthands)
-        EXPECT_EQ(aliases.value(alias), QString::fromLatin1(target)) << alias;
+    struct Shorthand {
+        const char* alias;
+        const char* command;
+    };
+    for (const auto& shorthand : {Shorthand{"SE", "DIMSTYLE"},   Shorthand{"DL", "DIMLINEAR"},
+                                  Shorthand{"DLI", "DIMLINEAR"}, Shorthand{"DAL", "DIMALIGNED"},
+                                  Shorthand{"DRA", "DIMRADIUS"}, Shorthand{"DDI", "DIMDIAMETER"},
+                                  Shorthand{"DAN", "DIMANGULAR"}})
+        EXPECT_EQ(aliases.value(shorthand.alias), QString::fromLatin1(shorthand.command))
+            << shorthand.alias;
     s.execute("L 0,30 10,30");
     EXPECT_EQ(d.size(), 9u);
     s.execute("U");

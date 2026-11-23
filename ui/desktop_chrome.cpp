@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
