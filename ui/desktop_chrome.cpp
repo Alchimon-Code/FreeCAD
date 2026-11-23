@@ -284,15 +284,15 @@ void MainWindow::buildRibbon() {
         return actions;
     };
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Draw"),
-                      list({"LINE", "PLINE", "CIRCLE", "ARC", "RECTANG", "POLYGON", "HATCH"}), 4);
+                      list({"LINE", "PLINE", "CIRCLE", "ARC", "RECTANG", "POLYGON", "HATCH"}), 3);
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Modify"),
                       list({"MOVE", "COPY", "ROTATE", "SCALE", "MIRROR", "TRIM", "EXTEND", "OFFSET",
                             "FILLET", "CHAMFER", "ARRAY", "MATCHPROP", "ERASE", "EXPLODE"}),
-                      5);
+                      4);
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Annotate"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE", "DIST", "AREA"}),
-                      4);
+                      3);
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Layers"), ribbon_->layerBox());
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Blocks"), list({"BLOCK", "INSERT"}));
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), ribbon_->colorBox());

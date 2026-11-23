@@ -118,23 +118,25 @@ void fitCaption(QToolButton* button) {
     const auto* style = button->style();
     const int margins = 2 * style->pixelMetric(QStyle::PM_ButtonMargin, nullptr, button) +
                         2 * style->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button);
-    // Fusion keeps about thirty pixels of its own inside a text-under-icon button, a few more than
-    // the margins it reports, so the reserve carries a little air: an extra pixel here costs nothing,
-    // an elided caption costs the user a tooltip on every command.
-    const int caption = button->fontMetrics().horizontalAdvance(button->text());
-    const int needed = std::max(54, caption + margins + 24);
-    button->setMinimumWidth(needed);
-    button->setMaximumWidth(needed);
+    const bool beside = button->toolButtonStyle() == Qt::ToolButtonTextBesideIcon;
     // A button whose caption is still empty reports the height of an icon-only button, so a panel
-    // built before the translations arrive would keep a too short strip. The height of a real caption
-    // is asked from the style instead: one line under the icon costs the same whatever it says.
+    // built before the translations arrive would keep a too short strip. The size of a real caption
+    // is asked from the style instead: one line costs the same whatever it says.
     QStyleOptionToolButton opt;
     opt.initFrom(button);
     opt.icon = button->icon();
     opt.iconSize = button->iconSize();
-    opt.text = button->text().isEmpty() ? QStringLiteral("Wq") : button->text();
-    opt.toolButtonStyle = Qt::ToolButtonTextUnderIcon;
+    const bool empty = button->text().isEmpty();
+    opt.text = empty ? QStringLiteral("Wq") : button->text();
+    opt.toolButtonStyle = button->toolButtonStyle();
     const QSize hint = style->sizeFromContents(QStyle::CT_ToolButton, &opt, button->iconSize(), button);
+    // Fusion keeps about thirty pixels of its own inside a text-under-icon button, a few more than
+    // the margins it reports, so the reserve carries a little air: an extra pixel here costs nothing,
+    // an elided caption costs the user a tooltip on every command.
+    const int caption = button->fontMetrics().horizontalAdvance(opt.text);
+    const int needed = std::max(hint.width(), caption + margins + (beside ? 12 : 24));
+    button->setMinimumWidth(needed);
+    button->setMaximumWidth(needed);
     button->setMinimumHeight(hint.height());
 }
 
@@ -168,12 +170,16 @@ class PageStack : public QStackedWidget {
     QSize minimumSizeHint() const override { return sizeHint(); }
 };
 
-QToolButton* ribbonButton(QAction* action, QWidget* parent) {
+// AutoCAD's panels lead with one large command and list the rest as small entries beside it. The
+// large one carries the caption under a 26 px icon; a small entry keeps the caption beside a 16 px
+// icon, which is what lets nine panels share the Home tab without scrolling.
+QToolButton* ribbonButton(QAction* action, QWidget* parent, bool large = true) {
     auto* button = new QToolButton(parent);
     button->setDefaultAction(action);
-    button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    button->setToolButtonStyle(large ? Qt::ToolButtonTextUnderIcon : Qt::ToolButtonTextBesideIcon);
     button->setAutoRaise(true);
-    button->setIconSize({26, 26});
+    button->setIconSize(large ? QSize(26, 26) : QSize(16, 16));
+    button->setToolTip(action->toolTip());
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
@@ -273,24 +279,38 @@ QWidget* Ribbon::page(const QString& key) {
 }
 
 void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<QAction*>& actions,
-                      int columns) {
+                      int columns, int primary) {
     auto* target = page(pageKey);
     auto* row = qobject_cast<QHBoxLayout*>(target->layout());
     QLabel* label = nullptr;
     auto* frame = panelFrame(title, &label, target);
     auto* buttons = new QWidget(frame);
-    auto* grid = new QGridLayout(buttons);
+    auto* strip = new QHBoxLayout(buttons);
+    strip->setContentsMargins(0, 0, 0, 0);
+    strip->setSpacing(4);
+    auto* leaders = new QVBoxLayout;
+    leaders->setContentsMargins(0, 0, 0, 0);
+    leaders->setSpacing(2);
+    // The first `primary` actions of a panel are its large commands, the rest are small entries.
+    const int first = std::clamp(primary, 0, int(actions.size()));
+    for (int i = 0; i < first; ++i)
+        leaders->addWidget(ribbonButton(actions[i], buttons, true));
+    leaders->addStretch(1);
+    strip->addLayout(leaders);
+    auto* grid = new QGridLayout;
     grid->setContentsMargins(0, 0, 0, 0);
     grid->setSpacing(2);
     columns = std::max(1, columns);
     int rowHeight = 0;
-    for (int i = 0; i < actions.size(); ++i) {
-        auto* button = ribbonButton(actions[i], buttons);
-        grid->addWidget(button, i / columns, i % columns);
+    for (int i = first; i < actions.size(); ++i) {
+        auto* button = ribbonButton(actions[i], buttons, false);
+        grid->addWidget(button, (i - first) / columns, (i - first) % columns);
         rowHeight = std::max(rowHeight, button->sizeHint().height());
     }
-    const int rows = (actions.size() + columns - 1) / columns;
+    const int small = int(actions.size()) - first;
+    const int rows = (small + columns - 1) / columns;
     grid->setRowStretch(rows, 1);
+    strip->addLayout(grid);
     if (rows > 0)
         buttons->setMinimumHeight(rows * rowHeight + (rows - 1) * grid->spacing());
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());

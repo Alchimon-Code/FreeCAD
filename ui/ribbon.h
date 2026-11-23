@@ -18,9 +18,10 @@ class Ribbon final : public QWidget {
   public:
     explicit Ribbon(QWidget* parent = nullptr);
     void addPage(const QString& key);
-    // Actions are laid out top to bottom, one column per `columns` entries.
+    // The first `primary` actions become large buttons, the rest are laid out as small entries,
+    // one column per `columns` entries.
     void addPanel(const QString& page, const QString& title, const QList<QAction*>& actions,
-                  int columns = 1);
+                  int columns = 1, int primary = 1);
     void addPanelWidget(const QString& page, const QString& title, QWidget* widget);
     void setQuickAccess(const QList<QAction*>& actions);
     void setCurrentPage(int index);
