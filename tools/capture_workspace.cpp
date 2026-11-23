@@ -181,6 +181,13 @@ int main(int argc, char** argv) {
     if (!saveFrame(window, out.filePath("ribbon-light-en.png")))
         return 1;
 
+    // The light English window on the Home page: the strip every user meets first, with the Draw,
+    // Modify and Annotation panels in their own frames.
+    ribbon->setCurrentPage(0);
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("workspace-light-en.png")))
+        return 1;
+
     // Dynamic input beside the crosshair in the dark Russian UI: F12 on, base point and a hover.
     ribbon->setCurrentPage(0);
     window.findChild<QAction*>("themeSwitch")->trigger();

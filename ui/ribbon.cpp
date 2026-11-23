@@ -118,8 +118,11 @@ void fitCaption(QToolButton* button) {
     const auto* style = button->style();
     const int margins = 2 * style->pixelMetric(QStyle::PM_ButtonMargin, nullptr, button) +
                         2 * style->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button);
+    // Fusion keeps about thirty pixels of its own inside a text-under-icon button, a few more than
+    // the margins it reports, so the reserve carries a little air: an extra pixel here costs nothing,
+    // an elided caption costs the user a tooltip on every command.
     const int caption = button->fontMetrics().horizontalAdvance(button->text());
-    const int needed = std::max(54, caption + margins + 14);
+    const int needed = std::max(54, caption + margins + 24);
     button->setMinimumWidth(needed);
     button->setMaximumWidth(needed);
     // A button whose caption is still empty reports the height of an icon-only button, so a panel
