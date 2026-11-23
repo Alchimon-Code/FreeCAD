@@ -20,13 +20,35 @@ std::optional<pd::EntityId> handle(QString s) {
     return id;
 }
 } // namespace
-std::optional<pd::Vec2> EditController::coordinate(const QString& s) {
-    auto fields = s.split(',');
+std::optional<pd::Vec2> EditController::coordinate(const QString& text, std::optional<pd::Vec2> base) {
+    QString s = text.trimmed();
+    if (s.startsWith('@')) {
+        if (!base)
+            return std::nullopt; // nothing has been picked yet, so there is no point to be relative to
+        s.remove(0, 1);
+    } else {
+        base = pd::Vec2{0, 0};
+    }
+    const pd::Vec2 origin = *base;
+    if (const auto angle = s.indexOf('<'); angle > 0) {
+        bool distance, degrees;
+        const double d = s.left(angle).toDouble(&distance);
+        const double a = s.mid(angle + 1).toDouble(&degrees);
+        if (!distance || !degrees)
+            return std::nullopt;
+        const double radians = a * rad;
+        const pd::Vec2 p = origin + pd::Vec2{d * std::cos(radians), d * std::sin(radians)};
+        return p.finite() ? std::optional{p} : std::nullopt;
+    }
+    const auto fields = s.split(',');
     if (fields.size() != 2)
-        return {};
+        return std::nullopt;
     bool x, y;
-    pd::Vec2 p{fields[0].toDouble(&x), fields[1].toDouble(&y)};
-    return x && y && p.finite() ? std::optional{p} : std::nullopt;
+    const pd::Vec2 offset{fields[0].toDouble(&x), fields[1].toDouble(&y)};
+    if (!x || !y)
+        return std::nullopt;
+    const pd::Vec2 p = origin + offset;
+    return p.finite() ? std::optional{p} : std::nullopt;
 }
 pd::edit::Tracked EditController::track(pd::Vec2 base, pd::Vec2 candidate) const {
     return pd::edit::constrain(base, candidate, mode_, degrees_ * rad);
@@ -636,7 +658,7 @@ std::optional<QString> EditController::tryAnswer(const QString& text, Ids select
     }
     if (pickingEntity() && words.size() == 2) {
         auto id = handle(words.front());
-        auto p = coordinate(words.back());
+        auto p = coordinate(words.back(), base_);
         if (id)
             return p ? pick(*p, *id) : prompt();
     }
@@ -678,7 +700,7 @@ std::optional<QString> EditController::tryAnswer(const QString& text, Ids select
             if ((words.size() == 3 || words.size() == 4) &&
                 (words[0].compare("P", Qt::CaseInsensitive) == 0 || words[0] == "К" ||
                  words[0] == "к")) {
-                auto centre = coordinate(words[1]);
+                auto centre = coordinate(words[1], base_);
                 bool c, f = true;
                 int count = words[2].toInt(&c);
                 double fill = 360;
@@ -717,7 +739,7 @@ std::optional<QString> EditController::tryAnswer(const QString& text, Ids select
             return publish(pd::edit::rectangle(doc_, *base_, *base_ + pd::Vec2{width, height}, layer_));
         }
     }
-    if (auto p = coordinate(s))
+    if (auto p = coordinate(s, base_))
         return pick(*p);
     bool ok;
     double n = s.toDouble(&ok);

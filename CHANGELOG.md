@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Coordinate entry:** `@dx,dy` and `@d<a` are offsets from the last picked point and `d<a` is a
+  polar offset from the origin, next to the absolute `x,y` the prompt already accepted. A leading
+  `@` before anything was picked repeats the prompt instead of drawing at the origin.
+- **Command line:** Up and Down walk what was typed, as in AutoCAD; a draft typed before the first
+  Up returns when the walk goes past the newest entry, and the completion list still owns the keys
+  while its popup is open.
 - **Dynamic input:** the length/angle label is created once per viewport. It used to be recreated on
   every resize, zoom-extents and model/paper switch, which piled up hidden children and left
   `findChild("dynamicInput")` pointing at an arbitrary label.

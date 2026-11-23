@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #pragma once
 #include <QMainWindow>
+#include <QStringList>
 #include <optional>
 class Viewport;
 class Ribbon;
@@ -92,4 +93,8 @@ class MainWindow : public QMainWindow {
     QStringListModel* completions_;
     QCompleter* completer_;
     QLabel *entityCount_, *coords_;
+    // What was typed at the prompt, so Up/Down can walk it like the AutoCAD command line.
+    QStringList typed_;
+    int typedIndex_ = -1;
+    QString draft_;
 };

@@ -519,14 +519,21 @@ QString CommandSession::execute(const QString& input) {
             auto msg = editor_.start(EditController::Tool::Line, {});
             return words.size() == 1 ? msg : editor_.tryAnswer(words[1], {}).value_or(msg);
         }
-        if (words.size() == 3) {
-            const auto a = EditController::coordinate(words[1]);
-            const auto b = EditController::coordinate(words[2]);
-            if (a && b) {
-                return drawLine(*a, *b);
-            }
+        // Typed points may be offsets from the one before, so the whole chain is resolved first and
+        // only then drawn: "_LINE 0,0 @10,0 @0,10" is a corner, not an error.
+        std::vector<pd::Vec2> chain;
+        for (qsizetype i = 1; i < words.size(); ++i) {
+            const std::optional<pd::Vec2> base =
+                chain.empty() ? std::nullopt : std::optional<pd::Vec2>{chain.back()};
+            const auto p = EditController::coordinate(words[i], base);
+            if (!p)
+                return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
+            chain.push_back(*p);
         }
-        return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
+        QString msg;
+        for (size_t i = 1; i < chain.size(); ++i)
+            msg = drawLine(chain[i - 1], chain[i]);
+        return msg;
     }
     if (auto tool = EditController::named(name)) {
         // Construction commands accept their arguments on the command line as well as prompts:

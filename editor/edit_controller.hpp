@@ -85,7 +85,10 @@ class EditController final : public QObject {
         Tool tool;
     };
     static std::span<const NamedTool> vocabulary();
-    static std::optional<pd::Vec2> coordinate(const QString&);
+    // The AutoCAD forms: "x,y" is absolute, "d<a" is polar from the origin, "@dx,dy" and "@d<a" are
+    // offsets from the last point, which only the current gesture knows.
+    static std::optional<pd::Vec2> coordinate(const QString& text,
+                                              std::optional<pd::Vec2> base = std::nullopt);
     pd::edit::Tracked track(pd::Vec2 base, pd::Vec2 candidate) const;
     static std::optional<Tool> named(const QString& global);
     [[nodiscard]] Step step() const { return step_; }

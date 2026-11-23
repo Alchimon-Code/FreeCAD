@@ -17,6 +17,7 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QCloseEvent>
+#include <QAbstractItemView>
 #include <QCompleter>
 #include <QCoreApplication>
 #include <QDir>
@@ -281,8 +282,16 @@ void MainWindow::submit(const QString& text) {
         enterOrRepeat();
         return;
     }
-    if (!text.trimmed().isEmpty())
+    if (!text.trimmed().isEmpty()) {
         page_->append("> " + text);
+        if (typed_.isEmpty() || typed_.last() != text) {
+            typed_.append(text);
+            if (typed_.size() > 200)
+                typed_.removeFirst();
+        }
+    }
+    typedIndex_ = -1;
+    draft_.clear();
     auto result = session_->execute(text); // OPEN can activate a different page.
     page_->append(result);
     history_->verticalScrollBar()->setValue(history_->verticalScrollBar()->maximum());
@@ -369,6 +378,21 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* e) {
         }
         if (key->key() == Qt::Key_Delete && input_->text().isEmpty()) {
             submit("_ERASE");
+            return true;
+        }
+        // Up/Down walk what was typed, like the prompt in AutoCAD. While the completion popup is
+        // open they keep moving inside the list instead.
+        if ((key->key() == Qt::Key_Up || key->key() == Qt::Key_Down) &&
+            !completer_->popup()->isVisible()) {
+            if (key->key() == Qt::Key_Up && typedIndex_ + 1 < typed_.size()) {
+                if (typedIndex_ < 0)
+                    draft_ = input_->text();
+                ++typedIndex_;
+                input_->setText(typed_[typed_.size() - 1 - typedIndex_]);
+            } else if (key->key() == Qt::Key_Down && typedIndex_ >= 0) {
+                --typedIndex_;
+                input_->setText(typedIndex_ >= 0 ? typed_[typed_.size() - 1 - typedIndex_] : draft_);
+            }
             return true;
         }
     }

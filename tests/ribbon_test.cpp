@@ -227,6 +227,29 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
 }
 
+// Up and Down walk what was typed, the way the AutoCAD command line does, and a draft typed before
+// the first Up comes back when the walk returns past the newest entry.
+TEST_F(RibbonWorkspace, CommandLineWalksTypedHistoryWithUpAndDown) {
+    auto* input = child<QLineEdit>("commandInput");
+    type("_LINE 0,0 10,0");
+    type("_CIRCLE 5,5 2");
+    input->clear(); // the prompt is empty again once a command has run
+    press(input, Qt::Key_Up);
+    EXPECT_EQ(input->text(), QStringLiteral("_CIRCLE 5,5 2"));
+    press(input, Qt::Key_Up);
+    EXPECT_EQ(input->text(), QStringLiteral("_LINE 0,0 10,0"));
+    press(input, Qt::Key_Down);
+    EXPECT_EQ(input->text(), QStringLiteral("_CIRCLE 5,5 2"));
+    press(input, Qt::Key_Down);
+    EXPECT_EQ(input->text(), QString{});
+    input->setText(QStringLiteral("_ZO"));
+    press(input, Qt::Key_Up);
+    EXPECT_EQ(input->text(), QStringLiteral("_CIRCLE 5,5 2"));
+    press(input, Qt::Key_Down);
+    EXPECT_EQ(input->text(), QStringLiteral("_ZO"));
+    input->clear();
+}
+
 // The overlay label belongs to the viewport, not to the last resize: recreating it made
 // findChild("dynamicInput") return one of several stale labels.
 TEST_F(RibbonWorkspace, DynamicInputLabelIsCreatedOncePerViewport) {

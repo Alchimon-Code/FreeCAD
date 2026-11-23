@@ -304,6 +304,48 @@ TEST(Session, PartialForeignImportRequiresSeparateSaveAsAndReportsFirstLineAndCo
     EXPECT_EQ(file.readAll(), source);
 }
 
+// AutoCAD coordinate entry: "x,y" absolute, "@dx,dy" and "@d<a" relative to the last point, "d<a"
+// polar from the origin. Typists expect all four at the prompt, not only the first.
+TEST(Session, CoordinateEntryAcceptsRelativeAndPolarForms) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_LINE 0,0 @10,0 @0,10");
+    ASSERT_EQ(d.size(), 2u);
+    const auto* first = dynamic_cast<const pd::Line*>(d.entity(1));
+    const auto* second = dynamic_cast<const pd::Line*>(d.entity(2));
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    EXPECT_DOUBLE_EQ(first->end().x, 10);
+    EXPECT_DOUBLE_EQ(first->end().y, 0);
+    EXPECT_DOUBLE_EQ(second->end().x, 10);
+    EXPECT_DOUBLE_EQ(second->end().y, 10);
+
+    // Relative polar: ten units up from the point that was just picked.
+    s.execute("_LINE 100,0 @10<90");
+    ASSERT_EQ(d.size(), 3u);
+    const auto* polar = dynamic_cast<const pd::Line*>(d.entity(3));
+    ASSERT_NE(polar, nullptr);
+    EXPECT_NEAR(polar->end().x, 100, 1e-9);
+    EXPECT_NEAR(polar->end().y, 10, 1e-9);
+
+    // Absolute polar is measured from the origin, not from the previous point.
+    s.execute("_LINE 0,0 20<0");
+    ASSERT_EQ(d.size(), 4u);
+    const auto* absolute = dynamic_cast<const pd::Line*>(d.entity(4));
+    ASSERT_NE(absolute, nullptr);
+    EXPECT_NEAR(absolute->end().x, 20, 1e-9);
+    EXPECT_NEAR(absolute->end().y, 0, 1e-9);
+
+    // A leading '@' before anything was ever picked has no point to be relative to: the prompt
+    // repeats and nothing is drawn. (After a completed command the last point is remembered, which
+    // is also what a CAD prompt does, so this needs a session that has never picked.)
+    CommandSession fresh;
+    fresh.execute("_LINE @5,5");
+    EXPECT_TRUE(fresh.editor().active());
+    EXPECT_EQ(fresh.document().size(), 0u);
+    fresh.editor().cancel();
+}
+
 TEST(Session, ClipboardCopiesCutsAndPastesAsOneUndoStep) {
     CommandSession s;
     auto& d = s.document();
