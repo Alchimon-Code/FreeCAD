@@ -46,6 +46,7 @@ class Ribbon final : public QWidget {
 
   private:
     QWidget* page(const QString& key);
+    void updateStrip();
     void applyPageTitles();
     QTabBar* tabs_;
     QStackedWidget* pages_;

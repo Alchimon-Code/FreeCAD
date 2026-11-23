@@ -19,6 +19,7 @@
 #include <QToolBar>
 #include <QSignalBlocker>
 #include <QStyle>
+#include <QStyleOptionToolButton>
 #include <QToolButton>
 #include <QIcon>
 #include <QVBoxLayout>
@@ -121,6 +122,17 @@ void fitCaption(QToolButton* button) {
     const int needed = std::max(54, caption + margins + 14);
     button->setMinimumWidth(needed);
     button->setMaximumWidth(needed);
+    // A button whose caption is still empty reports the height of an icon-only button, so a panel
+    // built before the translations arrive would keep a too short strip. The height of a real caption
+    // is asked from the style instead: one line under the icon costs the same whatever it says.
+    QStyleOptionToolButton opt;
+    opt.initFrom(button);
+    opt.icon = button->icon();
+    opt.iconSize = button->iconSize();
+    opt.text = button->text().isEmpty() ? QStringLiteral("Wq") : button->text();
+    opt.toolButtonStyle = Qt::ToolButtonTextUnderIcon;
+    const QSize hint = style->sizeFromContents(QStyle::CT_ToolButton, &opt, button->iconSize(), button);
+    button->setMinimumHeight(hint.height());
 }
 
 // A ribbon page is a fixed strip. Its height is the tallest panel, so a third row of buttons and the
@@ -196,7 +208,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     box->addWidget(pages_);
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
     // The strip is sized by the page on screen, so a tab change has to re-ask the layout.
-    connect(tabs_, &QTabBar::currentChanged, this, [this] { pages_->updateGeometry(); });
+    connect(tabs_, &QTabBar::currentChanged, this, [this] { updateStrip(); });
 
     layer_ = new QComboBox(this);
     layer_->setObjectName("ribbonLayer");
@@ -337,6 +349,21 @@ void Ribbon::retranslate() {
         label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
     }
     applyPageTitles();
+    updateStrip();
+}
+
+void Ribbon::updateStrip() {
+    // Captions arrive after the panels are built, so the strip is stated here, from the page the user
+    // is looking at, instead of waiting for a chain of cached layout hints to catch up.
+    auto* scroll = qobject_cast<QScrollArea*>(pages_->currentWidget());
+    if (!scroll)
+        return;
+    const QWidget* content = scroll->widget();
+    if (!content)
+        return;
+    const int need = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
+    if (need > 0)
+        pages_->setFixedHeight(need + 24);
 }
 
 void Ribbon::refreshLayers(const QStringList& names, const QString& current) {

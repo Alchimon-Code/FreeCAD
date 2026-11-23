@@ -1,1 +1,1 @@
-per-tab ribbon height with explicit panel heights 2026-11-23T10:05:00Z
+ribbon strip height fixed from the visible page 2026-11-23T11:20:00Z
