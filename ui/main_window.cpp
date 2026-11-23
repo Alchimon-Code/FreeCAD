@@ -25,6 +25,7 @@
 #include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QHash>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -40,6 +41,30 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+namespace {
+// The ribbon and the menus name a command the way AutoCAD does, not the way it is typed: PLINE reads
+// Polyline, RECTANG reads Rectangle, DIMLINEAR reads Linear. The canonical name is what the command
+// line accepts, so only the title changes. Russian titles already read as words and keep coming from
+// the CommandNames context.
+QString commandTitle(const QByteArray& cmd, bool russian) {
+    if (!russian) {
+        static const QHash<QByteArray, const char*> english{
+            {"PLINE", "Polyline"},             {"RECTANG", "Rectangle"},
+            {"MATCHPROP", "Match properties"}, {"DIMLINEAR", "Linear"},
+            {"DIMALIGNED", "Aligned"},         {"DIMRADIUS", "Radius"},
+            {"DIMDIAMETER", "Diameter"},       {"DIMANGULAR", "Angular"},
+            {"DIMSTYLE", "Dimension style"}};
+        if (const auto found = english.constFind(cmd); found != english.constEnd())
+            return QString::fromLatin1(*found);
+    }
+    QString label = QCoreApplication::translate("CommandNames", cmd.constData());
+    if (label.isEmpty())
+        return QString::fromLatin1(cmd);
+    label[0] = label[0].toUpper();
+    return label;
+}
+} // namespace
 
 MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTrustedPlugins)
     : language_(language), loadTrustedPlugins_(loadTrustedPlugins) {
@@ -585,10 +610,9 @@ void MainWindow::retranslate() {
     edit_->setTitle(tr("&Edit"));
     for (auto* a : editActions_) {
         const auto cmd = a->data().toByteArray();
-        auto label = QCoreApplication::translate("CommandNames", cmd.constData()).toLower();
-        label[0] = label[0].toUpper();
         // AutoCAD writes the ellipsis only on an entry that opens a dialog: a command that asks for
         // its arguments in the command line keeps its plain name on the ribbon and in the menus.
+        const auto label = commandTitle(cmd, language_.russian());
         a->setText(label);
         a->setToolTip(label + " (_" + QString::fromLatin1(cmd) + ")");
     }
