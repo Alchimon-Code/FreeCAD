@@ -39,6 +39,9 @@ class Ribbon final : public QWidget {
     void retranslate();
     // The combos only report a choice; MainWindow applies it to the current selection.
     void refreshLayers(const QStringList& names, const QString& current);
+    // A double click on a tab minimizes the ribbon to its tabs, as AutoCAD does.
+    void setCollapsed(bool collapsed);
+    [[nodiscard]] bool collapsed() const { return collapsed_; }
 
   signals:
     void layerPicked(const QString& name);
@@ -57,5 +60,6 @@ class Ribbon final : public QWidget {
     QHash<QString, QWidget*> rows_; // the scrolling page content, without the viewport
     QList<QLabel*> panelLabels_;
     QStringList pageSources_;
+    bool collapsed_ = false;
     bool writing_ = false;
 };

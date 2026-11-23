@@ -366,6 +366,35 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         << "clipped page: " << stack->height() << " < " << shown->sizeHint().height();
 }
 
+// AutoCAD's ribbon folds down to its tabs on a double click, which gives the drawing the whole
+// window without losing the tabs.
+TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* pages = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    auto* tabs = ribbon->findChild<QTabBar*>("ribbonTabs");
+    ASSERT_NE(pages, nullptr);
+    ASSERT_NE(tabs, nullptr);
+    const int tall = ribbon->height();
+    ASSERT_TRUE(pages->isVisible());
+    const QPoint centre = tabs->tabRect(0).center();
+    QMouseEvent press(QEvent::MouseButtonDblClick, QPointF(centre), QPointF(tabs->mapToGlobal(centre)),
+                      Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(tabs, &press);
+    QApplication::processEvents();
+    EXPECT_TRUE(ribbon->collapsed());
+    EXPECT_FALSE(pages->isVisible());
+    EXPECT_LT(ribbon->height(), tall) << "the minimized ribbon keeps its strip";
+    QApplication::sendEvent(tabs, &press);
+    QApplication::processEvents();
+    EXPECT_FALSE(ribbon->collapsed());
+    EXPECT_TRUE(pages->isVisible());
+    EXPECT_EQ(ribbon->height(), tall);
+}
+
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {
     type("_LINE 5000,5000 5010,5000");
     auto* view = window->activeView();

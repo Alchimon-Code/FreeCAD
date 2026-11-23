@@ -1,1 +1,1 @@
-large primary and small panel buttons 2026-11-23T17:10:00Z
+minimized ribbon on double click, stacked properties 2026-11-23T18:25:00Z

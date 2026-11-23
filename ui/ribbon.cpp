@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QHBoxLayout>
 #include <QPainter>
+#include <QMouseEvent>
 #include <QPaintEvent>
 #include <QLabel>
 #include <QStackedWidget>
@@ -25,6 +26,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <functional>
 
 namespace {
 // AutoCAD frames every ribbon panel as its own group with the caption inside the frame, and the tabs
@@ -54,8 +56,17 @@ class PanelFrame : public QFrame {
 class RibbonTabBar : public QTabBar {
   public:
     using QTabBar::QTabBar;
+    // Double-clicking a tab minimizes the ribbon to its tabs, exactly as it does in AutoCAD.
+    std::function<void()> onDoubleClick;
 
   protected:
+    void mouseDoubleClickEvent(QMouseEvent* event) override {
+        if (onDoubleClick && event->button() == Qt::LeftButton) {
+            onDoubleClick();
+            return;
+        }
+        QTabBar::mouseDoubleClickEvent(event);
+    }
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
         const QColor band = palette().color(QPalette::Window).darker(108);
@@ -93,7 +104,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // frame spreads a two-row grid over the whole strip, which reads as a broken layout.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(9, 6, 9, 4);
+    box->setContentsMargins(7, 5, 7, 3);
     box->setSpacing(2);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
@@ -134,7 +145,7 @@ void fitCaption(QToolButton* button) {
     // the margins it reports, so the reserve carries a little air: an extra pixel here costs nothing,
     // an elided caption costs the user a tooltip on every command.
     const int caption = button->fontMetrics().horizontalAdvance(opt.text);
-    const int needed = std::max(hint.width(), caption + margins + (beside ? 12 : 24));
+    const int needed = std::max(hint.width(), caption + margins + (beside ? 10 : 24));
     button->setMinimumWidth(needed);
     button->setMaximumWidth(needed);
     button->setMinimumHeight(hint.height());
@@ -218,6 +229,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
     // The strip is sized by the page on screen, so a tab change has to re-ask the layout.
     connect(tabs_, &QTabBar::currentChanged, this, [this] { updateStrip(); });
+    tabs_->onDoubleClick = [this] { setCollapsed(!collapsed_); };
 
     layer_ = new QComboBox(this);
     layer_->setObjectName("ribbonLayer");
@@ -375,9 +387,21 @@ void Ribbon::retranslate() {
     updateStrip();
 }
 
+void Ribbon::setCollapsed(bool collapsed) {
+    if (collapsed_ == collapsed)
+        return;
+    collapsed_ = collapsed;
+    pages_->setVisible(!collapsed_);
+    updateGeometry();
+    if (auto* window = parentWidget())
+        window->updateGeometry();
+}
+
 void Ribbon::updateStrip() {
     // Captions arrive after the panels are built, so the strip is stated here, from the page the user
     // is looking at, instead of waiting for a chain of cached layout hints to catch up.
+    if (collapsed_)
+        return;
     auto* scroll = qobject_cast<QScrollArea*>(pages_->currentWidget());
     if (!scroll)
         return;

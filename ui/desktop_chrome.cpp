@@ -22,6 +22,8 @@
 #include <QSvgRenderer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QVBoxLayout>
+#include <QWidget>
 #include <QComboBox>
 namespace {
 // Render the original SVG at the painter's actual device scale, using the current palette.
@@ -295,8 +297,15 @@ void MainWindow::buildRibbon() {
                       3);
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Layers"), ribbon_->layerBox());
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Blocks"), list({"BLOCK", "INSERT"}));
-    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), ribbon_->colorBox());
-    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Line weight"), ribbon_->weightBox());
+    // Colour and line weight live in one Properties group, the way AutoCAD stacks them, which also
+    // buys the room for the Blocks panel on a 1520 px window.
+    auto* properties = new QWidget;
+    auto* propertiesBox = new QVBoxLayout(properties);
+    propertiesBox->setContentsMargins(0, 0, 0, 0);
+    propertiesBox->setSpacing(4);
+    propertiesBox->addWidget(ribbon_->colorBox());
+    propertiesBox->addWidget(ribbon_->weightBox());
+    ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), properties);
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Block"), list({"BLOCK", "INSERT"}));
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"),
                       list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
