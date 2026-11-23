@@ -133,7 +133,10 @@ class PageScroll : public QScrollArea {
         const QWidget* content = widget();
         if (!content)
             return QScrollArea::sizeHint();
-        return {240, content->sizeHint().height() + 24};
+        // The grid hint of a row of fixed-width buttons comes out short on some styles, so the page
+        // also states how tall it has to be; taking both keeps a per-tab ribbon unclipped.
+        const int height = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
+        return {240, height + 24};
     }
     QSize minimumSizeHint() const override { return sizeHint(); }
 };
@@ -265,9 +268,16 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     grid->setContentsMargins(0, 0, 0, 0);
     grid->setSpacing(2);
     columns = std::max(1, columns);
-    for (int i = 0; i < actions.size(); ++i)
-        grid->addWidget(ribbonButton(actions[i], buttons), i / columns, i % columns);
-    grid->setRowStretch((actions.size() + columns - 1) / columns, 1);
+    int rowHeight = 0;
+    for (int i = 0; i < actions.size(); ++i) {
+        auto* button = ribbonButton(actions[i], buttons);
+        grid->addWidget(button, i / columns, i % columns);
+        rowHeight = std::max(rowHeight, button->sizeHint().height());
+    }
+    const int rows = (actions.size() + columns - 1) / columns;
+    grid->setRowStretch(rows, 1);
+    if (rows > 0)
+        buttons->setMinimumHeight(rows * rowHeight + (rows - 1) * grid->spacing());
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, buttons);
     row->insertWidget(row->count() - 1, frame, 0, Qt::AlignTop);
@@ -284,6 +294,7 @@ void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidge
     auto* vbox = new QVBoxLayout(holder);
     vbox->setContentsMargins(0, 2, 0, 2);
     vbox->addWidget(widget);
+    holder->setMinimumHeight(widget->sizeHint().height() + 4);
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, holder);
     row->insertWidget(row->count() - 1, frame, 0, Qt::AlignTop);

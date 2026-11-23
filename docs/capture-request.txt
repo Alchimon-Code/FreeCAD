@@ -1,1 +1,1 @@
-ribbon height follows the tab, larger icons 2026-11-23T09:10:00Z
+per-tab ribbon height with explicit panel heights 2026-11-23T10:05:00Z
