@@ -587,7 +587,9 @@ void MainWindow::retranslate() {
         const auto cmd = a->data().toByteArray();
         auto label = QCoreApplication::translate("CommandNames", cmd.constData()).toLower();
         label[0] = label[0].toUpper();
-        a->setText(label + QStringLiteral("…"));
+        // AutoCAD writes the ellipsis only on an entry that opens a dialog: a command that asks for
+        // its arguments in the command line keeps its plain name on the ribbon and in the menus.
+        a->setText(label);
         a->setToolTip(label + " (_" + QString::fromLatin1(cmd) + ")");
     }
     view_->setTitle(tr("&View"));
