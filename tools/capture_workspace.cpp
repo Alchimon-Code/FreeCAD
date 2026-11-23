@@ -51,6 +51,9 @@ bool saveFrame(MainWindow& window, const QString& path) {
         // Every page owns its own hint label, so ask this page, not the first one in the window.
         if (auto* hint = view->findChild<QLabel*>("dynamicInput"); hint && !hint->isHidden())
             paint.drawPixmap(hint->mapTo(&window, QPoint()), hint->grab());
+        // The UCS icon is the second overlay that lives on the viewport itself.
+        if (auto* ucs = view->findChild<QWidget*>("ucsIcon"); ucs && !ucs->isHidden())
+            paint.drawPixmap(ucs->mapTo(&window, QPoint()), ucs->grab());
     }
     return image.save(path);
 }
