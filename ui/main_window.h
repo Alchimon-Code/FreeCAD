@@ -53,6 +53,7 @@ class MainWindow : public QMainWindow {
     void updatePrompt();
     void submit(const QString&);
     void showCommandHistory(bool);
+    void applyCleanScreen(bool);
     void chooseLanguage(bool);
     void choosePlugin(bool);
     void setupChrome();
@@ -87,6 +88,9 @@ class MainWindow : public QMainWindow {
     QMenu *recent_, *contextMenu_;
     QAction* contextRepeat_;
     QAction* historyToggle_ = nullptr;
+    QAction* cleanScreen_ = nullptr;
+    QList<bool> cleanBars_, cleanDocks_;
+    bool cleanRibbon_ = false, cleanMenu_ = true, cleanStatus_ = true;
     QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
     QDockWidget* console_;

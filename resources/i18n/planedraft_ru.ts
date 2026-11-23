@@ -848,8 +848,16 @@
         <translation>История команд</translation>
     </message>
     <message>
-        <source>Expand the command history (F2, Ctrl+9)</source>
-        <translation>Развернуть историю команд (F2, Ctrl+9)</translation>
+        <source>Expand the command history (F2)</source>
+        <translation>Развернуть историю команд (F2)</translation>
+    </message>
+    <message>
+        <source>Clean screen</source>
+        <translation>Чистый экран</translation>
+    </message>
+    <message>
+        <source>Hide the ribbon, palettes and menus (Ctrl+0)</source>
+        <translation>Скрыть ленту, палитры и меню (Ctrl+0)</translation>
     </message>
     <message>
         <source>Example: _LINE 0,0 80,40</source>

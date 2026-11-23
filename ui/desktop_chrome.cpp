@@ -68,6 +68,11 @@ void MainWindow::setupChrome() {
     panels_ = view_->addMenu(QString());
     for (auto dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_), console_})
         panels_->addAction(dock->toggleViewAction());
+    // Ctrl+1 properties, Ctrl+2 layers and Ctrl+9 the command line, the three AutoCAD palette keys
+    // whose palettes exist here.
+    inspector_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+1")));
+    layers_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+2")));
+    console_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+9")));
     panels_->addSeparator();
     for (auto name : {"File", "Draw", "Modify", "Annotate", "View"}) {
         auto bar = addToolBar(QString());
@@ -111,15 +116,22 @@ void MainWindow::setupChrome() {
     repeat_->setIcon(icon("redo"));
     exportPdf_->setIcon(icon("pdf"));
     add(4, extents_, "extents");
-    // F2 is the text window in AutoCAD and Ctrl+9 the command line; here both collapse the prompt to
-    // a single line and expand it back into a scrolling history.
+    // F2 is the text window in AutoCAD; here it collapses the prompt to a single line and expands it
+    // back into a scrolling history.
     historyToggle_ = view_->addAction(QString());
     historyToggle_->setObjectName("commandHistoryToggle");
     historyToggle_->setCheckable(true);
     historyToggle_->setChecked(cfg.value("view/commandHistory", true).toBool());
-    historyToggle_->setShortcuts({QKeySequence(Qt::Key_F2), QKeySequence(QStringLiteral("Ctrl+9"))});
+    historyToggle_->setShortcut(QKeySequence(Qt::Key_F2));
     connect(historyToggle_, &QAction::toggled, this, &MainWindow::showCommandHistory);
     history_->setVisible(historyToggle_->isChecked());
+    // Ctrl+0 in AutoCAD: the drawing and nothing else. The command line stays, because typing is how
+    // the drawing is driven.
+    cleanScreen_ = view_->addAction(QString());
+    cleanScreen_->setObjectName("cleanScreen");
+    cleanScreen_->setCheckable(true);
+    cleanScreen_->setShortcut(QKeySequence(QStringLiteral("Ctrl+0")));
+    connect(cleanScreen_, &QAction::toggled, this, &MainWindow::applyCleanScreen);
     grid_ = view_->addAction(QString());
     grid_->setObjectName("gridMode");
     grid_->setCheckable(true);
@@ -312,7 +324,9 @@ void MainWindow::translateChrome() {
     for (auto a : snapMenu_->actions())
         a->setText(names[i++]);
     historyToggle_->setText(tr("Command history"));
-    historyToggle_->setToolTip(tr("Expand the command history (F2, Ctrl+9)"));
+    historyToggle_->setToolTip(tr("Expand the command history (F2)"));
+    cleanScreen_->setText(tr("Clean screen"));
+    cleanScreen_->setToolTip(tr("Hide the ribbon, palettes and menus (Ctrl+0)"));
     grid_->setText(tr("GRID"));
     grid_->setToolTip(tr("Show grid (F7)"));
     osnap_->setText(tr("OSNAP"));

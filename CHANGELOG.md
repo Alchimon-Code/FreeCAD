@@ -7,6 +7,9 @@
   `@` before anything was picked repeats the prompt instead of drawing at the origin.
 - **Command line:** F2 (the AutoCAD text window key) and Ctrl+9 collapse the prompt to a single
   line and expand it back into the scrolling history; the choice is remembered between sessions.
+- **Palettes and clean screen:** Ctrl+1 shows the properties palette, Ctrl+2 the layers palette and
+  Ctrl+9 the command line; Ctrl+0 hides the ribbon, both palettes, the toolbars and the menus while
+  keeping the prompt, and brings back exactly what was open before.
 - **Command aliases:** the acad.pgp keys for the commands the program actually has — `U` for undo,
   `PA` paste, `ZE` zoom extents, `SE` dimension style, and `DL`/`DLI`, `DAL`, `DRA`, `DDI`, `DAN` for
   the five dimension commands.

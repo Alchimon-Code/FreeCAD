@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QScrollArea>
@@ -228,8 +229,8 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
 }
 
-// F2 (text window) and Ctrl+9 (command line) in AutoCAD: the prompt shrinks to a single line and
-// expands back into a scrolling history.
+// F2 is the text window in AutoCAD: the prompt shrinks to a single line and expands back into a
+// scrolling history.
 TEST_F(RibbonWorkspace, CommandHistoryCollapsesAndExpandsWithItsToggle) {
     auto* history = child<QPlainTextEdit>("commandHistory");
     auto* toggle = child<QAction>("commandHistoryToggle");
@@ -240,6 +241,40 @@ TEST_F(RibbonWorkspace, CommandHistoryCollapsesAndExpandsWithItsToggle) {
     EXPECT_TRUE(history->isHidden());
     toggle->setChecked(true);
     EXPECT_FALSE(history->isHidden());
+}
+
+// Ctrl+0 clean screen: ribbon, palettes and menus go away, the prompt stays, everything returns.
+TEST_F(RibbonWorkspace, CleanScreenHidesAndRestoresTheChrome) {
+    auto* clean = child<QAction>("cleanScreen");
+    auto* ribbon = window->findChild<Ribbon*>();
+    auto* bar = child<QToolBar>("Toolbar.File");
+    auto* history = child<QPlainTextEdit>("commandHistory");
+    ASSERT_NE(clean, nullptr);
+    ASSERT_NE(ribbon, nullptr);
+    ASSERT_NE(bar, nullptr);
+    ASSERT_NE(history, nullptr);
+    const bool barWasHidden = bar->isHidden();
+    ASSERT_FALSE(ribbon->isHidden());
+    clean->setChecked(true);
+    EXPECT_TRUE(ribbon->isHidden());
+    EXPECT_TRUE(window->menuBar()->isHidden());
+    EXPECT_TRUE(bar->isHidden());
+    EXPECT_FALSE(history->isHidden()); // the prompt stays reachable: typing is how a drawing is driven
+    clean->setChecked(false);
+    EXPECT_FALSE(ribbon->isHidden());
+    EXPECT_FALSE(window->menuBar()->isHidden());
+    EXPECT_EQ(bar->isHidden(), barWasHidden);
+}
+
+// The palette keys AutoCAD habits rely on, in one place, so a new docking area cannot quietly take
+// one of them away.
+TEST_F(RibbonWorkspace, PalettesAnswerToTheAutoCadPaletteKeys) {
+    QStringList bound;
+    for (auto* action : window->findChildren<QAction*>())
+        for (const auto& key : action->shortcuts())
+            bound << key.toString();
+    for (const auto* key : {"Ctrl+0", "Ctrl+1", "Ctrl+2", "Ctrl+9", "F2", "F12"})
+        EXPECT_TRUE(bound.contains(QString::fromLatin1(key))) << key;
 }
 
 // Up and Down walk what was typed, the way the AutoCAD command line does, and a draft typed before

@@ -299,7 +299,7 @@ void MainWindow::submit(const QString& text) {
 }
 
 // The prompt is always there; the history above it can collapse to one line, the way the command
-// line does in AutoCAD, and F2 or Ctrl+9 brings it back.
+// line does in AutoCAD, and F2 brings it back.
 void MainWindow::showCommandHistory(bool on) {
     if (historyToggle_ && historyToggle_->isChecked() != on)
         historyToggle_->setChecked(on);
@@ -308,6 +308,41 @@ void MainWindow::showCommandHistory(bool on) {
     if (history_)
         history_->setVisible(on);
     QSettings().setValue("view/commandHistory", on);
+}
+
+// Clean screen keeps the drawing, the tabs and the prompt, and puts the rest away; the explicit
+// hidden state is what gets remembered, so a palette the user had closed stays closed afterwards.
+void MainWindow::applyCleanScreen(bool on) {
+    if (on) {
+        cleanBars_.clear();
+        for (auto* bar : bars_)
+            cleanBars_.append(!bar->isHidden());
+        cleanRibbon_ = ribbon_ && !ribbon_->isHidden();
+        cleanDocks_ = {!inspector_->isHidden(), !layers_->isHidden()};
+        cleanMenu_ = !menuBar()->isHidden();
+        cleanStatus_ = !statusBar()->isHidden();
+        for (auto* bar : bars_)
+            bar->hide();
+        if (ribbon_)
+            ribbon_->hide();
+        inspector_->hide();
+        layers_->hide();
+        menuBar()->hide();
+        statusBar()->hide();
+        return;
+    }
+    for (qsizetype i = 0; i < bars_.size() && i < cleanBars_.size(); ++i)
+        bars_[i]->setVisible(cleanBars_[i]);
+    if (ribbon_)
+        ribbon_->setVisible(cleanRibbon_);
+    if (cleanDocks_.size() == 2) {
+        inspector_->setVisible(cleanDocks_[0]);
+        layers_->setVisible(cleanDocks_[1]);
+    }
+    menuBar()->setVisible(cleanMenu_);
+    statusBar()->setVisible(cleanStatus_);
+    cleanBars_.clear();
+    cleanDocks_.clear();
 }
 
 QString MainWindow::pickFile(const QString& command, const QString& currentFile) {
