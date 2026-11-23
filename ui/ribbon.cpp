@@ -229,7 +229,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
     // The strip is sized by the page on screen, so a tab change has to re-ask the layout.
     connect(tabs_, &QTabBar::currentChanged, this, [this] { updateStrip(); });
-    tabs_->onDoubleClick = [this] { setCollapsed(!collapsed_); };
+    static_cast<RibbonTabBar*>(tabs_)->onDoubleClick = [this] { setCollapsed(!collapsed_); };
 
     layer_ = new QComboBox(this);
     layer_->setObjectName("ribbonLayer");
