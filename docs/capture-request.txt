@@ -1,1 +1,1 @@
-ribbon panel groups, tab band, status cells 2026-11-23T08:00:00Z
+ribbon height follows the tab, larger icons 2026-11-23T09:10:00Z

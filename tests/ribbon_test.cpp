@@ -353,13 +353,17 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
     // the stack and keep no geometry, so the stack itself is what has to cover every page hint.
     auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
     ASSERT_NE(stack, nullptr);
-    int tallest = 0;
     for (auto* scroll : pages) {
         EXPECT_EQ(scroll->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
         ASSERT_NE(scroll->widget(), nullptr);
-        tallest = std::max(tallest, scroll->sizeHint().height());
+        EXPECT_GT(scroll->sizeHint().height(), 0);
     }
-    EXPECT_GE(stack->height(), tallest) << "clipped page: " << stack->height() << " < " << tallest;
+    // The strip follows the tab on screen, as AutoCAD's ribbon does, so the promise is that no page
+    // is clipped while it is the visible one.
+    auto* shown = qobject_cast<QScrollArea*>(stack->currentWidget());
+    ASSERT_NE(shown, nullptr);
+    EXPECT_GE(stack->height(), shown->sizeHint().height())
+        << "clipped page: " << stack->height() << " < " << shown->sizeHint().height();
 }
 
 TEST_F(RibbonWorkspace, MiddleDoubleClickZoomsToExtents) {

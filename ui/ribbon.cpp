@@ -137,12 +137,25 @@ class PageScroll : public QScrollArea {
     }
     QSize minimumSizeHint() const override { return sizeHint(); }
 };
+// AutoCAD's ribbon is as tall as the tab on screen: Home fills three rows, Insert needs one, and the
+// strip follows. A plain QStackedWidget reports the tallest page instead, which leaves a block of
+// empty ribbon under every short tab.
+class PageStack : public QStackedWidget {
+  public:
+    using QStackedWidget::QStackedWidget;
+    QSize sizeHint() const override {
+        const QWidget* current = currentWidget();
+        return current ? current->sizeHint() : QStackedWidget::sizeHint();
+    }
+    QSize minimumSizeHint() const override { return sizeHint(); }
+};
+
 QToolButton* ribbonButton(QAction* action, QWidget* parent) {
     auto* button = new QToolButton(parent);
     button->setDefaultAction(action);
     button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     button->setAutoRaise(true);
-    button->setIconSize({22, 22});
+    button->setIconSize({26, 26});
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
     button->setFont(font);
@@ -170,7 +183,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     tabs_->setExpanding(false);
     tabs_->setDrawBase(false);
     box->addWidget(tabs_);
-    pages_ = new QStackedWidget(this);
+    pages_ = new PageStack(this);
     pages_->setObjectName("ribbonPages");
     pages_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     // The page strip takes the window colour and the panels are drawn as their own groups on it, so
@@ -179,6 +192,8 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     pages_->setAutoFillBackground(true);
     box->addWidget(pages_);
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
+    // The strip is sized by the page on screen, so a tab change has to re-ask the layout.
+    connect(tabs_, &QTabBar::currentChanged, this, [this] { pages_->updateGeometry(); });
 
     layer_ = new QComboBox(this);
     layer_->setObjectName("ribbonLayer");
