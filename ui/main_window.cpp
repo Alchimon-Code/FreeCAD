@@ -215,6 +215,7 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     auto* panel = new QWidget(console_);
     auto* layout = new QVBoxLayout(panel);
     history_ = new QPlainTextEdit(panel);
+    history_->setObjectName("commandHistory");
     history_->setReadOnly(true);
     history_->setMaximumBlockCount(150);
     history_->setMaximumHeight(80);
@@ -295,6 +296,18 @@ void MainWindow::submit(const QString& text) {
     auto result = session_->execute(text); // OPEN can activate a different page.
     page_->append(result);
     history_->verticalScrollBar()->setValue(history_->verticalScrollBar()->maximum());
+}
+
+// The prompt is always there; the history above it can collapse to one line, the way the command
+// line does in AutoCAD, and F2 or Ctrl+9 brings it back.
+void MainWindow::showCommandHistory(bool on) {
+    if (historyToggle_ && historyToggle_->isChecked() != on)
+        historyToggle_->setChecked(on);
+    if (on && console_)
+        console_->show();
+    if (history_)
+        history_->setVisible(on);
+    QSettings().setValue("view/commandHistory", on);
 }
 
 QString MainWindow::pickFile(const QString& command, const QString& currentFile) {

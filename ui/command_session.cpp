@@ -109,7 +109,12 @@ QHash<QString, QString> CommandSession::defaultAliases() {
         {"ВСТ", "INSERT"},     {"X", "EXPLODE"},        {"РАСЧ", "EXPLODE"},   {"Z", "ZOOM"},
         {"З", "ZOOM"},         {"DI", "DIST"},          {"ДИСТ", "DIST"},      {"AA", "AREA"},
         {"ПЛОЩАДЬ", "AREA"},   {"AR", "ARRAY"},         {"МАССИВ", "ARRAY"},   {"MA", "MATCHPROP"},
-        {"КОПИРОВАТЬСВ", "MATCHPROP"}};
+        {"КОПИРОВАТЬСВ", "MATCHPROP"},
+        // The rest of the acad.pgp keys whose commands exist here: one-step undo, paste, zoom
+        // extents, the dimension style and the dimension shorthands.
+        {"U", "UNDO"},          {"PA", "PASTECLIP"},      {"ZE", "ZOOM"},         {"SE", "DIMSTYLE"},
+        {"DL", "DIMLINEAR"},    {"DLI", "DIMLINEAR"},     {"DAL", "DIMALIGNED"},  {"DRA", "DIMRADIUS"},
+        {"DDI", "DIMDIAMETER"}, {"DAN", "DIMANGULAR"}};
 }
 
 void CommandSession::loadAliases(const QString& iniPath) {

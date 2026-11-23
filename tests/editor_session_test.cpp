@@ -433,6 +433,21 @@ TEST(EditSession, ShortAliasesResolveInEnglishAndRussian) {
     EXPECT_EQ(CommandSession::defaultAliases().value("ОБР"), QStringLiteral("TRIM"));
     s.execute("ОТ 0,20 10,20");
     EXPECT_EQ(d.size(), 8u);
+    // The acad.pgp keys whose commands exist here: the dimension shorthands, paste, zoom extents and
+    // the one-step undo every AutoLISP habit leans on.
+    const auto aliases = CommandSession::defaultAliases();
+    EXPECT_EQ(aliases.value("U"), QStringLiteral("UNDO"));
+    EXPECT_EQ(aliases.value("PA"), QStringLiteral("PASTECLIP"));
+    EXPECT_EQ(aliases.value("ZE"), QStringLiteral("ZOOM"));
+    const std::pair<const char*, const char*> shorthands[] = {
+        {"SE", "DIMSTYLE"},   {"DL", "DIMLINEAR"},    {"DLI", "DIMLINEAR"}, {"DAL", "DIMALIGNED"},
+        {"DRA", "DIMRADIUS"}, {"DDI", "DIMDIAMETER"}, {"DAN", "DIMANGULAR"}};
+    for (auto [alias, target] : shorthands)
+        EXPECT_EQ(aliases.value(alias), QString::fromLatin1(target)) << alias;
+    s.execute("L 0,30 10,30");
+    EXPECT_EQ(d.size(), 9u);
+    s.execute("U");
+    EXPECT_EQ(d.size(), 8u);
 }
 
 

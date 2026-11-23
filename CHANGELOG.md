@@ -5,6 +5,11 @@
 - **Coordinate entry:** `@dx,dy` and `@d<a` are offsets from the last picked point and `d<a` is a
   polar offset from the origin, next to the absolute `x,y` the prompt already accepted. A leading
   `@` before anything was picked repeats the prompt instead of drawing at the origin.
+- **Command line:** F2 (the AutoCAD text window key) and Ctrl+9 collapse the prompt to a single
+  line and expand it back into the scrolling history; the choice is remembered between sessions.
+- **Command aliases:** the acad.pgp keys for the commands the program actually has — `U` for undo,
+  `PA` paste, `ZE` zoom extents, `SE` dimension style, and `DL`/`DLI`, `DAL`, `DRA`, `DDI`, `DAN` for
+  the five dimension commands.
 - **Command line:** Up and Down walk what was typed, as in AutoCAD; a draft typed before the first
   Up returns when the walk goes past the newest entry, and the completion list still owns the keys
   while its popup is open.

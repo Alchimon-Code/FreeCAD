@@ -110,6 +110,15 @@ void MainWindow::setupChrome() {
     repeat_->setIcon(icon("redo"));
     exportPdf_->setIcon(icon("pdf"));
     add(4, extents_, "extents");
+    // F2 is the text window in AutoCAD and Ctrl+9 the command line; here both collapse the prompt to
+    // a single line and expand it back into a scrolling history.
+    historyToggle_ = view_->addAction(QString());
+    historyToggle_->setObjectName("commandHistoryToggle");
+    historyToggle_->setCheckable(true);
+    historyToggle_->setChecked(cfg.value("view/commandHistory", true).toBool());
+    historyToggle_->setShortcuts({QKeySequence(Qt::Key_F2), QKeySequence(QStringLiteral("Ctrl+9"))});
+    connect(historyToggle_, &QAction::toggled, this, &MainWindow::showCommandHistory);
+    history_->setVisible(historyToggle_->isChecked());
     grid_ = view_->addAction(QString());
     grid_->setObjectName("gridMode");
     grid_->setCheckable(true);
@@ -301,6 +310,8 @@ void MainWindow::translateChrome() {
     int i = 0;
     for (auto a : snapMenu_->actions())
         a->setText(names[i++]);
+    historyToggle_->setText(tr("Command history"));
+    historyToggle_->setToolTip(tr("Expand the command history (F2, Ctrl+9)"));
     grid_->setText(tr("GRID"));
     grid_->setToolTip(tr("Show grid (F7)"));
     osnap_->setText(tr("OSNAP"));

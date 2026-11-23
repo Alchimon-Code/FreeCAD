@@ -16,6 +16,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
@@ -225,6 +226,20 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     const auto text = view->dynamicInputText();
     EXPECT_TRUE(text.contains("L")) << text.toStdString();
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
+}
+
+// F2 (text window) and Ctrl+9 (command line) in AutoCAD: the prompt shrinks to a single line and
+// expands back into a scrolling history.
+TEST_F(RibbonWorkspace, CommandHistoryCollapsesAndExpandsWithItsToggle) {
+    auto* history = child<QPlainTextEdit>("commandHistory");
+    auto* toggle = child<QAction>("commandHistoryToggle");
+    ASSERT_NE(history, nullptr);
+    ASSERT_NE(toggle, nullptr);
+    ASSERT_FALSE(history->isHidden());
+    toggle->setChecked(false);
+    EXPECT_TRUE(history->isHidden());
+    toggle->setChecked(true);
+    EXPECT_FALSE(history->isHidden());
 }
 
 // Up and Down walk what was typed, the way the AutoCAD command line does, and a draft typed before

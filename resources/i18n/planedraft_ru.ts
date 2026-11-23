@@ -844,6 +844,14 @@
         <translation>Командная строка</translation>
     </message>
     <message>
+        <source>Command history</source>
+        <translation>История команд</translation>
+    </message>
+    <message>
+        <source>Expand the command history (F2, Ctrl+9)</source>
+        <translation>Развернуть историю команд (F2, Ctrl+9)</translation>
+    </message>
+    <message>
         <source>Example: _LINE 0,0 80,40</source>
         <translation>Пример: ОТРЕЗОК 0,0 80,40</translation>
     </message>

@@ -52,6 +52,7 @@ class MainWindow : public QMainWindow {
     void updateEditState();
     void updatePrompt();
     void submit(const QString&);
+    void showCommandHistory(bool);
     void chooseLanguage(bool);
     void choosePlugin(bool);
     void setupChrome();
@@ -85,6 +86,7 @@ class MainWindow : public QMainWindow {
     QAction *dynamic_, *ribbonToggle_, *repeat_, *cut_, *copy_, *copyBase_, *paste_, *erase_, *properties_;
     QMenu *recent_, *contextMenu_;
     QAction* contextRepeat_;
+    QAction* historyToggle_ = nullptr;
     QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
     QDockWidget* console_;
