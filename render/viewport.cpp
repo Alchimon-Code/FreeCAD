@@ -4,18 +4,56 @@
 #include "scene_renderer.hpp"
 
 #include <QApplication>
+#include <QFont>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
+#include <QPaintEvent>
+#include <QPainter>
+#include <QPen>
 #include <QResizeEvent>
-#include <QMouseEvent>
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
 
 namespace {
 pd::Vec2 pixel(QPointF p) { return {p.x(), p.y()}; }
+
+// AutoCAD's UCS icon: two arrows from the world origin, X to the right and Y upwards, drawn over the
+// drawing area. It is a child widget, the way the dynamic-input label is, so it never disturbs the
+// OpenGL pass that paints the drawing itself.
+class UcsIcon final : public QWidget {
+  public:
+    explicit UcsIcon(QWidget* parent) : QWidget(parent) {
+        setObjectName("ucsIcon");
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_NoSystemBackground);
+        setFixedSize(54, 54);
+    }
+
+  protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        // The drawing area is dark in both themes, so the icon keeps a light grey of its own.
+        painter.setPen(QPen(QColor(206, 216, 221), 1.2));
+        const QPoint base(16, height() - 16);
+        const QPoint xTip(base.x() + 30, base.y());
+        const QPoint yTip(base.x(), base.y() - 30);
+        painter.drawLine(base, xTip);
+        painter.drawLine(base, yTip);
+        painter.drawLine(xTip, xTip + QPoint(-6, -3));
+        painter.drawLine(xTip, xTip + QPoint(-6, 3));
+        painter.drawLine(yTip, yTip + QPoint(3, 6));
+        painter.drawLine(yTip, yTip + QPoint(-3, 6));
+        QFont font = painter.font();
+        font.setPixelSize(11);
+        painter.setFont(font);
+        painter.drawText(xTip + QPoint(3, 4), QStringLiteral("X"));
+        painter.drawText(yTip + QPoint(-11, -4), QStringLiteral("Y"));
+    }
+};
 } // namespace
 Viewport::Viewport(const pd::Document& doc, QWidget* parent)
     : QOpenGLWidget(parent), doc_(doc), snaps_(pd::qtTextStrokes), selection_(pd::qtTextStrokes) {
@@ -176,6 +214,9 @@ void Viewport::replaceSelection(pd::SelectionManager::Ids next) {
 void Viewport::refreshCursor() {
     auto point = overlay_.cursor ? camera_.screenToWorld(*overlay_.cursor) : pd::Vec2{};
     emit cursorPosition(overlay_.cursor.has_value(), point.x, point.y);
+    if (!ucsIcon_)
+        ucsIcon_ = new UcsIcon(this);
+    refreshUcsIcon();
     if (page_) {
         update();
         return;
@@ -536,6 +577,23 @@ void Viewport::ensureDynamicInput() {
     dynInput_->setStyleSheet("QLabel { padding: 2px 6px; border: 1px solid palette(mid);"
                              " background: palette(base); color: palette(text); }");
     dynInput_->hide();
+}
+
+// The icon tracks the world origin while it is on screen and stays in the corner of the drawing area
+// once the view scrolls it away, which is what AutoCAD's icon does.
+void Viewport::refreshUcsIcon() {
+    if (!ucsIcon_)
+        return;
+    const auto origin = camera_.worldToScreen(pd::Vec2{});
+    constexpr int kBase = 16; // the origin inside the icon, see UcsIcon::paintEvent
+    const int margin = 4;
+    const int maxX = std::max(margin, width() - ucsIcon_->width() - margin);
+    const int maxY = std::max(margin, height() - ucsIcon_->height() - margin);
+    const int x = std::clamp(int(std::lround(origin.x)) - kBase, margin, maxX);
+    const int y = std::clamp(int(std::lround(origin.y)) - (ucsIcon_->height() - kBase), margin, maxY);
+    ucsIcon_->move(x, y);
+    ucsIcon_->raise();
+    ucsIcon_->show();
 }
 
 void Viewport::refreshDynamicInput() {

@@ -366,6 +366,23 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
         << "clipped page: " << stack->height() << " < " << shown->sizeHint().height();
 }
 
+// AutoCAD marks the world origin with a UCS icon and parks it in the corner once the view scrolls the
+// origin away, so the user always knows where X and Y point.
+TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
+    window->show();
+    auto* view = window->activeView();
+    ASSERT_NE(view, nullptr);
+    auto* icon = view->findChild<QWidget*>("ucsIcon");
+    ASSERT_NE(icon, nullptr);
+    EXPECT_TRUE(view->findChildren<QWidget*>("ucsIcon").size() == 1);
+    view->zoomExtents();
+    QApplication::processEvents();
+    // The icon stays inside the drawing area whatever the camera does.
+    EXPECT_TRUE(view->rect().contains(icon->geometry(), true))
+        << icon->geometry().x() << ',' << icon->geometry().y() << " outside " << view->width() << 'x'
+        << view->height();
+}
+
 // AutoCAD's ribbon folds down to its tabs on a double click, which gives the drawing the whole
 // window without losing the tabs.
 TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {

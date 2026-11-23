@@ -99,10 +99,12 @@ class Viewport final : public QOpenGLWidget {
     int dynField_ = 0;
     QString dynLength_, dynAngle_;
     QLabel* dynInput_ = nullptr;
+    QWidget* ucsIcon_ = nullptr;
     bool selecting() const;
     bool typeDynamic(QKeyEvent*);
     void ensureDynamicInput();
     void refreshDynamicInput();
+    void refreshUcsIcon();
     void applyDynamicInput();
     std::optional<std::pair<pd::EntityId, size_t>> gripAt(pd::Vec2 screen) const;
     QTimer zoomTimer_;
