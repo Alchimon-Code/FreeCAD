@@ -149,6 +149,9 @@ TEST_F(RibbonWorkspace, SpaceConfirmsTheStepAndRepeatsTheLastCommand) {
     EXPECT_TRUE(s.editor().active());
     input->setText("10,10");
     press(input, Qt::Key_Space, QStringLiteral(" "));
+    EXPECT_TRUE(s.editor().active()); // LINE keeps drawing segments, as it does in AutoCAD
+    EXPECT_EQ(s.document().size(), 2u);
+    press(input, Qt::Key_Space, QStringLiteral(" ")); // and Space on the empty prompt ends it
     EXPECT_FALSE(s.editor().active());
     EXPECT_EQ(s.document().size(), 2u);
     // Free-text steps keep the literal space; the command line still owns its own text.

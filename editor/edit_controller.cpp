@@ -127,7 +127,8 @@ QString EditController::prompt() const {
     case Step::Destination:
         switch (tool_) {
         case Tool::Line:
-            return tr("End point:");
+            return corners_.size() > 1 ? tr("Next point; Enter finishes, C closes, U undoes:")
+                                       : tr("End point:");
         case Tool::Circle:
             return tr("Radius or point on circle:");
         case Tool::Rectangle:
@@ -197,8 +198,31 @@ QString EditController::cancel() {
     ids_.clear();
     base_.reset();
     first_ = 0;
+    corners_.clear();
+    segments_.clear();
     transition(Step::Idle);
     return tr("Cancelled.");
+}
+namespace {
+// The observer cancels a tool whenever the document changes; a live LINE has to survive the segments
+// it commits itself, and must not survive them if the commit throws.
+struct Writing {
+    bool& flag;
+    explicit Writing(bool& f) : flag(f) { flag = true; }
+    ~Writing() { flag = false; }
+    Writing(const Writing&) = delete;
+    Writing& operator=(const Writing&) = delete;
+};
+} // namespace
+void EditController::addSegment(pd::Vec2 a, pd::Vec2 b) {
+    pd::Line line(a, b);
+    line.traits.layer = layer_;
+    const Writing guard(writing_);
+    segments_.push_back(doc_.add(line));
+}
+void EditController::eraseSegment(pd::EntityId id) {
+    const Writing guard(writing_);
+    doc_.remove(id);
 }
 QString EditController::error(const std::exception& e) const {
     if (dynamic_cast<const pd::NotSimilarity*>(&e))
@@ -454,6 +478,8 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
                 return transition(Step::Destination);
             }
             base_ = p;
+            if (tool_ == Tool::Line)
+                corners_.assign(1, p);
             if (tool_ == Tool::Scale) {
                 reference_ = pd::edit::referenceSize(doc_, ids_, p);
                 return transition(Step::Factor);
@@ -543,6 +569,16 @@ QString EditController::pick(pd::Vec2 p, std::optional<pd::EntityId> hit) {
                     return prompt();
                 return publish(pd::edit::arc(doc_, points_[0], points_[1], p, layer_));
             }
+            if (tool_ == Tool::Line && step_ == Step::Destination) {
+                if (!base_)
+                    return prompt();
+                if ((p - *base_).length() <= pd::EPSILON)
+                    return tr("Use a different point.");
+                addSegment(*base_, p);
+                corners_.push_back(p);
+                base_ = p;
+                return prompt();
+            }
             if (ghost_ && cursor_ == p) {
                 auto plan = std::move(*ghost_);
                 ghost_.reset();
@@ -609,6 +645,13 @@ QString EditController::number(double n) {
 QString EditController::enter(Ids ids) {
     if (step_ == Step::Select)
         return selectionDone(std::move(ids));
+    if (step_ == Step::Destination && tool_ == Tool::Line) {
+        if (segments_.empty() && cursor_)
+            return pick(*cursor_, hit_);
+        const bool drawn = !segments_.empty();
+        cancel();
+        return drawn ? tr("Line finished.") : tr("Cancelled.");
+    }
     if (step_ == Step::Destination && tool_ == Tool::Polyline) {
         if (points_.size() < 2)
             return prompt();
@@ -623,6 +666,26 @@ std::optional<QString> EditController::tryAnswer(const QString& text, Ids select
     if (!s.startsWith('_'))
         if (auto reply = draftingAnswer(s))
             return reply;
+    if (step_ == Step::Destination && tool_ == Tool::Line) {
+        const auto keyword = s.toUpper();
+        if (keyword == "U" || keyword == "ОТМ") {
+            if (!segments_.empty() && corners_.size() > 1) {
+                eraseSegment(segments_.back());
+                segments_.pop_back();
+                corners_.pop_back();
+                base_ = corners_.back();
+            }
+            return prompt(); // with only the first point there is nothing to take back
+        }
+        if (keyword == "C" || keyword == "З") {
+            if (corners_.size() > 2) {
+                addSegment(corners_.back(), corners_.front());
+                cancel();
+                return tr("Line closed.");
+            }
+            return prompt();
+        }
+    }
     auto words = s.split(' ');
     if (step_ == Step::Select) {
         Ids typed;

@@ -164,12 +164,18 @@ class EditController final : public QObject {
     bool circumscribed_ = false;
     double chamfer1_ = 0, chamfer2_ = 0;
     std::vector<pd::Vec2> points_;
+    // A LINE keeps drawing segments until Enter, so it remembers the corners and what it committed.
+    std::vector<pd::Vec2> corners_;
+    std::vector<pd::EntityId> segments_;
+    bool writing_ = false; // the editor's own edits must not cancel the tool that makes them
     QString selectionDone(Ids);
     QString transition(Step);
     QString number(double);
     pd::edit::Plan proposal(pd::Vec2) const;
     QString publish(pd::edit::Plan);
     QString error(const std::exception&) const;
+    void addSegment(pd::Vec2, pd::Vec2);
+    void eraseSegment(pd::EntityId);
     pd::Document& doc_;
     pd::LayerId layer_ = pd::DefaultLayer;
     pd::Document::Subscription subscription_;

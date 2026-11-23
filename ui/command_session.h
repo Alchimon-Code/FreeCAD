@@ -30,6 +30,8 @@ class CommandSession : public QObject {
     [[nodiscard]] QStringList completions() const;
     QString execute(const QString& input);
     QString drawLine(pd::Vec2 first, pd::Vec2 last);
+    // One transaction for a whole typed chain, so a single _UNDO takes the command back.
+    std::vector<pd::EntityId> addLines(const std::vector<pd::Vec2>& points);
     QStringList layoutNames() const;
     const QString& space() const { return space_; }
     void selectSpace(const QString&);

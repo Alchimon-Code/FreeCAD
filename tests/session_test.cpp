@@ -304,6 +304,26 @@ TEST(Session, PartialForeignImportRequiresSeparateSaveAsAndReportsFirstLineAndCo
     EXPECT_EQ(file.readAll(), source);
 }
 
+// The LINE options a typed chain understands: C closes back to the first point, U drops the point
+// just given.
+TEST(Session, TypedLineChainClosesAndTakesPointsBack) {
+    CommandSession s;
+    auto& d = s.document();
+    s.execute("_LINE 0,0 10,0 10,10 C");
+    ASSERT_EQ(d.size(), 3u);
+    const auto* closing = dynamic_cast<const pd::Line*>(d.entity(3));
+    ASSERT_NE(closing, nullptr);
+    EXPECT_EQ(closing->start(), (pd::Vec2{10, 10}));
+    EXPECT_EQ(closing->end(), (pd::Vec2{0, 0}));
+    EXPECT_TRUE(d.undo()); // one command, one undo step
+    EXPECT_EQ(d.size(), 0u);
+    s.execute("_LINE 0,0 10,0 U 0,10");
+    ASSERT_EQ(d.size(), 1u);
+    const auto* second = dynamic_cast<const pd::Line*>(d.entity(d.entityIds().back()));
+    ASSERT_NE(second, nullptr);
+    EXPECT_EQ(second->end(), (pd::Vec2{0, 10}));
+}
+
 // AutoCAD coordinate entry: "x,y" absolute, "@dx,dy" and "@d<a" relative to the last point, "d<a"
 // polar from the origin. Typists expect all four at the prompt, not only the first.
 TEST(Session, CoordinateEntryAcceptsRelativeAndPolarForms) {

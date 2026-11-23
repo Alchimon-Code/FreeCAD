@@ -420,6 +420,21 @@ QString CommandSession::setLineWeight(const std::vector<pd::EntityId>& ids,
     return restyle(document_, ids, [&weight](pd::EntityTraits& t) { t.lineWeight = weight; });
 }
 
+std::vector<pd::EntityId> CommandSession::addLines(const std::vector<pd::Vec2>& points) {
+    std::vector<pd::EntityId> ids;
+    try {
+        document_.transact([&](pd::Transaction& tx) {
+            for (size_t i = 1; i < points.size(); ++i) {
+                pd::Line line(points[i - 1], points[i]);
+                line.traits.layer = editor_.activeLayer();
+                ids.push_back(tx.add(line));
+            }
+        });
+    } catch (const std::invalid_argument&) {
+        return {};
+    }
+    return ids;
+}
 QString CommandSession::drawLine(pd::Vec2 first, pd::Vec2 last) {
     if (const auto id = addLine(first, last)) {
         return tr("Added line #%1.").arg(*id);
@@ -528,6 +543,18 @@ QString CommandSession::execute(const QString& input) {
         // only then drawn: "_LINE 0,0 @10,0 @0,10" is a corner, not an error.
         std::vector<pd::Vec2> chain;
         for (qsizetype i = 1; i < words.size(); ++i) {
+            const auto keyword = words[i].toUpper();
+            if (keyword == "C" || keyword == "З") {
+                if (chain.size() < 3)
+                    return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
+                chain.push_back(chain.front());
+                continue;
+            }
+            if (keyword == "U" || keyword == "ОТМ") {
+                if (chain.size() > 1)
+                    chain.pop_back();
+                continue;
+            }
             const std::optional<pd::Vec2> base =
                 chain.empty() ? std::nullopt : std::optional<pd::Vec2>{chain.back()};
             const auto p = EditController::coordinate(words[i], base);
@@ -535,10 +562,12 @@ QString CommandSession::execute(const QString& input) {
                 return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
             chain.push_back(*p);
         }
-        QString msg;
-        for (size_t i = 1; i < chain.size(); ++i)
-            msg = drawLine(chain[i - 1], chain[i]);
-        return msg;
+        const auto ids = addLines(chain);
+        if (ids.empty())
+            return tr("Use: _LINE x1,y1 x2,y2 (two distinct, finite points).");
+        if (ids.size() == 1)
+            return tr("Added line #%1.").arg(ids.front());
+        return tr("Added %1 lines.").arg(static_cast<int>(ids.size()));
     }
     if (auto tool = EditController::named(name)) {
         // Construction commands accept their arguments on the command line as well as prompts:

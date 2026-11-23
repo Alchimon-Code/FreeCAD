@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **LINE:** the command keeps drawing segments until Enter, the way AutoCAD's LINE does, with `C`
+  to close the chain back to the first point and `U` to take the last segment back. The prompt names
+  the options once a segment exists. A chain typed in one line is committed as one transaction, so a
+  single `_UNDO` takes the whole command back.
 - **Coordinate entry:** `@dx,dy` and `@d<a` are offsets from the last picked point and `d<a` is a
   polar offset from the origin, next to the absolute `x,y` the prompt already accepted. A leading
   `@` before anything was picked repeats the prompt instead of drawing at the origin.

@@ -199,6 +199,10 @@
         <translation>Добавлен отрезок №%1.</translation>
     </message>
     <message>
+        <source>Added %1 lines.</source>
+        <translation>Добавлено отрезков: %1.</translation>
+    </message>
+    <message>
         <source>Use: _LINE x1,y1 x2,y2 (two distinct, finite points).</source>
         <translation>Формат: _LINE x1,y1 x2,y2 (две различные точки с конечными координатами).</translation>
     </message>
@@ -416,6 +420,22 @@
     <message>
         <source>Base point:</source>
         <translation>Базовая точка:</translation>
+    </message>
+    <message>
+        <source>Next point; Enter finishes, C closes, U undoes:</source>
+        <translation>Следующая точка; Enter — завершить, C — замкнуть, U — вернуть отрезок:</translation>
+    </message>
+    <message>
+        <source>Line finished.</source>
+        <translation>Построение отрезков завершено.</translation>
+    </message>
+    <message>
+        <source>Line closed.</source>
+        <translation>Отрезки замкнуты.</translation>
+    </message>
+    <message>
+        <source>Use a different point.</source>
+        <translation>Укажите другую точку.</translation>
     </message>
     <message>
         <source>End point:</source>
