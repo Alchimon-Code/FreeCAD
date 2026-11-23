@@ -77,7 +77,7 @@ class EditController final : public QObject {
         : doc_(d), subscription_(d.observe([this](auto changes) {
               if (changes.front().kind == pd::Change::Kind::Reset || !doc_.layer(layer_))
                   layer_ = pd::DefaultLayer;
-              if (active())
+              if (active() && !writing_)
                   cancel();
           })) {}
     struct NamedTool {

@@ -422,12 +422,17 @@ QString CommandSession::setLineWeight(const std::vector<pd::EntityId>& ids,
 
 std::vector<pd::EntityId> CommandSession::addLines(const std::vector<pd::Vec2>& points) {
     std::vector<pd::EntityId> ids;
+    if (points.size() < 2)
+        return ids;
     try {
+        pd::Vec2 start = points.front();
         document_.transact([&](pd::Transaction& tx) {
             for (size_t i = 1; i < points.size(); ++i) {
-                pd::Line line(points[i - 1], points[i]);
+                const auto end = editor_.track(start, points[i]).point; // Ortho and polar still apply
+                pd::Line line(start, end);
                 line.traits.layer = editor_.activeLayer();
                 ids.push_back(tx.add(line));
+                start = end;
             }
         });
     } catch (const std::invalid_argument&) {
