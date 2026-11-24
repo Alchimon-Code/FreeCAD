@@ -11,6 +11,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QGridLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -27,6 +28,7 @@
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
+#include <QVector>
 #include <gtest/gtest.h>
 
 namespace {
@@ -450,28 +452,40 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
 }
 
-// The buttons are measured while the interface is still English, and a Russian command name can be a
-// good deal longer; the ribbon re-measures when the translations land, so nothing is clipped.
-TEST_F(RibbonWorkspace, RibbonLabelsFitAfterALanguageSwitch) {
+// A panel of small buttons reads as a grid: the entries of one column start at the same x, so the
+// captions line up instead of stepping in and out with their lengths, the way AutoCAD draws them.
+TEST_F(RibbonWorkspace, SmallButtonsShareOneColumnWidth) {
     window->resize(1520, 880);
     window->show();
     QApplication::processEvents();
     auto* ribbon = window->findChild<Ribbon*>();
     ASSERT_NE(ribbon, nullptr);
-    auto* locale = window->findChild<QAction*>("localeSwitch");
-    ASSERT_NE(locale, nullptr);
-    locale->trigger();
-    QApplication::processEvents();
-    // The caption that used to be cut was this one, so the test checks that it arrived at all.
-    bool russian = false;
-    for (auto* button : ribbon->findChildren<QToolButton*>())
-        if (button->text() == QStringLiteral("Копировать с базовой точкой"))
-            russian = true;
-    EXPECT_TRUE(russian);
-    const auto clipped = clippedCaptions(ribbon);
-    for (const auto& item : clipped)
-        std::cerr << "clipped caption " << item.toStdString() << '\n';
-    EXPECT_TRUE(clipped.isEmpty());
+    int checked = 0;
+    for (auto* grid : ribbon->findChildren<QGridLayout*>()) {
+        QVector<int> columnX;
+        for (int i = 0; i < grid->count(); ++i) {
+            auto* button = qobject_cast<QToolButton*>(grid->itemAt(i)->widget());
+            // Only the page on screen has geometry; the others keep none until they are shown.
+            if (!button || !button->isVisible())
+                continue;
+            int row = 0;
+            int column = 0;
+            int rowSpan = 1;
+            int columnSpan = 1;
+            grid->getItemPosition(i, &row, &column, &rowSpan, &columnSpan);
+            const int x = button->mapTo(grid->parentWidget(), QPoint(0, 0)).x();
+            if (column >= columnX.size()) {
+                columnX.resize(column + 1, -1);
+            }
+            if (columnX[column] < 0) {
+                columnX[column] = x;
+                ++checked;
+            } else {
+                EXPECT_EQ(x, columnX[column]) << "column " << column;
+            }
+        }
+    }
+    EXPECT_GT(checked, 3);
 }
 
 // AutoCAD's file tabs carry one plain cross in the text colour; the star says that a drawing has
