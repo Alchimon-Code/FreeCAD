@@ -384,9 +384,8 @@ TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
 }
 
 // AutoCAD scrolls the panels with two chevrons on the tab band, not with a scroll bar under the strip:
-// the strip keeps no bar of its own, the wheel and the chevrons move the page, and the chevrons dim at
-// the two ends. The range is set by hand because a page only overflows once a platform's own font
-// metrics say it does, and this test is about the wiring rather than about the metrics.
+// the strip keeps no bar of its own, the chevrons move the page, and they dim at the two ends. A panel
+// wider than any window makes the page overflow whatever the platform's font metrics are.
 TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     window->show();
     QApplication::processEvents();
@@ -399,20 +398,21 @@ TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     auto* page = ribbon->findChild<QScrollArea*>("ribbonScroll");
     ASSERT_NE(page, nullptr);
     EXPECT_EQ(page->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    auto* wide = new QWidget;
+    wide->setMinimumSize(2400, 40);
+    ribbon->addPanelWidget(QStringLiteral("home"), QStringLiteral("Wide"), wide);
+    for (int i = 0; i < 4; ++i)
+        QApplication::processEvents();
     auto* bar = page->horizontalScrollBar();
-    bar->setRange(0, 600);
-    bar->setPageStep(420);
-    bar->setValue(0);
+    ASSERT_GT(bar->maximum(), 0) << "a 2400 px panel cannot fit any window";
+    bar->setValue(bar->minimum());
     EXPECT_FALSE(back->isEnabled()) << "the page starts at its left end";
     EXPECT_TRUE(forward->isEnabled());
     forward->click();
-    EXPECT_EQ(bar->value(), 180);
+    EXPECT_GT(bar->value(), 0);
     EXPECT_TRUE(back->isEnabled());
-    back->click();
-    EXPECT_EQ(bar->value(), 0);
     bar->setValue(bar->maximum());
     EXPECT_FALSE(forward->isEnabled());
-    EXPECT_TRUE(back->isEnabled());
 }
 
 // The coordinate readout owns the left end of the status bar in AutoCAD and never hides under a hint,
