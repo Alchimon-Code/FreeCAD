@@ -376,6 +376,9 @@ void Ribbon::addPage(const QString& key) {
     pages_->addWidget(scroll);
     rows_.insert(key, widget);
     connect(scroll->horizontalScrollBar(), &QScrollBar::valueChanged, this, [this] { syncChevrons(); });
+    // A page that starts to overflow, or stops, has to move the chevrons with it.
+    connect(scroll->horizontalScrollBar(), &QScrollBar::rangeChanged, this,
+            [this] { syncChevrons(); });
 }
 
 QWidget* Ribbon::page(const QString& key) {
