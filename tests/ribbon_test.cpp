@@ -417,6 +417,19 @@ TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     EXPECT_FALSE(forward->isEnabled());
 }
 
+// AutoCAD names the line it waits on: the command line opens with "Command:".
+TEST_F(RibbonWorkspace, CommandLineNamesItself) {
+    window->show();
+    QApplication::processEvents();
+    auto* prompt = window->findChild<QLabel*>("commandPrompt");
+    ASSERT_NE(prompt, nullptr);
+    EXPECT_EQ(prompt->text(), QStringLiteral("Command:"));
+    EXPECT_TRUE(prompt->isVisible());
+    auto* input = window->findChild<QLineEdit*>("commandInput");
+    ASSERT_NE(input, nullptr);
+    EXPECT_LT(prompt->x(), input->x()) << "the name comes before what is typed";
+}
+
 // The coordinate readout owns the left end of the status bar in AutoCAD and never hides under a hint,
 // which is why the hint is a widget of its own instead of a temporary status message.
 TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {

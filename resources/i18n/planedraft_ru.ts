@@ -864,6 +864,10 @@
         <translation>Командная строка</translation>
     </message>
     <message>
+        <source>Command:</source>
+        <translation>Команда:</translation>
+    </message>
+    <message>
         <source>Command history</source>
         <translation>История команд</translation>
     </message>
@@ -1474,6 +1478,14 @@
     <message>
         <source>Current layer of the selection</source>
         <translation>Слой выбранных объектов</translation>
+    </message>
+    <message>
+        <source>Scroll the ribbon panels left</source>
+        <translation>Прокрутить панели ленты влево</translation>
+    </message>
+    <message>
+        <source>Scroll the ribbon panels right</source>
+        <translation>Прокрутить панели ленты вправо</translation>
     </message>
 </context>
 </TS>

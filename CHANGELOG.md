@@ -33,7 +33,10 @@
 - **Ribbon captions:** a caption is never elided — the button is measured against the label rectangle
   the style actually paints — and commands are titled the way AutoCAD titles them (`Polyline`,
   `Rectangle`, `Linear`), with the ellipsis kept for the entries that open a dialog.
-- **Command line and status bar:** the prompt's dock has no caption bar, and the status bar reads as
+- **Quick access row:** the row above the tabs sits on the same darker band as the tabs, so the top of
+  the window reads as one piece of chrome instead of a floating toolbar strip.
+- **Command line and status bar:** the prompt's dock has no caption bar and opens with `Command:`, and
+  the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
 - **Ribbon scrolling:** the panels move with two chevrons on the tab band and with the wheel, the way

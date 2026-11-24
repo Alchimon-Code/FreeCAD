@@ -54,6 +54,19 @@ class PanelFrame : public QFrame {
     }
 };
 
+// The quick access row sits on the same darker band as the tabs, so the top of the window reads as one
+// piece of chrome the way AutoCAD's title strip and tab band do.
+class QuickAccessBar final : public QToolBar {
+  public:
+    using QToolBar::QToolBar;
+
+  protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.fillRect(rect(), palette().color(QPalette::Window).darker(108));
+    }
+};
+
 // The tab strip: a darker band with the current tab painted in the page colour, so the two read as
 // one surface the way they do in AutoCAD, instead of a browser-style tab with an accent bar under it.
 class RibbonTabBar : public QTabBar {
@@ -84,8 +97,8 @@ class RibbonTabBar : public QTabBar {
         }
         back_->setText(QStringLiteral("<"));
         forward_->setText(QStringLiteral(">"));
-        back_->setToolTip(tr("Scroll the ribbon panels left"));
-        forward_->setToolTip(tr("Scroll the ribbon panels right"));
+        back_->setToolTip(QCoreApplication::translate("Ribbon", "Scroll the ribbon panels left"));
+        forward_->setToolTip(QCoreApplication::translate("Ribbon", "Scroll the ribbon panels right"));
         back_->setObjectName("ribbonScrollLeft");
         forward_->setObjectName("ribbonScrollRight");
         QObject::connect(back_, &QToolButton::clicked, this, [this] {
@@ -292,7 +305,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     auto* box = new QVBoxLayout(this);
     box->setContentsMargins(0, 0, 0, 0);
     box->setSpacing(0);
-    quickAccess_ = new QToolBar(this);
+    quickAccess_ = new QuickAccessBar(this);
     quickAccess_->setObjectName("quickAccess");
     quickAccess_->setIconSize({20, 20});
     quickAccess_->setMovable(false);

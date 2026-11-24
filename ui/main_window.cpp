@@ -25,6 +25,7 @@
 #include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QHash>
 #include <QKeyEvent>
 #include <QLabel>
@@ -252,7 +253,15 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     completer_->setCaseSensitivity(Qt::CaseInsensitive);
     input_->installEventFilter(this);
     layout->addWidget(history_);
-    layout->addWidget(input_);
+    // AutoCAD names the line it is waiting on: "Command:" before anything is typed.
+    commandPrompt_ = new QLabel(panel);
+    commandPrompt_->setObjectName("commandPrompt");
+    auto* line = new QHBoxLayout;
+    line->setContentsMargins(0, 0, 0, 0);
+    line->setSpacing(4);
+    line->addWidget(commandPrompt_);
+    line->addWidget(input_, 1);
+    layout->addLayout(line);
     console_->setWidget(panel);
     // AutoCAD's command line has no caption bar: the prompt and the history above it are the whole
     // widget, and the dock is still reachable from View - Panels and from Ctrl+9.
@@ -652,6 +661,7 @@ void MainWindow::retranslate() {
     inspector_->retranslate();
     layers_->retranslate();
     console_->setWindowTitle(tr("Command line"));
+    commandPrompt_->setText(tr("Command:"));
     completions_->setStringList(session_->completions());
     if (ribbon_)
         ribbon_->retranslate();
