@@ -70,12 +70,22 @@ class RibbonTabBar : public QTabBar {
         for (auto* button : {back_, forward_}) {
             button->setParent(this);
             button->setAutoRaise(true);
-            button->setToolButtonStyle(Qt::ToolButtonIconOnly);
-            button->setIconSize({12, 12});
+            button->setToolButtonStyle(Qt::ToolButtonTextOnly);
             button->setFocusPolicy(Qt::NoFocus);
         }
-        back_->setIcon(style()->standardIcon(QStyle::SP_ArrowLeft));
-        forward_->setIcon(style()->standardIcon(QStyle::SP_ArrowRight));
+        // Thin angle brackets, the way AutoCAD draws them: the stock arrow icons are a dark pixel
+        // mesh at this size on the tab band and read as two dots.
+        QFont chevron = font();
+        chevron.setPixelSize(13);
+        chevron.setBold(true);
+        for (auto* button : {back_, forward_}) {
+            button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+            button->setFont(chevron);
+        }
+        back_->setText(QStringLiteral("<"));
+        forward_->setText(QStringLiteral(">"));
+        back_->setToolTip(tr("Scroll the ribbon panels left"));
+        forward_->setToolTip(tr("Scroll the ribbon panels right"));
         back_->setObjectName("ribbonScrollLeft");
         forward_->setObjectName("ribbonScrollRight");
         QObject::connect(back_, &QToolButton::clicked, this, [this] {
