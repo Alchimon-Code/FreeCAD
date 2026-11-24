@@ -9,6 +9,7 @@
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
+#include <QList>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QResizeEvent>
@@ -424,7 +425,8 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     strip->addLayout(leaders);
     auto* grid = new QGridLayout;
     grid->setContentsMargins(0, 0, 0, 0);
-    grid->setSpacing(2);
+    grid->setHorizontalSpacing(10);
+    grid->setVerticalSpacing(2);
     columns = std::max(1, columns);
     int rowHeight = 0;
     for (int i = first; i < actions.size(); ++i) {
@@ -442,6 +444,7 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     box->insertWidget(0, buttons);
     row->insertWidget(row->count() - 1, frame);
     panelLabels_.append(label);
+    evenColumns();
 }
 
 void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidget* widget) {
@@ -497,7 +500,39 @@ void Ribbon::retranslate() {
         label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
     }
     applyPageTitles();
+    // The captions are translated after the buttons were measured, and a Russian name can be a good
+    // deal longer than the English one it was measured with. Ask again, or the button clips the
+    // caption mid word instead of eliding it.
+    for (auto* button : pages_->findChildren<QToolButton*>()) {
+        if (button->toolButtonStyle() != Qt::ToolButtonIconOnly)
+            fitCaption(button);
+    }
+    evenColumns();
     updateStrip();
+}
+
+// A panel of small buttons is a grid: the entries of one column start at the same x, so the captions
+// line up instead of stepping in and out with their lengths. Each button keeps its own width and the
+// column takes the widest one, which is measured again whenever the captions change.
+void Ribbon::evenColumns() {
+    for (auto* grid : pages_->findChildren<QGridLayout*>()) {
+        QList<int> widest;
+        for (int i = 0; i < grid->count(); ++i) {
+            auto* button = qobject_cast<QToolButton*>(grid->itemAt(i)->widget());
+            if (!button)
+                continue;
+            int row = 0;
+            int column = 0;
+            int rowSpan = 1;
+            int columnSpan = 1;
+            grid->getItemPosition(i, &row, &column, &rowSpan, &columnSpan);
+            if (column >= int(widest.size()))
+                widest.resize(column + 1, 0);
+            widest[column] = std::max(widest[column], button->minimumWidth());
+        }
+        for (int column = 0; column < int(widest.size()); ++column)
+            grid->setColumnMinimumWidth(column, widest[column]);
+    }
 }
 
 void Ribbon::resizeEvent(QResizeEvent* event) {

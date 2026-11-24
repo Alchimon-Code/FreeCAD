@@ -38,6 +38,7 @@ class Ribbon final : public QWidget {
     // Panel titles are translated from the source string each panel remembers, so adding a panel can
     // never shift the title of the panel next to it.
     void retranslate();
+    void evenColumns();
     // The combos only report a choice; MainWindow applies it to the current selection.
     void refreshLayers(const QStringList& names, const QString& current);
     // A double click on a tab minimizes the ribbon to its tabs, as AutoCAD does.

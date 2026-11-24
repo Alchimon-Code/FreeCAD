@@ -30,6 +30,29 @@
 #include <gtest/gtest.h>
 
 namespace {
+// Ask the painter's own question of every caption on the ribbon: would the style elide it in the
+// space the button reserves? That is the difference between "Полилиния" and "Полилиния…".
+QStringList clippedCaptions(Ribbon* ribbon) {
+    QStringList clipped;
+    for (auto* button : ribbon->findChildren<QToolButton*>()) {
+        const auto text = button->text();
+        // The quick access toolbar shows icons only; its caption lives in the tooltip.
+        if (text.isEmpty() || button->isHidden() ||
+            button->toolButtonStyle() == Qt::ToolButtonIconOnly)
+            continue;
+        const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
+        const int room = button->minimumWidth() - 2 * margin;
+        const int advance = button->fontMetrics().horizontalAdvance(text);
+        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room) != text)
+            clipped << QStringLiteral("%1: min %2 room %3 advance %4")
+                           .arg(text)
+                           .arg(button->minimumWidth())
+                           .arg(room)
+                           .arg(advance);
+    }
+    return clipped;
+}
+
 class RibbonWorkspace : public testing::Test {
   protected:
     RibbonWorkspace() {
@@ -324,25 +347,7 @@ TEST_F(RibbonWorkspace, RibbonLabelsFitTheirButtons) {
     QApplication::processEvents();
     auto* ribbon = window->findChild<Ribbon*>();
     ASSERT_NE(ribbon, nullptr);
-    QStringList clipped;
-    for (auto* button : ribbon->findChildren<QToolButton*>()) {
-        const auto text = button->text();
-        // The quick access toolbar shows icons only; its caption lives in the tooltip.
-        if (text.isEmpty() || button->isHidden() ||
-            button->toolButtonStyle() == Qt::ToolButtonIconOnly)
-            continue;
-        // Ask the painter's own question: would the style elide this caption in the space the
-        // button reserves? That is the difference between "Полилиния" and "Полилиния…".
-        const int margin = button->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, button) + 1;
-        const int room = button->minimumWidth() - 2 * margin;
-        const int advance = button->fontMetrics().horizontalAdvance(text);
-        if (button->fontMetrics().elidedText(text, Qt::ElideRight, room) != text)
-            clipped << QStringLiteral("%1: min %2 room %3 advance %4")
-                           .arg(text)
-                           .arg(button->minimumWidth())
-                           .arg(room)
-                           .arg(advance);
-    }
+    const auto clipped = clippedCaptions(ribbon);
     for (const auto& item : clipped)
         std::cerr << "clipped caption " << item.toStdString() << '\n';
     EXPECT_TRUE(clipped.isEmpty());
@@ -443,6 +448,30 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_TRUE(coords->isVisible());
     EXPECT_TRUE(message->isVisible());
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
+}
+
+// The buttons are measured while the interface is still English, and a Russian command name can be a
+// good deal longer; the ribbon re-measures when the translations land, so nothing is clipped.
+TEST_F(RibbonWorkspace, RibbonLabelsFitAfterALanguageSwitch) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* locale = window->findChild<QAction*>("localeSwitch");
+    ASSERT_NE(locale, nullptr);
+    locale->trigger();
+    QApplication::processEvents();
+    // The caption that used to be cut was this one, so the test checks that it arrived at all.
+    bool russian = false;
+    for (auto* button : ribbon->findChildren<QToolButton*>())
+        if (button->text() == QStringLiteral("Копировать с базовой точкой"))
+            russian = true;
+    EXPECT_TRUE(russian);
+    const auto clipped = clippedCaptions(ribbon);
+    for (const auto& item : clipped)
+        std::cerr << "clipped caption " << item.toStdString() << '\n';
+    EXPECT_TRUE(clipped.isEmpty());
 }
 
 // AutoCAD's file tabs carry one plain cross in the text colour; the star says that a drawing has
