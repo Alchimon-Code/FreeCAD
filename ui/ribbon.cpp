@@ -286,10 +286,6 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent, bool large = true) {
     auto* button = new QToolButton(parent);
     button->setDefaultAction(action);
     button->setToolButtonStyle(large ? Qt::ToolButtonTextUnderIcon : Qt::ToolButtonTextBesideIcon);
-    // An action without an icon would otherwise sit in a full size icon slot and leave a hole where
-    // the drawing should be; the caption alone is what AutoCAD shows for these toggles too.
-    if (action->icon().isNull())
-        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
     button->setAutoRaise(true);
     button->setIconSize(large ? QSize(26, 26) : QSize(16, 16));
     button->setToolTip(action->toolTip());
