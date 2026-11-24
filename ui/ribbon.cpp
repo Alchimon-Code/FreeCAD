@@ -311,7 +311,8 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     auto* bar = static_cast<RibbonTabBar*>(tabs_);
     bar->attachChevrons(new QToolButton(tabs_), new QToolButton(tabs_));
     bar->onScroll = [this](int direction) {
-        if (auto* scroll = qobject_cast<PageScroll*>(pages_->currentWidget()))
+        // Every page of the stack is a PageScroll, and the class carries no Q_OBJECT of its own.
+        if (auto* scroll = static_cast<PageScroll*>(pages_->currentWidget()))
             scroll->slide(direction);
     };
 
@@ -489,7 +490,7 @@ void Ribbon::setCollapsed(bool collapsed) {
 // A page that fits its viewport has nothing to scroll, and the chevrons say so by going grey.
 void Ribbon::syncChevrons() {
     auto* bar = static_cast<RibbonTabBar*>(tabs_);
-    auto* scroll = collapsed_ ? nullptr : qobject_cast<PageScroll*>(pages_->currentWidget());
+    auto* scroll = collapsed_ ? nullptr : static_cast<PageScroll*>(pages_->currentWidget());
     if (!scroll) {
         bar->setChevronsEnabled(false, false);
         return;
