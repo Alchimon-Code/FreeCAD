@@ -383,6 +383,32 @@ TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
         << view->height();
 }
 
+// AutoCAD scrolls the panels with two chevrons on the tab band, not with a scroll bar under the strip:
+// the strip keeps no bar of its own, the wheel and the chevrons move the page.
+TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* back = ribbon->findChild<QToolButton*>("ribbonScrollLeft");
+    auto* forward = ribbon->findChild<QToolButton*>("ribbonScrollRight");
+    ASSERT_NE(back, nullptr);
+    ASSERT_NE(forward, nullptr);
+    auto* page = ribbon->findChild<QScrollArea*>("ribbonScroll");
+    ASSERT_NE(page, nullptr);
+    EXPECT_EQ(page->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    auto* bar = page->horizontalScrollBar();
+    ASSERT_GT(bar->maximum(), 0) << "the Home page is wider than the window";
+    EXPECT_FALSE(back->isEnabled()) << "the page starts at its left end";
+    EXPECT_TRUE(forward->isEnabled());
+    forward->click();
+    EXPECT_GT(bar->value(), 0);
+    EXPECT_TRUE(back->isEnabled());
+    bar->setValue(bar->maximum());
+    EXPECT_FALSE(forward->isEnabled());
+}
+
 // The coordinate readout owns the left end of the status bar in AutoCAD and never hides under a hint,
 // which is why the hint is a widget of its own instead of a temporary status message.
 TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {

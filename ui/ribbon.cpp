@@ -10,6 +10,9 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QResizeEvent>
+#include <QWheelEvent>
 #include <QHBoxLayout>
 #include <QPainter>
 #include <QMouseEvent>
@@ -58,8 +61,55 @@ class RibbonTabBar : public QTabBar {
     using QTabBar::QTabBar;
     // Double-clicking a tab minimizes the ribbon to its tabs, exactly as it does in AutoCAD.
     std::function<void()> onDoubleClick;
+    // AutoCAD scrolls the panels with two chevrons at the right end of the tab band instead of a
+    // scroll bar under the strip, so the two live here and ride on the band.
+    std::function<void(int)> onScroll;
+    void attachChevrons(QToolButton* back, QToolButton* forward) {
+        back_ = back;
+        forward_ = forward;
+        for (auto* button : {back_, forward_}) {
+            button->setParent(this);
+            button->setAutoRaise(true);
+            button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+            button->setIconSize({12, 12});
+            button->setFocusPolicy(Qt::NoFocus);
+        }
+        back_->setIcon(style()->standardIcon(QStyle::SP_ArrowLeft));
+        forward_->setIcon(style()->standardIcon(QStyle::SP_ArrowRight));
+        back_->setObjectName("ribbonScrollLeft");
+        forward_->setObjectName("ribbonScrollRight");
+        QObject::connect(back_, &QToolButton::clicked, this, [this] {
+            if (onScroll)
+                onScroll(-1);
+        });
+        QObject::connect(forward_, &QToolButton::clicked, this, [this] {
+            if (onScroll)
+                onScroll(1);
+        });
+        placeChevrons();
+    }
+    void setChevronsEnabled(bool back, bool forward) {
+        if (back_)
+            back_->setEnabled(back);
+        if (forward_)
+            forward_->setEnabled(forward);
+    }
 
   protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QTabBar::resizeEvent(event);
+        placeChevrons();
+    }
+    void placeChevrons() {
+        if (!back_ || !forward_)
+            return;
+        const int side = std::max(14, height() - 6);
+        const int y = (height() - side) / 2;
+        forward_->setGeometry(width() - side - 3, y, side, side);
+        back_->setGeometry(width() - 2 * side - 5, y, side, side);
+        back_->raise();
+        forward_->raise();
+    }
     void mouseDoubleClickEvent(QMouseEvent* event) override {
         if (onDoubleClick && event->button() == Qt::LeftButton) {
             onDoubleClick();
@@ -96,6 +146,10 @@ class RibbonTabBar : public QTabBar {
             painter.drawText(cell, Qt::AlignCenter, tabText(i));
         }
     }
+
+  private:
+    QToolButton* back_ = nullptr;
+    QToolButton* forward_ = nullptr;
 };
 
 QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
@@ -156,7 +210,15 @@ void fitCaption(QToolButton* button) {
 // a horizontal bar appears. The width hint stays small: the page scrolls, the window does not grow.
 class PageScroll : public QScrollArea {
   public:
-    using QScrollArea::QScrollArea;
+    explicit PageScroll(QWidget* parent = nullptr) : QScrollArea(parent) {
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    }
+    // The chevrons ask for a direction, the wheel for a distance: both end up sliding the page.
+    void slide(int direction) { slideBy(direction * 180); }
+    void slideBy(int delta) {
+        auto* bar = horizontalScrollBar();
+        bar->setValue(bar->value() + delta);
+    }
     QSize sizeHint() const override {
         const QWidget* content = widget();
         if (!content)
@@ -164,9 +226,22 @@ class PageScroll : public QScrollArea {
         // The grid hint of a row of fixed-width buttons comes out short on some styles, so the page
         // also states how tall it has to be; taking both keeps a per-tab ribbon unclipped.
         const int height = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
-        return {240, height + 24};
+        return {240, height + 4};
     }
     QSize minimumSizeHint() const override { return sizeHint(); }
+
+  protected:
+    void wheelEvent(QWheelEvent* event) override {
+        auto* bar = horizontalScrollBar();
+        if (bar->maximum() <= 0) {
+            QScrollArea::wheelEvent(event);
+            return;
+        }
+        // AutoCAD scrolls the panels of the ribbon with the wheel when they do not fit.
+        const int delta = event->angleDelta().y() != 0 ? event->angleDelta().y() : event->angleDelta().x();
+        slideBy(-delta);
+        event->accept();
+    }
 };
 // AutoCAD's ribbon is as tall as the tab on screen: Home fills three rows, Insert needs one, and the
 // strip follows. A plain QStackedWidget reports the tallest page instead, which leaves a block of
@@ -228,8 +303,17 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     box->addWidget(pages_);
     connect(tabs_, &QTabBar::currentChanged, pages_, &QStackedWidget::setCurrentIndex);
     // The strip is sized by the page on screen, so a tab change has to re-ask the layout.
-    connect(tabs_, &QTabBar::currentChanged, this, [this] { updateStrip(); });
+    connect(tabs_, &QTabBar::currentChanged, this, [this] {
+        updateStrip();
+        syncChevrons();
+    });
     static_cast<RibbonTabBar*>(tabs_)->onDoubleClick = [this] { setCollapsed(!collapsed_); };
+    auto* bar = static_cast<RibbonTabBar*>(tabs_);
+    bar->attachChevrons(new QToolButton(tabs_), new QToolButton(tabs_));
+    bar->onScroll = [this](int direction) {
+        if (auto* scroll = qobject_cast<PageScroll*>(pages_->currentWidget()))
+            scroll->slide(direction);
+    };
 
     layer_ = new QComboBox(this);
     layer_->setObjectName("ribbonLayer");
@@ -274,13 +358,13 @@ void Ribbon::addPage(const QString& key) {
     scroll->setObjectName("ribbonScroll");
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidgetResizable(true);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->viewport()->setAutoFillBackground(true);
     scroll->viewport()->setBackgroundRole(QPalette::Window);
     scroll->setWidget(widget);
     pages_->addWidget(scroll);
     rows_.insert(key, widget);
+    connect(scroll->horizontalScrollBar(), &QScrollBar::valueChanged, this, [this] { syncChevrons(); });
 }
 
 QWidget* Ribbon::page(const QString& key) {
@@ -387,6 +471,11 @@ void Ribbon::retranslate() {
     updateStrip();
 }
 
+void Ribbon::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    syncChevrons();
+}
+
 void Ribbon::setCollapsed(bool collapsed) {
     if (collapsed_ == collapsed)
         return;
@@ -395,6 +484,19 @@ void Ribbon::setCollapsed(bool collapsed) {
     updateGeometry();
     if (auto* window = parentWidget())
         window->updateGeometry();
+}
+
+// A page that fits its viewport has nothing to scroll, and the chevrons say so by going grey.
+void Ribbon::syncChevrons() {
+    auto* bar = static_cast<RibbonTabBar*>(tabs_);
+    auto* scroll = collapsed_ ? nullptr : qobject_cast<PageScroll*>(pages_->currentWidget());
+    if (!scroll) {
+        bar->setChevronsEnabled(false, false);
+        return;
+    }
+    auto* horizontal = scroll->horizontalScrollBar();
+    bar->setChevronsEnabled(horizontal->value() > horizontal->minimum(),
+                            horizontal->value() < horizontal->maximum());
 }
 
 void Ribbon::updateStrip() {
@@ -410,7 +512,8 @@ void Ribbon::updateStrip() {
         return;
     const int need = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
     if (need > 0)
-        pages_->setFixedHeight(need + 24);
+        pages_->setFixedHeight(need + 4);
+    syncChevrons();
 }
 
 void Ribbon::refreshLayers(const QStringList& names, const QString& current) {

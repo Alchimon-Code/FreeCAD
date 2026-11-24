@@ -10,6 +10,7 @@ class QLabel;
 class QStackedWidget;
 class QTabBar;
 class QToolBar;
+class QResizeEvent;
 
 // A compact Office-style ribbon built from existing QActions: no second command registry, so the
 // menu, toolbars, shortcuts and the ribbon can never disagree about what a command does.
@@ -48,9 +49,13 @@ class Ribbon final : public QWidget {
     void colorPicked(const QVariant& value); // "ByLayer"/"ByBlock"/QColor
     void weightPicked(const QVariant& value); // "ByLayer"/"ByBlock"/double
 
+  protected:
+    void resizeEvent(QResizeEvent* event) override;
+
   private:
     QWidget* page(const QString& key);
     void updateStrip();
+    void syncChevrons();
     void applyPageTitles();
     QTabBar* tabs_;
     QStackedWidget* pages_;

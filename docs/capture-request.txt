@@ -1,1 +1,1 @@
-coordinates at the left end of the status bar 2026-11-24T10:20:00Z
+chevrons instead of a ribbon scroll bar 2026-11-24T12:05:00Z

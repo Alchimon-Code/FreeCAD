@@ -34,7 +34,10 @@
   the style actually paints — and commands are titled the way AutoCAD titles them (`Polyline`,
   `Rectangle`, `Linear`), with the ellipsis kept for the entries that open a dialog.
 - **Command line and status bar:** the prompt's dock has no caption bar, and the status bar reads as
-  flat cells with a hairline and an accent line under an active toggle, like AutoCAD's.
+  flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
+  coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Ribbon scrolling:** the panels move with two chevrons on the tab band and with the wheel, the way
+  AutoCAD scrolls a ribbon that does not fit; the strip keeps no scroll bar of its own.
 
 ## v0.2.0
 
