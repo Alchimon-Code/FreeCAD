@@ -46,14 +46,13 @@ bool saveFrame(MainWindow& window, const QString& path) {
     {
         QPainter paint(&image);
         paint.drawImage(QRect(view->mapTo(&window, QPoint()), view->size()), frame);
-        // The dynamic-input hint is a plain child widget of the GL viewport, so window.grab()
-        // misses it for exactly the same reason.
-        // Every page owns its own hint label, so ask this page, not the first one in the window.
-        if (auto* hint = view->findChild<QLabel*>("dynamicInput"); hint && !hint->isHidden())
-            paint.drawPixmap(hint->mapTo(&window, QPoint()), hint->grab());
-        // The UCS icon is the second overlay that lives on the viewport itself.
-        if (auto* ucs = view->findChild<QWidget*>("ucsIcon"); ucs && !ucs->isHidden())
-            paint.drawPixmap(ucs->mapTo(&window, QPoint()), ucs->grab());
+        // The overlays are plain child widgets of the GL viewport, so window.grab() misses them for
+        // exactly the same reason: draw each one that is on screen, in the order it is layered.
+        for (auto* name : {"dynamicInput", "snapHint", "ucsIcon"}) {
+            auto* overlay = view->findChild<QWidget*>(name);
+            if (overlay && !overlay->isHidden())
+                paint.drawPixmap(overlay->mapTo(&window, QPoint()), overlay->grab());
+        }
     }
     return image.save(path);
 }

@@ -39,6 +39,8 @@
   the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Snap hint:** the point under the crosshair is named beside its marker, with the same word the
+  object-snap menu carries, as AutoCAD does.
 - **Ribbon scrolling:** the panels move with two chevrons on the tab band and with the wheel, the way
   AutoCAD scrolls a ribbon that does not fit; the strip keeps no scroll bar of its own.
 

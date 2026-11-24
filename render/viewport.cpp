@@ -3,6 +3,8 @@
 #include "qt_text.hpp"
 #include "scene_renderer.hpp"
 
+#include <QCoreApplication>
+#include <QLabel>
 #include <QApplication>
 #include <QFont>
 #include <QKeyEvent>
@@ -19,6 +21,30 @@
 
 namespace {
 pd::Vec2 pixel(QPointF p) { return {p.x(), p.y()}; }
+
+// The snap names are the ones the object-snap menu carries, so the word beside the marker is the same
+// word the user picked in that menu, in whatever language the menu is in.
+QString snapName(pd::SnapType type) {
+    auto name = [](const char* source) { return QCoreApplication::translate("MainWindow", source); };
+    switch (type) {
+    case pd::SnapType::Endpoint:
+        return name("Endpoint");
+    case pd::SnapType::Midpoint:
+        return name("Midpoint");
+    case pd::SnapType::Center:
+        return name("Centre");
+    case pd::SnapType::Quadrant:
+        return name("Quadrant");
+    case pd::SnapType::Insertion:
+        return name("Insertion");
+    case pd::SnapType::Intersection:
+        return name("Intersection");
+    case pd::SnapType::Nearest:
+        return name("Nearest");
+    default:
+        return {};
+    }
+}
 
 // AutoCAD's UCS icon: two arrows from the world origin, X to the right and Y upwards, drawn over the
 // drawing area. It is a child widget, the way the dynamic-input label is, so it never disturbs the
@@ -218,6 +244,8 @@ void Viewport::refreshCursor() {
         ucsIcon_ = new UcsIcon(this);
     refreshUcsIcon();
     if (page_) {
+        if (snapHint_)
+            snapHint_->hide();
         update();
         return;
     }
@@ -242,6 +270,7 @@ void Viewport::refreshCursor() {
             overlay_.snap.reset();
     }
     refreshDynamicInput();
+    refreshSnapHint();
     update();
 }
 void Viewport::wheelEvent(QWheelEvent* e) {
@@ -594,6 +623,32 @@ void Viewport::refreshUcsIcon() {
     ucsIcon_->move(x, y);
     ucsIcon_->raise();
     ucsIcon_->show();
+}
+
+// AutoCAD names the point it is about to snap to: a small box beside the marker carries the word.
+void Viewport::refreshSnapHint() {
+    if (!snapHint_) {
+        snapHint_ = new QLabel(this);
+        snapHint_->setObjectName("snapHint");
+        snapHint_->setAttribute(Qt::WA_TransparentForMouseEvents);
+        snapHint_->setAttribute(Qt::WA_StyledBackground, true);
+        snapHint_->setStyleSheet("QLabel { padding: 1px 5px; border: 1px solid palette(mid);"
+                                 " background: palette(base); color: palette(text); }");
+        snapHint_->hide();
+    }
+    const QString name = overlay_.snap && !overlay_.frameStart ? snapName(overlay_.snap->type) : QString();
+    if (page_ || name.isEmpty()) {
+        snapHint_->hide();
+        return;
+    }
+    snapHint_->setText(name);
+    snapHint_->adjustSize();
+    const auto at = camera_.worldToScreen(overlay_.snap->point) + pd::Vec2{14, -snapHint_->height() - 8};
+    const int x = std::clamp(int(std::lround(at.x)), 2, std::max(2, width() - snapHint_->width() - 2));
+    const int y = std::clamp(int(std::lround(at.y)), 2, std::max(2, height() - snapHint_->height() - 2));
+    snapHint_->move(x, y);
+    snapHint_->show();
+    snapHint_->raise();
 }
 
 void Viewport::refreshDynamicInput() {

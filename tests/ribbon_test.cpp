@@ -444,6 +444,21 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
 }
 
+// AutoCAD names the point it is about to snap to, in the words of its object-snap menu. The label is a
+// child of the viewport, created once, and stays hidden until a snap is under the crosshair.
+TEST_F(RibbonWorkspace, SnapHintBelongsToTheViewport) {
+    window->show();
+    auto* view = window->activeView();
+    ASSERT_NE(view, nullptr);
+    QMouseEvent move(QEvent::MouseMove, QPointF(200, 150), QPointF(200, 150), Qt::NoButton, Qt::NoButton,
+                     Qt::NoModifier);
+    QApplication::sendEvent(view, &move);
+    QApplication::processEvents();
+    auto* hint = view->findChild<QLabel*>("snapHint");
+    ASSERT_NE(hint, nullptr);
+    EXPECT_EQ(view->findChildren<QLabel*>("snapHint").size(), 1);
+}
+
 // AutoCAD's ribbon folds down to its tabs on a double click, which gives the drawing the whole
 // window without losing the tabs.
 TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {
