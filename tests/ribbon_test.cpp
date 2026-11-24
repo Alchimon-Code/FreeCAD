@@ -384,8 +384,8 @@ TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
 }
 
 // AutoCAD scrolls the panels with two chevrons on the tab band, not with a scroll bar under the strip:
-// the strip keeps no bar of its own, the chevrons move the page, and they dim at the two ends. A panel
-// wider than any window makes the page overflow whatever the platform's font metrics are.
+// the strip keeps no bar of its own, the chevrons move the page in front of the user, and they dim at
+// the two ends. The page is given a width of its own, so the range is not a platform's font metrics.
 TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     window->show();
     QApplication::processEvents();
@@ -395,16 +395,18 @@ TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     auto* forward = ribbon->findChild<QToolButton*>("ribbonScrollRight");
     ASSERT_NE(back, nullptr);
     ASSERT_NE(forward, nullptr);
-    auto* page = ribbon->findChild<QScrollArea*>("ribbonScroll");
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    auto* page = qobject_cast<QScrollArea*>(stack->currentWidget());
     ASSERT_NE(page, nullptr);
     EXPECT_EQ(page->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
-    auto* wide = new QWidget;
-    wide->setMinimumSize(2400, 40);
-    ribbon->addPanelWidget(QStringLiteral("home"), QStringLiteral("Wide"), wide);
-    for (int i = 0; i < 4; ++i)
-        QApplication::processEvents();
+    EXPECT_FALSE(page->horizontalScrollBar()->isVisible()) << "the strip shows no bar";
+    page->setWidgetResizable(false);
+    ASSERT_NE(page->widget(), nullptr);
+    page->widget()->resize(2400, 160);
+    QApplication::processEvents();
     auto* bar = page->horizontalScrollBar();
-    ASSERT_GT(bar->maximum(), 0) << "a 2400 px panel cannot fit any window";
+    ASSERT_GT(bar->maximum(), 0);
     bar->setValue(bar->minimum());
     EXPECT_FALSE(back->isEnabled()) << "the page starts at its left end";
     EXPECT_TRUE(forward->isEnabled());
