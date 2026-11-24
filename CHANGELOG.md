@@ -39,6 +39,10 @@
   the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Panel captions on one baseline:** every panel on a page takes the height of the tallest one, so
+  the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
+- **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
+  the star beside the name, not a red cross.
 - **Ribbon chrome:** panels lost their boxes. The strip is one surface divided by hairlines, and the
   tabs carry no outline either: the current one is a patch of the page colour that flows into the
   panels, the way AutoCAD's ribbon band reads.

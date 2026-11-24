@@ -775,6 +775,22 @@ void MainWindow::attach(DrawingPage* p) {
             showCoordinates(valid, x, y);
     });
     int index = documents_->addTab(p, QString{});
+    // AutoCAD's file tabs carry one plain cross, in the text colour, whether the drawing has unsaved
+    // edits or not; the star beside the name says that instead. The style's own close button came
+    // out red on the current tab, and the fix is to draw the glyph here.
+    auto* close = new QToolButton(documents_);
+    close->setObjectName("documentClose");
+    close->setText(QStringLiteral("\u2715"));
+    close->setAutoRaise(true);
+    close->setFocusPolicy(Qt::NoFocus);
+    close->setCursor(Qt::ArrowCursor);
+    close->setToolTip(tr("Close the drawing"));
+    QFont closeFont = close->font();
+    closeFont.setPixelSize(11);
+    close->setFont(closeFont);
+    close->setFixedSize(16, 16);
+    connect(close, &QToolButton::clicked, this, [this, p] { closeDocument(documents_->indexOf(p)); });
+    documents_->tabBar()->setTabButton(index, QTabBar::RightSide, close);
     documents_->setCurrentIndex(index);
     if (loadTrustedPlugins_)
         s->loadPluginDirectory(QCoreApplication::applicationDirPath() + "/../plugins");

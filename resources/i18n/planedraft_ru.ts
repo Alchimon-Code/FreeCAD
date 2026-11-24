@@ -876,6 +876,10 @@
         <translation>Отмена</translation>
     </message>
     <message>
+        <source>Close the drawing</source>
+        <translation>Закрыть чертёж</translation>
+    </message>
+    <message>
         <source>Command history</source>
         <translation>История команд</translation>
     </message>

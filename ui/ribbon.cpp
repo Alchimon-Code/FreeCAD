@@ -145,7 +145,7 @@ class RibbonTabBar : public QTabBar {
     }
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
-        const QColor band = palette().color(QPalette::Window).darker(108);
+        const QColor band = palette().color(QPalette::Window).darker(122);
         const QColor page = palette().color(QPalette::Window);
         const QColor ink = palette().color(QPalette::WindowText);
         painter.fillRect(rect(), band);
@@ -177,9 +177,11 @@ class RibbonTabBar : public QTabBar {
 
 QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     auto* frame = new PanelFrame(parent);
-    // A short page (Insert has three small panels) must keep its buttons at the top: stretching the
-    // frame spreads a two-row grid over the whole strip, which reads as a broken layout.
-    frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    // Every panel takes the height of the tallest one on its page. The buttons stay at the top
+    // because the frame keeps a stretch above its caption, so a two-row grid never spreads; what
+    // moves is the caption, which lands on one baseline across the strip the way AutoCAD lines
+    // them up.
+    frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* box = new QVBoxLayout(frame);
     box->setContentsMargins(7, 5, 7, 3);
     box->setSpacing(2);
@@ -438,7 +440,7 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
         buttons->setMinimumHeight(rows * rowHeight + (rows - 1) * grid->spacing());
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, buttons);
-    row->insertWidget(row->count() - 1, frame, 0, Qt::AlignTop);
+    row->insertWidget(row->count() - 1, frame);
     panelLabels_.append(label);
 }
 
@@ -455,7 +457,7 @@ void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidge
     holder->setMinimumHeight(widget->sizeHint().height() + 4);
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, holder);
-    row->insertWidget(row->count() - 1, frame, 0, Qt::AlignTop);
+    row->insertWidget(row->count() - 1, frame);
     panelLabels_.append(label);
 }
 

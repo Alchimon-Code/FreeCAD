@@ -24,6 +24,7 @@
 #include <QStackedWidget>
 #include <QStyle>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
 #include <gtest/gtest.h>
@@ -442,6 +443,20 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_TRUE(coords->isVisible());
     EXPECT_TRUE(message->isVisible());
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
+}
+
+// AutoCAD's file tabs carry one plain cross in the text colour; the star says that a drawing has
+// unsaved edits, so the cross never changes colour for it.
+TEST_F(RibbonWorkspace, DocumentTabsCarryOnePlainCross) {
+    auto* tabs = window->findChild<QTabWidget*>("documentTabs");
+    ASSERT_NE(tabs, nullptr);
+    ASSERT_GE(tabs->count(), 1);
+    auto* close = qobject_cast<QToolButton*>(tabs->tabBar()->tabButton(0, QTabBar::RightSide));
+    ASSERT_NE(close, nullptr);
+    EXPECT_EQ(close->text(), QStringLiteral("\u2715"));
+    EXPECT_TRUE(close->icon().isNull());
+    EXPECT_EQ(close->toolTip(), QStringLiteral("Close the drawing"));
+    EXPECT_EQ(close->size(), QSize(16, 16));
 }
 
 // AutoCAD's shortcut menu during a command starts with the two keys that matter: Enter for the next
