@@ -386,7 +386,8 @@ TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
 // AutoCAD scrolls the panels with two chevrons on the tab band, not with a scroll bar under the strip:
 // the strip keeps no bar of its own, the wheel and the chevrons move the page.
 TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
-    window->resize(1520, 880);
+    // Narrow enough that the Home page cannot fit whatever the platform's font metrics are.
+    window->resize(800, 880);
     window->show();
     QApplication::processEvents();
     auto* ribbon = window->findChild<Ribbon*>();
@@ -399,7 +400,7 @@ TEST_F(RibbonWorkspace, ChevronsScrollThePanelStrip) {
     ASSERT_NE(page, nullptr);
     EXPECT_EQ(page->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
     auto* bar = page->horizontalScrollBar();
-    ASSERT_GT(bar->maximum(), 0) << "the Home page is wider than the window";
+    ASSERT_GT(bar->maximum(), 0) << "the Home page is wider than a narrow window";
     EXPECT_FALSE(back->isEnabled()) << "the page starts at its left end";
     EXPECT_TRUE(forward->isEnabled());
     forward->click();
