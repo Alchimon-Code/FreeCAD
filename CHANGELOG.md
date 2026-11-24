@@ -39,6 +39,9 @@
   the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Ribbon buttons without icons:** a toggle whose action has no icon, such as Ortho or the theme
+  switch, is drawn as a caption instead of an empty icon slot, so the View page reads as text
+  buttons rather than as holes.
 - **Shortcut menu:** while a command runs, the drawing's context menu opens with `Enter` and
   `Cancel`, the two keys AutoCAD puts first there; they step back and step out of the command.
 - **Snap hint:** the point under the crosshair is named beside its marker, with the same word the
