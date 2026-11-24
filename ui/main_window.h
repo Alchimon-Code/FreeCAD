@@ -61,6 +61,7 @@ class MainWindow : public QMainWindow {
     void translateChrome();
     void showContextMenu(const QPoint& globalPos);
     void refreshContextMenu();
+    void refreshContextStep();
     void applyRibbonMode(bool on);
     void syncRibbon();
     void applyTheme(bool dark);

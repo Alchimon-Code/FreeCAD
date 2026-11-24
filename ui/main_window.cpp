@@ -522,7 +522,9 @@ void MainWindow::enterOrRepeat() {
     history_->verticalScrollBar()->setValue(history_->verticalScrollBar()->maximum());
 }
 
-void MainWindow::refreshContextMenu() {
+// Enter and Cancel belong to the state of the command rather than to the menu: they follow the prompt
+// so that a right click during a command always offers the two keys AutoCAD puts there.
+void MainWindow::refreshContextStep() {
     if (!session_)
         return;
     const bool running = session_->editor().active();
@@ -531,6 +533,13 @@ void MainWindow::refreshContextMenu() {
     contextEnter_->setVisible(running);
     contextCancel_->setVisible(running);
     contextStepSeparator_->setVisible(running);
+}
+
+void MainWindow::refreshContextMenu() {
+    if (!session_)
+        return;
+    refreshContextStep();
+    const bool running = session_->editor().active();
     contextRepeat_->setText(repeat_->text());
     contextRepeat_->setEnabled(!running && !session_->recentCommands().isEmpty());
     recent_->clear();
@@ -693,7 +702,7 @@ void MainWindow::updatePrompt() {
     auto* desired = e.active() ? nullptr : completer_;
     if (input_->completer() != desired)
         input_->setCompleter(desired);
-    refreshContextMenu();
+    refreshContextStep();
     ortho_->setChecked(e.tracking() == pd::edit::Tracking::Ortho);
     polar_->setChecked(e.tracking() == pd::edit::Tracking::Polar);
     for (auto* a : polarStep_->actions())
