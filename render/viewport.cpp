@@ -643,7 +643,8 @@ void Viewport::refreshSnapHint() {
     }
     snapHint_->setText(name);
     snapHint_->adjustSize();
-    const auto at = camera_.worldToScreen(overlay_.snap->point) + pd::Vec2{14, -snapHint_->height() - 8};
+    const auto at = camera_.worldToScreen(overlay_.snap->point) +
+                    pd::Vec2{14.0, -static_cast<double>(snapHint_->height()) - 8.0};
     const int x = std::clamp(int(std::lround(at.x)), 2, std::max(2, width() - snapHint_->width() - 2));
     const int y = std::clamp(int(std::lround(at.y)), 2, std::max(2, height() - snapHint_->height() - 2));
     snapHint_->move(x, y);
