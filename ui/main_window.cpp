@@ -38,6 +38,7 @@
 #include <QStatusBar>
 #include <QStringListModel>
 #include <QTabBar>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -266,7 +267,10 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     inspector_->raise();
     auto note = [this](const QString& s) {
         page_->append(s);
-        statusBar()->showMessage(s, 5000);
+        // The prompt returns on its own: a hint must not sit in the status bar forever.
+        if (statusMessage_)
+            statusMessage_->setText(s);
+        QTimer::singleShot(5000, this, [this] { updatePrompt(); });
     };
     connect(inspector_, &PropertyInspector::message, this, note);
     connect(layers_, &LayerManager::message, this, note);
@@ -667,8 +671,10 @@ void MainWindow::updatePrompt() {
     for (auto* a : polarStep_->actions())
         a->setChecked(a->data().toInt() == e.polarDegrees());
     input_->setPlaceholderText(e.active() ? e.prompt() : tr("Example: _LINE 0,0 80,40"));
-    statusBar()->showMessage(
-        e.active() ? e.prompt() : tr("Middle: pan   •   Wheel: zoom   •   Left drag: window → / crossing ←"));
+    if (statusMessage_)
+        statusMessage_->setText(
+            e.active() ? e.prompt()
+                       : tr("Middle: pan   •   Wheel: zoom   •   Left drag: window → / crossing ←"));
 }
 MainWindow::~MainWindow() { disconnect(documents_, nullptr, this, nullptr); }
 void MainWindow::attach(DrawingPage* p) {

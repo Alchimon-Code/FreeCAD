@@ -98,7 +98,7 @@ class MainWindow : public QMainWindow {
     QPlainTextEdit* history_;
     QStringListModel* completions_;
     QCompleter* completer_;
-    QLabel *entityCount_, *coords_;
+    QLabel *entityCount_, *coords_, *statusMessage_;
     // What was typed at the prompt, so Up/Down can walk it like the AutoCAD command line.
     QStringList typed_;
     int typedIndex_ = -1;

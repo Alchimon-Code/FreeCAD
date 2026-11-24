@@ -187,10 +187,16 @@ void MainWindow::setupChrome() {
         QSettings().setValue("view/osnap", on);
         updateSnap();
     });
+    // AutoCAD keeps the coordinate readout in the lower left corner of the window and its messages
+    // beside it, so the readout never disappears under a hint the way a temporary message would.
     coords_ = new QLabel(this);
     coords_->setObjectName("worldCoordinates");
     coords_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    statusBar()->addPermanentWidget(coords_);
+    statusBar()->addWidget(coords_);
+    statusMessage_ = new QLabel(this);
+    statusMessage_->setObjectName("statusMessage");
+    statusMessage_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    statusBar()->addWidget(statusMessage_, 1);
     lang_ = new QAction(this);
     lang_->setObjectName("localeSwitch");
     theme_ = settings_->addAction(QString());

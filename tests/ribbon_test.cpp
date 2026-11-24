@@ -383,6 +383,20 @@ TEST_F(RibbonWorkspace, UcsIconMarksTheWorldOrigin) {
         << view->height();
 }
 
+// The coordinate readout owns the left end of the status bar in AutoCAD and never hides under a hint,
+// which is why the hint is a widget of its own instead of a temporary status message.
+TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
+    window->show();
+    QApplication::processEvents();
+    auto* coords = window->findChild<QLabel*>("worldCoordinates");
+    auto* message = window->findChild<QLabel*>("statusMessage");
+    ASSERT_NE(coords, nullptr);
+    ASSERT_NE(message, nullptr);
+    EXPECT_TRUE(coords->isVisible());
+    EXPECT_TRUE(message->isVisible());
+    EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
+}
+
 // AutoCAD's ribbon folds down to its tabs on a double click, which gives the drawing the whole
 // window without losing the tabs.
 TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {
