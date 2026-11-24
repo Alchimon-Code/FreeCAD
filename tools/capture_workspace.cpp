@@ -18,6 +18,7 @@
 #include <QPainter>
 #include <QThread>
 #include <QPlainTextEdit>
+#include <utility>
 #include <QProcess>
 #include <QSettings>
 #include <QTabBar>
@@ -160,6 +161,18 @@ int main(int argc, char** argv) {
     app.processEvents();
     if (!saveFrame(window, out.filePath("ribbon-dark-ru.png")))
         return 1;
+
+    // The other two tabs the gallery had never shown: the small Insert page and the View page with
+    // its palettes and drafting aids.
+    for (auto [page, name] :
+         {std::pair{1, "ribbon-insert-ru.png"}, std::pair{3, "ribbon-view-ru.png"}}) {
+        ribbon->setCurrentPage(page);
+        app.processEvents();
+        if (!saveFrame(window, out.filePath(QString::fromLatin1(name))))
+            return 1;
+    }
+    ribbon->setCurrentPage(0);
+    app.processEvents();
 
     // Same window in the light English UI, ribbon on the Annotate page: a page that is populated
     // enough to show the strip, unlike the three small Insert panels.
