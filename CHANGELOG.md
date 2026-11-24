@@ -39,9 +39,12 @@
   the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
-- **Captions after a language switch:** the ribbon measures its buttons again when the translations
-  arrive, so a Russian name longer than the English one is not clipped mid word; and the small
-  buttons of a panel share one column width, so the captions line up as a grid.
+- **Russian captions read as words:** a command name is one token on the command line and several on
+  a button, so `_MATCHPROP` reads «Копировать свойства» on the ribbon instead of «Копироватьсв», and
+  the clipboard group is spelled out the same way.
+- **Ribbon grid:** the small buttons of a panel share one column width, so the captions line up as a
+  grid, and the ribbon measures its captions again when the translations arrive, so a longer Russian
+  label is never clipped mid word.
 - **Panel captions on one baseline:** every panel on a page takes the height of the tallest one, so
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are

@@ -47,8 +47,11 @@
 namespace {
 // The ribbon and the menus name a command the way AutoCAD does, not the way it is typed: PLINE reads
 // Polyline, RECTANG reads Rectangle, DIMLINEAR reads Linear. The canonical name is what the command
-// line accepts, so only the title changes. Russian titles already read as words and keep coming from
-// the CommandNames context.
+// line accepts, so only the title changes.
+//
+// Russian command names run their words together — the line wants one token, a caption wants words —
+// so the clipboard group, whose names are the longest, is spelled out here. Every other Russian title
+// is a single word and keeps coming from the CommandNames context.
 QString commandTitle(const QByteArray& cmd, bool russian) {
     if (!russian) {
         static const QHash<QByteArray, const char*> english{
@@ -59,6 +62,15 @@ QString commandTitle(const QByteArray& cmd, bool russian) {
             {"DIMSTYLE", "Dimension style"}};
         if (const auto found = english.constFind(cmd); found != english.constEnd())
             return QString::fromLatin1(*found);
+    } else {
+        static const QHash<QByteArray, const char*> russianNames{
+            {"MATCHPROP", "Копировать свойства"},
+            {"COPYCLIP", "Копировать"},
+            {"CUTCLIP", "Вырезать"},
+            {"PASTECLIP", "Вставить"},
+            {"COPYBASE", "Копировать с базовой точкой"}};
+        if (const auto found = russianNames.constFind(cmd); found != russianNames.constEnd())
+            return QString::fromUtf8(*found);
     }
     QString label = QCoreApplication::translate("CommandNames", cmd.constData()).toLower();
     if (label.isEmpty())
