@@ -540,13 +540,15 @@ void MainWindow::refreshContextMenu() {
         connect(a, &QAction::triggered, this, [this, name] { submit("_" + name); });
     }
     recent_->setEnabled(!recent_->isEmpty());
-    paste_->setEnabled(!session_->clipboardEmpty());
 }
 
 void MainWindow::showContextMenu(const QPoint& globalPos) {
     if (!session_)
         return;
     refreshContextMenu();
+    // The clipboard is asked when the menu opens, not on every prompt: a paste action that is asked
+    // mid-command can be a step behind the command that filled the clipboard.
+    paste_->setEnabled(!session_->clipboardEmpty());
     contextMenu_->exec(globalPos);
 }
 
