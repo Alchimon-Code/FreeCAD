@@ -444,6 +444,26 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
 }
 
+// AutoCAD's shortcut menu during a command starts with the two keys that matter: Enter for the next
+// step and Cancel for the way out. Both are there only while a command is running.
+TEST_F(RibbonWorkspace, ContextMenuOffersEnterWhileACommandRuns) {
+    auto* enter = window->findChild<QAction*>("contextEnter");
+    auto* cancel = window->findChild<QAction*>("contextCancel");
+    ASSERT_NE(enter, nullptr);
+    ASSERT_NE(cancel, nullptr);
+    EXPECT_FALSE(enter->isVisible());
+    EXPECT_FALSE(cancel->isVisible());
+    type("_LINE 0,0");
+    QApplication::processEvents();
+    EXPECT_TRUE(enter->isVisible());
+    EXPECT_TRUE(cancel->isVisible());
+    EXPECT_EQ(enter->text(), QStringLiteral("Enter"));
+    type("");
+    QApplication::processEvents();
+    EXPECT_FALSE(enter->isVisible());
+    window->activeView()->escape();
+}
+
 // AutoCAD names the point it is about to snap to, in the words of its object-snap menu. The label is a
 // child of the viewport, created once, and stays hidden until a snap is under the crosshair.
 TEST_F(RibbonWorkspace, SnapHintBelongsToTheViewport) {

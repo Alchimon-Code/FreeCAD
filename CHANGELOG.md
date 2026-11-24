@@ -39,6 +39,8 @@
   the status bar reads as
   flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
   coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Shortcut menu:** while a command runs, the drawing's context menu opens with `Enter` and
+  `Cancel`, the two keys AutoCAD puts first there; they step back and step out of the command.
 - **Snap hint:** the point under the crosshair is named beside its marker, with the same word the
   object-snap menu carries, as AutoCAD does.
 - **Ribbon scrolling:** the panels move with two chevrons on the tab band and with the wheel, the way

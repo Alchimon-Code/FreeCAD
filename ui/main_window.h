@@ -87,6 +87,9 @@ class MainWindow : public QMainWindow {
     QAction *dynamic_, *ribbonToggle_, *repeat_, *cut_, *copy_, *copyBase_, *paste_, *erase_, *properties_;
     QMenu *recent_, *contextMenu_;
     QAction* contextRepeat_;
+    QAction* contextEnter_ = nullptr;
+    QAction* contextCancel_ = nullptr;
+    QAction* contextStepSeparator_ = nullptr;
     QAction* historyToggle_ = nullptr;
     QAction* cleanScreen_ = nullptr;
     QList<bool> cleanBars_, cleanDocks_;

@@ -868,6 +868,14 @@
         <translation>Команда:</translation>
     </message>
     <message>
+        <source>Enter</source>
+        <translation>Ввод</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
         <source>Command history</source>
         <translation>История команд</translation>
     </message>

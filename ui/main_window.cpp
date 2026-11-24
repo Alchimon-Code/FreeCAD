@@ -216,6 +216,15 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     recent_ = edit_->addMenu(QString());
     contextMenu_ = new QMenu(this);
     contextMenu_->setObjectName("drawingContextMenu");
+    // AutoCAD's shortcut menu during a command starts with the two keys that matter: Enter for the
+    // next step and Cancel for the way out.
+    contextEnter_ = contextMenu_->addAction(QString());
+    contextEnter_->setObjectName("contextEnter");
+    connect(contextEnter_, &QAction::triggered, this, [this] { submit(QString()); });
+    contextCancel_ = contextMenu_->addAction(QString());
+    contextCancel_->setObjectName("contextCancel");
+    connect(contextCancel_, &QAction::triggered, this, [this] { canvas_->escape(); });
+    contextStepSeparator_ = contextMenu_->addSeparator();
     contextRepeat_ = contextMenu_->addAction(QString());
     contextRepeat_->setObjectName("contextRepeat");
     connect(contextRepeat_, &QAction::triggered, repeat_, &QAction::trigger);
@@ -516,8 +525,14 @@ void MainWindow::enterOrRepeat() {
 void MainWindow::refreshContextMenu() {
     if (!session_)
         return;
+    const bool running = session_->editor().active();
+    contextEnter_->setText(tr("Enter"));
+    contextCancel_->setText(tr("Cancel"));
+    contextEnter_->setVisible(running);
+    contextCancel_->setVisible(running);
+    contextStepSeparator_->setVisible(running);
     contextRepeat_->setText(repeat_->text());
-    contextRepeat_->setEnabled(!session_->editor().active() && !session_->recentCommands().isEmpty());
+    contextRepeat_->setEnabled(!running && !session_->recentCommands().isEmpty());
     recent_->clear();
     recent_->setTitle(tr("Recent commands"));
     for (const auto& name : session_->recentCommands()) {
@@ -676,6 +691,7 @@ void MainWindow::updatePrompt() {
     auto* desired = e.active() ? nullptr : completer_;
     if (input_->completer() != desired)
         input_->setCompleter(desired);
+    refreshContextMenu();
     ortho_->setChecked(e.tracking() == pd::edit::Tracking::Ortho);
     polar_->setChecked(e.tracking() == pd::edit::Tracking::Polar);
     for (auto* a : polarStep_->actions())
