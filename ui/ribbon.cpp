@@ -46,11 +46,14 @@ class PanelFrame : public QFrame {
 
   protected:
     void paintEvent(QPaintEvent*) override {
+        // AutoCAD puts no box around a ribbon panel: the strip is one surface and the only edge is a
+        // hairline between two panels. The line leans away from the window colour in whichever
+        // direction the theme needs, so it stays a hairline in light and in dark.
+        QColor line = palette().color(QPalette::Window);
+        line = line.lightness() < 128 ? line.lighter(150) : line.darker(125);
         QPainter painter(this);
-        const QRect group = rect().adjusted(0, 0, -1, -1);
-        painter.fillRect(group, palette().color(QPalette::Base));
-        painter.setPen(palette().color(QPalette::Mid));
-        painter.drawRect(group);
+        painter.setPen(line);
+        painter.drawLine(width() - 1, 6, width() - 1, height() - 7);
     }
 };
 
@@ -145,28 +148,25 @@ class RibbonTabBar : public QTabBar {
         const QColor band = palette().color(QPalette::Window).darker(108);
         const QColor page = palette().color(QPalette::Window);
         const QColor ink = palette().color(QPalette::WindowText);
-        const QColor edge = palette().color(QPalette::Mid);
         painter.fillRect(rect(), band);
+        // AutoCAD's tabs carry no outline at all: the current one is a patch of the page colour that
+        // flows into the panels below, and the rest are labels on the darker band.
         for (int i = 0; i < count(); ++i) {
             const QRect cell = tabRect(i);
             if (cell.isEmpty())
                 continue;
-            if (i == currentIndex()) {
-                // The current tab merges into the page: no bottom edge, an accent line on top.
-                const QRect surface = cell.adjusted(0, 2, 0, 0);
-                painter.fillRect(surface, page);
-                painter.setPen(edge);
-                painter.drawLine(surface.topLeft(), surface.topRight());
-                painter.drawLine(surface.topLeft(), surface.bottomLeft());
-                painter.drawLine(surface.topRight(), surface.bottomRight());
-                painter.setPen(palette().color(QPalette::Highlight));
-                painter.drawLine(surface.left(), surface.top(), surface.right(), surface.top());
+            const bool current = i == currentIndex();
+            QColor text = ink;
+            if (current) {
+                painter.fillRect(cell, page);
             } else {
-                painter.setPen(edge);
-                painter.drawLine(cell.topRight(), cell.bottomRight());
+                text.setAlpha(170);
             }
-            painter.setPen(ink);
-            painter.drawText(cell, Qt::AlignCenter, tabText(i));
+            painter.setPen(text);
+            const int pad = 8;
+            const QString caption =
+                fontMetrics().elidedText(tabText(i), Qt::ElideRight, std::max(0, cell.width() - 2 * pad));
+            painter.drawText(cell.adjusted(pad, 0, -pad, 0), Qt::AlignCenter, caption);
         }
     }
 
