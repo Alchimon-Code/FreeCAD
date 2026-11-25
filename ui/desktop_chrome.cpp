@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPaintEvent>
 #include <QPlainTextEdit>
 #include <QSettings>
@@ -74,7 +75,7 @@ namespace {
 // icons are, so switching to the dark theme does not need it rebuilt.
 class GlyphIcon : public QIconEngine {
   public:
-    enum Kind { Ortho, Polar, Snap, Dynamic, Ribbon, Theme };
+    enum Kind { Ortho, Polar, Snap, Dynamic, Ribbon, Theme, Plug, Unplug, Folder, Script, Exit };
     explicit GlyphIcon(Kind kind) : kind_(kind) {}
 
     void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State) override {
@@ -124,6 +125,45 @@ class GlyphIcon : public QIconEngine {
             painter->setBrush(QBrush(ink));
             painter->drawPie(QRectF(2, 2, 8, 8), 90 * 16, 180 * 16);
             break;
+        case Plug: {
+            // A plug seen from the side: body, two prongs and the cable leaving it.
+            painter->drawRect(QRectF(3, 5, 6, 4));
+            painter->drawLine(QPointF(4.5, 1.5), QPointF(4.5, 5));
+            painter->drawLine(QPointF(7.5, 1.5), QPointF(7.5, 5));
+            QPainterPath cable;
+            cable.moveTo(6, 9);
+            cable.cubicTo(6, 11, 9.5, 11, 9.5, 8.5);
+            painter->drawPath(cable);
+            break;
+        }
+        case Unplug: {
+            // The same plug, pulled out: the prongs are clear of the socket.
+            painter->drawRect(QRectF(3, 6, 6, 4));
+            painter->drawLine(QPointF(4.5, 2.5), QPointF(4.5, 4.5));
+            painter->drawLine(QPointF(7.5, 2.5), QPointF(7.5, 4.5));
+            QPainterPath cable;
+            cable.moveTo(6, 10);
+            cable.cubicTo(6, 11.5, 9.5, 11.5, 9.5, 9.5);
+            painter->drawPath(cable);
+            break;
+        }
+        case Folder:
+            painter->drawPolygon(QPolygonF({{2, 10}, {2, 3}, {5, 3}, {6.5, 5}, {10, 5}, {10, 10}}),
+                                 Qt::WindingFill);
+            break;
+        case Script:
+            // A page and the play mark on it: run this file.
+            painter->drawPolygon(QPolygonF({{2, 2}, {7, 2}, {9, 4}, {9, 10}, {2, 10}}), Qt::WindingFill);
+            painter->setBrush(QBrush(ink));
+            painter->drawPolygon(QPolygonF({{4.5, 4.5}, {7.5, 6}, {4.5, 7.5}}), Qt::WindingFill);
+            break;
+        case Exit: {
+            // A door and an arrow leaving through it.
+            painter->drawPolyline(QPolygonF({{6, 2}, {2, 2}, {2, 10}, {6, 10}}));
+            painter->drawLine(QPointF(7, 6), QPointF(11, 6));
+            painter->drawPolyline(QPolygonF({{9, 4}, {11, 6}, {9, 8}}));
+            break;
+        }
         case Snap:
             // The object snap aperture: a box with four ticks.
             painter->drawRect(QRectF(3, 3, 6, 6));
@@ -298,6 +338,13 @@ void MainWindow::setupChrome() {
     // words.
     dynamic_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Dynamic)));
     theme_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Theme)));
+    // The Manage page is all words otherwise: the plugin pair, the folder, the script runner and the
+    // way out each get a mark of their own.
+    load_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Plug)));
+    unload_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Unplug)));
+    loadFolder_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Folder)));
+    runScript_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Script)));
+    quit_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Exit)));
     for (auto a : {grid_, ortho_, polar_, osnap_, lang_, theme_}) {
         auto b = new StatusCell(this);
         b->setDefaultAction(a);

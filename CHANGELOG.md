@@ -49,6 +49,8 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **Marks on the Manage page:** the plugin pair, the plugins folder, the script runner and the way out
+  carry glyphs of their own, so the page is not a column of bare words.
 - **The clipboard panel had nothing in it:** it asked for the COPYCLIP family by command name, and
   those names are not in the vocabulary the panels draw from, so the panel carried a title and no
   buttons. It now shows the Edit menu's own copy, cut, paste and copy-with-base-point actions, and a
