@@ -85,7 +85,10 @@ QString commandTitle(const QByteArray& cmd, bool russian) {
             {"MATCHPROP", "Match properties"}, {"DIMLINEAR", "Linear"},
             {"DIMALIGNED", "Aligned"},         {"DIMRADIUS", "Radius"},
             {"DIMDIAMETER", "Diameter"},       {"DIMANGULAR", "Angular"},
-            {"DIMSTYLE", "Dimension style"}};
+            {"DIMSTYLE", "Dimension style"},
+            // The Insert page has a panel called Block, so the command that makes one says what it
+            // does instead of repeating the panel title.
+            {"BLOCK", "Create block"}};
         if (const auto found = english.constFind(cmd); found != english.constEnd())
             return QString::fromLatin1(*found);
     } else {
@@ -94,7 +97,8 @@ QString commandTitle(const QByteArray& cmd, bool russian) {
             {"COPYCLIP", "Копировать"},
             {"CUTCLIP", "Вырезать"},
             {"PASTECLIP", "Вставить"},
-            {"COPYBASE", "Копировать с базовой точкой"}};
+            {"COPYBASE", "Копировать с базовой точкой"},
+            {"BLOCK", "Создать блок"}};
         if (const auto found = russianNames.constFind(cmd); found != russianNames.constEnd())
             return QString::fromUtf8(*found);
     }

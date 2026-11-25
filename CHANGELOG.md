@@ -49,6 +49,9 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **One ribbon height:** the strip is as tall as its tallest page, so switching from Home to Insert no
+  longer shrinks it and moves the drawing area; the Insert panel's block command reads «Создать блок»
+  instead of repeating the panel title.
 - **Quick access on the menu row:** the toolbar of new/open/save/undo/redo sits at the right end of the
   menu strip and draws no band of its own, the way AutoCAD keeps it on the title strip; the ribbon
   now begins directly with its tabs.

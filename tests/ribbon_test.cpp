@@ -85,6 +85,28 @@ class RibbonWorkspace : public testing::Test {
 // AutoCAD keeps the quick access toolbar on the title strip; here that strip is the menu row, and the
 // ribbon begins with its tabs instead of a band of its own. The ribbon still owns the toolbar, so
 // setQuickAccess keeps filling it.
+// AutoCAD's ribbon keeps one height whatever tab is open, so switching tabs does not move the drawing
+// area; the strip is as tall as the tallest page.
+TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    ribbon->setCurrentPage(0);
+    QApplication::processEvents();
+    const int home = stack->height();
+    ASSERT_GT(home, 0);
+    for (int page = 1; page < ribbon->tabs()->count(); ++page) {
+        ribbon->setCurrentPage(page);
+        QApplication::processEvents();
+        EXPECT_EQ(stack->height(), home) << "page " << page;
+    }
+    ribbon->setCurrentPage(0);
+}
+
 TEST_F(RibbonWorkspace, QuickAccessRidesOnTheMenuRow) {
     auto* ribbon = window->findChild<Ribbon*>();
     ASSERT_NE(ribbon, nullptr);

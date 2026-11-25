@@ -568,17 +568,20 @@ void Ribbon::syncChevrons() {
 }
 
 void Ribbon::updateStrip() {
-    // Captions arrive after the panels are built, so the strip is stated here, from the page the user
-    // is looking at, instead of waiting for a chain of cached layout hints to catch up.
+    // Captions arrive after the panels are built, so the strip is stated here instead of waiting for a
+    // chain of cached layout hints to catch up. The height comes from the tallest page rather than
+    // from the open one: AutoCAD's ribbon keeps one height, so switching tabs does not move the
+    // drawing area by a pixel.
     if (collapsed_)
         return;
-    auto* scroll = qobject_cast<QScrollArea*>(pages_->currentWidget());
-    if (!scroll)
-        return;
-    const QWidget* content = scroll->widget();
-    if (!content)
-        return;
-    const int need = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
+    int need = 0;
+    for (int i = 0; i < pages_->count(); ++i) {
+        auto* scroll = qobject_cast<QScrollArea*>(pages_->widget(i));
+        if (!scroll || !scroll->widget())
+            continue;
+        const QWidget* content = scroll->widget();
+        need = std::max({need, content->sizeHint().height(), content->minimumSizeHint().height()});
+    }
     if (need > 0)
         pages_->setFixedHeight(need + 4);
     syncChevrons();
