@@ -82,6 +82,18 @@ class RibbonWorkspace : public testing::Test {
     std::unique_ptr<MainWindow> window;
 };
 
+// AutoCAD keeps the quick access toolbar on the title strip; here that strip is the menu row, and the
+// ribbon begins with its tabs instead of a band of its own. The ribbon still owns the toolbar, so
+// setQuickAccess keeps filling it.
+TEST_F(RibbonWorkspace, QuickAccessRidesOnTheMenuRow) {
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* qat = ribbon->quickAccess();
+    ASSERT_NE(qat, nullptr);
+    EXPECT_EQ(qat->parentWidget(), window->menuBar());
+    EXPECT_EQ(ribbon->findChild<QToolBar*>("quickAccess"), nullptr);
+}
+
 TEST_F(RibbonWorkspace, TabsPanelsQuickAccessAndStyleCombosExist) {
     auto* ribbon = window->findChild<Ribbon*>();
     ASSERT_NE(ribbon, nullptr);

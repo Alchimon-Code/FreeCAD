@@ -66,17 +66,11 @@ QColor bandColour(const QPalette& palette) {
     return window.lightness() < 128 ? window.darker(122) : window.darker(106);
 }
 
-// The quick access row sits on the same darker band as the tabs, so the top of the window reads as one
-// piece of chrome the way AutoCAD's title strip and tab band do.
+// The quick access bar keeps no background of its own: it rides on whatever strip the window puts it
+// on — the menu row, as in AutoCAD's title strip — and draws no band that would cut that strip in two.
 class QuickAccessBar final : public QToolBar {
   public:
     using QToolBar::QToolBar;
-
-  protected:
-    void paintEvent(QPaintEvent*) override {
-        QPainter painter(this);
-        painter.fillRect(rect(), bandColour(palette()));
-    }
 };
 
 // The tab strip: a darker band with the current tab painted in the page colour, so the two read as
@@ -318,7 +312,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     box->setSpacing(0);
     quickAccess_ = new QuickAccessBar(this);
     quickAccess_->setObjectName("quickAccess");
-    quickAccess_->setIconSize({20, 20});
+    quickAccess_->setIconSize({18, 18});
     quickAccess_->setMovable(false);
     quickAccess_->setToolButtonStyle(Qt::ToolButtonIconOnly);
     box->addWidget(quickAccess_);

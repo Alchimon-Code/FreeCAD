@@ -49,6 +49,9 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **Quick access on the menu row:** the toolbar of new/open/save/undo/redo sits at the right end of the
+  menu strip and draws no band of its own, the way AutoCAD keeps it on the title strip; the ribbon
+  now begins directly with its tabs.
 - **File tabs without boxes:** the current drawing's tab is a flat patch a shade lighter than the row
   it sits on, and the other tabs draw no outline, as in AutoCAD; the cross, the labels and the
   dragging stay with the style.

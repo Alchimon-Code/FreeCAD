@@ -129,6 +129,13 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     tabs_->setShape(QTabBar::RoundedSouth);
     vbox->addWidget(tabs_);
     ribbon_ = new Ribbon(this);
+    // AutoCAD keeps its quick access toolbar on the title strip instead of a band of its own. The
+    // menu row is the strip this window has there, so the toolbar rides at its right end and the
+    // ribbon begins directly with the tabs.
+    if (auto* quickAccess = ribbon_->quickAccess()) {
+        quickAccess->setParent(this);
+        menuBar()->setCornerWidget(quickAccess, Qt::TopRightCorner);
+    }
     auto* central = new QWidget(this);
     auto* shell = new QVBoxLayout(central);
     shell->setContentsMargins(0, 0, 0, 0);
