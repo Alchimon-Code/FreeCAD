@@ -49,8 +49,10 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
-- **Status bar glyphs:** Ortho, Polar and Snap carry a small mark beside their word, drawn from the
-  palette at paint time like the command icons, so the cells read at a glance in either theme.
+- **Status bar and toggle glyphs:** Ortho, Polar and Snap carry a small mark beside their word in the
+  status bar, and the View page's other toggles — the dynamic input, the ribbon and the theme — carry
+  one on the ribbon, so no panel mixes glyphs and bare words. The marks are drawn from the palette at
+  paint time like the command icons, so they follow the theme.
 - **One ribbon height:** the strip is as tall as its tallest page, so switching from Home to Insert no
   longer shrinks it and moves the drawing area; the Insert panel's block command reads «Создать блок»
   instead of repeating the panel title.

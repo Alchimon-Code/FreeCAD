@@ -74,7 +74,7 @@ namespace {
 // icons are, so switching to the dark theme does not need it rebuilt.
 class GlyphIcon : public QIconEngine {
   public:
-    enum Kind { Ortho, Polar, Snap };
+    enum Kind { Ortho, Polar, Snap, Dynamic, Ribbon, Theme };
     explicit GlyphIcon(Kind kind) : kind_(kind) {}
 
     void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State) override {
@@ -106,6 +106,23 @@ class GlyphIcon : public QIconEngine {
             painter->drawLine(QPointF(2, 10), QPointF(11, 10));
             painter->drawLine(QPointF(2, 10), QPointF(8.4, 3.6));
             painter->drawArc(QRectF(-4, 4, 12, 12), 0, 45 * 16);
+            break;
+        case Dynamic:
+            // The crosshair and the box that carries its length and angle.
+            painter->drawLine(QPointF(1, 6), QPointF(5, 6));
+            painter->drawLine(QPointF(3, 4), QPointF(3, 8));
+            painter->drawRect(QRectF(5, 4, 6.5, 4));
+            break;
+        case Ribbon:
+            // A window with the ribbon's band across its top.
+            painter->drawRect(QRectF(1.5, 2.5, 9, 7));
+            painter->drawLine(QPointF(1.5, 5.5), QPointF(10.5, 5.5));
+            break;
+        case Theme:
+            // A disc, half filled: the light and the dark of the same picture.
+            painter->drawEllipse(QRectF(2, 2, 8, 8));
+            painter->setBrush(QBrush(ink));
+            painter->drawPie(QRectF(2, 2, 8, 8), 90 * 16, 180 * 16);
             break;
         case Snap:
             // The object snap aperture: a box with four ticks.
@@ -277,6 +294,10 @@ void MainWindow::setupChrome() {
     ortho_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Ortho)));
     polar_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Polar)));
     osnap_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Snap)));
+    // The other ribbon toggles on the View page carry a mark too, so no panel mixes glyphs and bare
+    // words.
+    dynamic_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Dynamic)));
+    theme_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Theme)));
     for (auto a : {grid_, ortho_, polar_, osnap_, lang_, theme_}) {
         auto b = new StatusCell(this);
         b->setDefaultAction(a);
@@ -296,6 +317,7 @@ void MainWindow::setupChrome() {
     ribbonToggle_ = view_->addAction(QString());
     ribbonToggle_->setObjectName("ribbonToggle");
     ribbonToggle_->setCheckable(true);
+    ribbonToggle_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Ribbon)));
     ribbonToggle_->setChecked(cfg.value("ui/ribbon", true).toBool());
     connect(ribbonToggle_, &QAction::toggled, this, [this](bool on) {
         applyRibbonMode(on);
