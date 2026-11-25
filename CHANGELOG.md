@@ -49,6 +49,10 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **The clipboard panel had nothing in it:** it asked for the COPYCLIP family by command name, and
+  those names are not in the vocabulary the panels draw from, so the panel carried a title and no
+  buttons. It now shows the Edit menu's own copy, cut, paste and copy-with-base-point actions, and a
+  test walks every panel to make sure none is empty.
 - **Fuller Insert and Manage pages:** Insert carries the block pair, the clipboard with its base point,
   the drawing commands and the PDF export beside the script runner; Manage gains the palette switches
   next to the plugin and application panels.

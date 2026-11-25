@@ -406,8 +406,10 @@ void MainWindow::buildRibbon() {
     // the drawing itself and the ways out of it. Four panels instead of three keeps the page honest
     // about where a command lives.
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Block"), list({"BLOCK", "INSERT"}));
+    // The clipboard entries are the Edit menu's own actions: the command names COPYCLIP and friends are
+    // not in the vocabulary the panels look up, so asking for them by name made an empty panel.
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"),
-                      list({"COPYCLIP", "CUTCLIP", "PASTECLIP", "COPYBASE"}), 2);
+                      {copy_, cut_, paste_, copyBase_}, 2);
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Drawings"),
                       {new_, open_, save_, saveAs_}, 2, 2);
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Export and scripts"),

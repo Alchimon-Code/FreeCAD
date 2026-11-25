@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iostream>
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
@@ -507,6 +508,26 @@ TEST_F(RibbonWorkspace, CoordinatesSitAtTheLeftEndOfTheStatusBar) {
     EXPECT_TRUE(coords->isVisible());
     EXPECT_TRUE(message->isVisible());
     EXPECT_LT(coords->x(), message->x()) << "the readout comes before the hint";
+}
+
+// A panel with a title and nothing under it is a promise the ribbon does not keep: every panel has to
+// carry at least one control.
+TEST_F(RibbonWorkspace, EveryRibbonPanelCarriesAControl) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    const auto frames = ribbon->findChildren<QWidget*>("ribbonPanel");
+    ASSERT_FALSE(frames.isEmpty());
+    for (auto* frame : frames) {
+        QString title = QStringLiteral("?");
+        if (auto* label = frame->findChild<QLabel*>("ribbonPanelTitle"))
+            title = label->property("titleSource").toString();
+        const bool filled = !frame->findChildren<QAbstractButton*>().isEmpty() ||
+                            !frame->findChildren<QComboBox*>().isEmpty();
+        EXPECT_TRUE(filled) << title.toStdString();
+    }
 }
 
 // A panel of small buttons reads as a grid: the entries of one column start at the same x, so the
