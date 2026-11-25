@@ -33,6 +33,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProxyStyle>
 #include <QPointer>
 #include <QSettings>
 #include <QSignalBlocker>
@@ -43,6 +44,30 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+namespace {
+// The style draws a box around every file tab. AutoCAD's file tabs are flat: the current one is a
+// shade lighter than the row it sits on and nothing else is drawn, so only the shape is replaced and
+// the label, the cross and the scroll behaviour stay with the style.
+class FlatTabStyle : public QProxyStyle {
+  public:
+    void drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+                     const QWidget* widget) const override {
+        if (element == CE_TabBarTabShape) {
+            const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+            if (tab) {
+                if (tab->state & QStyle::State_Selected) {
+                    const QColor window = tab->palette.color(QPalette::Window);
+                    const QColor surface =
+                        window.lightness() < 128 ? window.lighter(132) : QColor(Qt::white);
+                    painter->fillRect(tab->rect, surface);
+                }
+                return;
+            }
+        }
+        QProxyStyle::drawControl(element, option, painter, widget);
+    }
+};
 
 namespace {
 // The ribbon and the menus name a command the way AutoCAD does, not the way it is typed: PLINE reads
@@ -91,6 +116,11 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     documents_->setTabsClosable(true);
     documents_->setMovable(true);
     documents_->setDocumentMode(true);
+    // The tab bar is given the flat style as its own; a proxy keeps the application style as its base
+    // and owns nothing of it, and the widget owns the proxy.
+    auto* tabStyle = new FlatTabStyle;
+    tabStyle->setParent(documents_->tabBar());
+    documents_->tabBar()->setStyle(tabStyle);
     vbox->addWidget(documents_, 1);
     tabs_ = new QTabBar(pane);
     tabs_->setObjectName("spaceTabs");

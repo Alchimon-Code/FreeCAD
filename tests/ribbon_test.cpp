@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QGridLayout>
+#include <QImage>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -486,6 +487,32 @@ TEST_F(RibbonWorkspace, SmallButtonsShareOneColumnWidth) {
         }
     }
     EXPECT_GT(checked, 3);
+}
+
+// AutoCAD's file tabs are flat: the current one is a patch of its own colour and no tab draws an
+// outline around itself.
+TEST_F(RibbonWorkspace, FileTabsAreFlat) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* tabs = window->findChild<QTabWidget*>("documentTabs");
+    ASSERT_NE(tabs, nullptr);
+    auto* bar = tabs->tabBar();
+    ASSERT_GE(bar->count(), 1);
+    const QImage image = bar->grab().toImage();
+    ASSERT_FALSE(image.isNull());
+    const qreal ratio = image.devicePixelRatio();
+    const auto at = [&](int x, int y) {
+        return image.pixelColor(std::clamp(int(x * ratio), 0, image.width() - 1),
+                                std::clamp(int(y * ratio), 0, image.height() - 1));
+    };
+    const QRect cell = bar->tabRect(bar->currentIndex());
+    ASSERT_FALSE(cell.isEmpty());
+    const QColor fill = at(cell.center().x(), cell.top() + 3);
+    // An outline would put a different colour one pixel inside the edge.
+    EXPECT_EQ(at(cell.left() + 1, cell.center().y()), fill);
+    const int row = std::min(bar->width() - 2, cell.right() + 60);
+    EXPECT_NE(at(row, cell.center().y()), fill);
 }
 
 // AutoCAD's file tabs carry one plain cross in the text colour; the star says that a drawing has
