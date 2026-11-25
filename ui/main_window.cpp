@@ -32,6 +32,7 @@
 #include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QProxyStyle>
 #include <QPointer>
@@ -39,6 +40,7 @@
 #include <QSignalBlocker>
 #include <QStatusBar>
 #include <QStringListModel>
+#include <QStyleOptionTab>
 #include <QTabBar>
 #include <QTimer>
 #include <QToolBar>
