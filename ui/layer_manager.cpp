@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "layer_manager.h"
+#include "palette_header.h"
 #include "command_session.h"
 #include <QColorDialog>
 #include <QHeaderView>
@@ -24,6 +25,7 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     table_->verticalHeader()->hide();
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setHorizontalHeader(new PaletteHeader(table_));
     table_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "property_inspector.h"
+#include "palette_header.h"
 #include "command_session.h"
 #include "viewport.h"
 #include <QComboBox>
@@ -297,6 +298,7 @@ PropertyInspector::PropertyInspector(QWidget* parent) : QDockWidget(parent) {
     table_->verticalHeader()->hide();
     table_->setAlternatingRowColors(true);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table_->setHorizontalHeader(new PaletteHeader(table_));
     table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table_->horizontalHeader()->setStretchLastSection(true);
     table_->setItemDelegateForColumn(1, new ValueDelegate(table_));

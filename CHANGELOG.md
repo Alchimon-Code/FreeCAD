@@ -49,6 +49,8 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **Palette headers:** the Layers and Properties docks name their columns on a neutral strip with a
+  hairline, as AutoCAD's palettes do, instead of on a slab of the accent colour the style picked.
 - **Marks on the Manage page:** the plugin pair, the plugins folder, the script runner and the way out
   carry glyphs of their own, so the page is not a column of bare words.
 - **The clipboard panel had nothing in it:** it asked for the COPYCLIP family by command name, and
