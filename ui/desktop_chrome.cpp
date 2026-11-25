@@ -414,9 +414,12 @@ void MainWindow::buildRibbon() {
     ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Measure"),
                       list({"DIST", "AREA", "HATCH"}));
     ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Zoom and grid"), {extents_, grid_});
+    // The drafting aids stand two to a row, as AutoCAD's do: one column of six made the View page the
+    // tallest panel on the ribbon and pushed the captions far from their buttons.
     ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Drafting aids"),
-                      {ortho_, polar_, osnap_, dynamic_, ribbonToggle_});
-    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Appearance"), {theme_, panels_->menuAction()});
+                      {ortho_, polar_, osnap_, dynamic_, ribbonToggle_}, 2);
+    ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Appearance"),
+                      {theme_, panels_->menuAction(), cleanScreen_}, 2);
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Scripts"), {runScript_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Application"), {quit_});

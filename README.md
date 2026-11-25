@@ -6,7 +6,7 @@
 
 ![Light English workspace: two DXFs open, a selected circle with radius 27, docked layers and command line](docs/images/workspace-light-en.png)
 
-PlaneDraft is a desktop drafting application for Windows x64 and Linux. Edit geometry in model space, arrange scale views on paper and produce a vector PDF from the same drawing — even on a machine without Qt or a GPU. This is an independent project hosted in `Alchimon-Code/FreeCAD`, not an upstream FreeCAD workbench.
+PlaneDraft is a desktop drafting application for Windows x64 and Linux. Edit geometry in model space, arrange scale views on paper and produce a vector PDF from the same drawing — even on a machine without Qt or a GPU. It reads like AutoCAD: a five-page ribbon drawn without boxes, a command line that names itself, object snaps that say what they caught, and classic commands with EN and RU aliases. This is an independent project hosted in `Alchimon-Code/FreeCAD`, not an upstream FreeCAD workbench.
 
 **Try the drawing above:** open [panel.dxf](examples/drawings/panel.dxf), select the central circle and double-click **Radius** in Properties. Change it, then press **Ctrl+Z**. Switch from **Model** to **Панель** below the canvas: the 320 mm panel appears 160 mm wide on a landscape A4 sheet at 1:2. The original dimension still reads 320.
 
@@ -30,6 +30,8 @@ The v0.2.0 workbench, captured from the running application rather than drawn:
 | Ribbon, dynamic input, DWG |
 |---|
 | ![Home page of the ribbon in the dark Russian UI](docs/images/ribbon-dark-ru.png) |
+| ![Insert page of the ribbon in the dark Russian UI](docs/images/ribbon-insert-ru.png) |
+| ![View page with the drafting aids and their glyphs, dark Russian UI](docs/images/ribbon-view-ru.png) |
 | ![Annotate page of the ribbon in the light English UI](docs/images/ribbon-light-en.png) |
 | ![Length and angle fields beside the crosshair while a line is drawn](docs/images/dynamic-input.png) |
 | ![A DWG written and read back by the bundled converters, open in its own tab](docs/images/dwg-open.png) |
