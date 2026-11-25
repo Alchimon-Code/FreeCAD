@@ -12,6 +12,7 @@ The images are captures of the running Qt Widgets / desktop OpenGL application, 
 | [Ribbon · light EN](ribbon-light-en.png) | Annotate page of the same ribbon after the real theme and locale actions |
 | [Ribbon · Insert RU](ribbon-insert-ru.png) | Insert page: block, clipboard and the import/script panel that holds the dialogs |
 | [Ribbon · View RU](ribbon-view-ru.png) | View page: zoom and grid, drafting aids and appearance |
+| [Ribbon · Manage RU](ribbon-manage-ru.png) | Manage page: palettes, plugins, scripts and the application panel |
 | [Dynamic input](dynamic-input.png) | F12 length/angle fields beside the crosshair while `_LINE` waits for the second point |
 | [DWG opened](dwg-open.png) | `panel.dwg`, written and read back by the bundled LibreDWG programs, opened in a new tab |
 

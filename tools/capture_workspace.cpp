@@ -164,8 +164,8 @@ int main(int argc, char** argv) {
 
     // The other two tabs the gallery had never shown: the small Insert page and the View page with
     // its palettes and drafting aids.
-    for (auto [page, name] :
-         {std::pair{1, "ribbon-insert-ru.png"}, std::pair{3, "ribbon-view-ru.png"}}) {
+    for (auto [page, name] : {std::pair{1, "ribbon-insert-ru.png"}, std::pair{3, "ribbon-view-ru.png"},
+                              std::pair{4, "ribbon-manage-ru.png"}}) {
         ribbon->setCurrentPage(page);
         app.processEvents();
         if (!saveFrame(window, out.filePath(QString::fromLatin1(name))))

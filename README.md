@@ -32,6 +32,7 @@ The v0.2.0 workbench, captured from the running application rather than drawn:
 | ![Home page of the ribbon in the dark Russian UI](docs/images/ribbon-dark-ru.png) |
 | ![Insert page of the ribbon in the dark Russian UI](docs/images/ribbon-insert-ru.png) |
 | ![View page with the drafting aids and their glyphs, dark Russian UI](docs/images/ribbon-view-ru.png) |
+| ![Manage page with the palette switches, dark Russian UI](docs/images/ribbon-manage-ru.png) |
 | ![Annotate page of the ribbon in the light English UI](docs/images/ribbon-light-en.png) |
 | ![Length and angle fields beside the crosshair while a line is drawn](docs/images/dynamic-input.png) |
 | ![A DWG written and read back by the bundled converters, open in its own tab](docs/images/dwg-open.png) |
