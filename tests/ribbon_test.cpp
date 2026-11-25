@@ -170,7 +170,8 @@ TEST_F(RibbonWorkspace, TabsPanelsQuickAccessAndStyleCombosExist) {
     QStringList insertTitles;
     for (auto* label : insert->findChildren<QLabel*>("ribbonPanelTitle"))
         insertTitles << label->property("titleSource").toString();
-    EXPECT_EQ(insertTitles, QStringList({"Block", "Clipboard", "Import and scripts"}));
+    EXPECT_EQ(insertTitles,
+              QStringList({"Block", "Clipboard", "Drawings", "Export and scripts"}));
 }
 
 TEST_F(RibbonWorkspace, RibbonToggleSwitchesToClassicToolbarsAndRemembersIt) {
