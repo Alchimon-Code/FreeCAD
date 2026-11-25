@@ -58,6 +58,14 @@ class PanelFrame : public QFrame {
     }
 };
 
+// The band behind the tabs and the quick access row is a shade apart from the page, not a colour of
+// its own: a light theme wants a hair of shading, a dark one wants a good deal more, and a fixed
+// darkening gives the light theme the heavy gray of a toolbar from another decade.
+QColor bandColour(const QPalette& palette) {
+    const QColor window = palette.color(QPalette::Window);
+    return window.lightness() < 128 ? window.darker(122) : window.darker(106);
+}
+
 // The quick access row sits on the same darker band as the tabs, so the top of the window reads as one
 // piece of chrome the way AutoCAD's title strip and tab band do.
 class QuickAccessBar final : public QToolBar {
@@ -67,7 +75,7 @@ class QuickAccessBar final : public QToolBar {
   protected:
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
-        painter.fillRect(rect(), palette().color(QPalette::Window).darker(108));
+        painter.fillRect(rect(), bandColour(palette()));
     }
 };
 
@@ -146,7 +154,7 @@ class RibbonTabBar : public QTabBar {
     }
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
-        const QColor band = palette().color(QPalette::Window).darker(122);
+        const QColor band = bandColour(palette());
         const QColor page = palette().color(QPalette::Window);
         const QColor ink = palette().color(QPalette::WindowText);
         painter.fillRect(rect(), band);
