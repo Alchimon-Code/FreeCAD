@@ -69,6 +69,68 @@ namespace {
 // AutoCAD's status bar is a row of flat cells: a hairline between them and, for a pressed toggle, a
 // coloured underline instead of a raised button. The native drawing is kept and only the two lines
 // are added, so the OSNAP menu arrow and the theme's own text rendering stay intact.
+// A status bar cell in AutoCAD carries a small glyph beside its word, and the glyph belongs to the
+// theme rather than to a file: it is painted from the palette at paint time, the way the command
+// icons are, so switching to the dark theme does not need it rebuilt.
+class GlyphIcon : public QIconEngine {
+  public:
+    enum Kind { Ortho, Polar, Snap };
+    explicit GlyphIcon(Kind kind) : kind_(kind) {}
+
+    void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State) override {
+        const QPalette palette = qApp->palette();
+        QColor ink = mode == QIcon::Disabled ? palette.color(QPalette::Disabled, QPalette::WindowText)
+                                             : palette.color(QPalette::WindowText);
+        QPen pen(ink, 1.3);
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(pen);
+        painter->setBrush(Qt::NoBrush);
+        painter->translate(rect.topLeft());
+        painter->scale(rect.width() / 12.0, rect.height() / 12.0);
+        switch (kind_) {
+        case Ortho: {
+            // A right angle inside a right angle: Ortho's own mark.
+            QPolygonF outer;
+            outer << QPointF(2, 11) << QPointF(2, 2) << QPointF(11, 2);
+            QPolygonF inner;
+            inner << QPointF(2, 7) << QPointF(7, 7) << QPointF(7, 2);
+            painter->drawPolyline(outer);
+            painter->drawPolyline(inner);
+            break;
+        }
+        case Polar:
+            // Two rays and the arc between them.
+            painter->drawLine(QPointF(2, 10), QPointF(11, 10));
+            painter->drawLine(QPointF(2, 10), QPointF(8.4, 3.6));
+            painter->drawArc(QRectF(-4, 4, 12, 12), 0, 45 * 16);
+            break;
+        case Snap:
+            // The object snap aperture: a box with four ticks.
+            painter->drawRect(QRectF(3, 3, 6, 6));
+            painter->drawLine(QPointF(6, 0.5), QPointF(6, 3));
+            painter->drawLine(QPointF(6, 9), QPointF(6, 11.5));
+            painter->drawLine(QPointF(0.5, 6), QPointF(3, 6));
+            painter->drawLine(QPointF(9, 6), QPointF(11.5, 6));
+            break;
+        }
+        painter->restore();
+    }
+    QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State state) override {
+        QPixmap pix(size);
+        pix.fill(Qt::transparent);
+        QPainter painter(&pix);
+        paint(&painter, QRect(QPoint(), size), mode, state);
+        return pix;
+    }
+    QIconEngine* clone() const override { return new GlyphIcon(kind_); }
+
+  private:
+    Kind kind_;
+};
+
 class StatusCell : public QToolButton {
   public:
     using QToolButton::QToolButton;
@@ -210,11 +272,17 @@ void MainWindow::setupChrome() {
         translateChrome();
     });
     connect(lang_, &QAction::triggered, this, [this] { chooseLanguage(!language_.russian()); });
+    // The three drawing aids get a glyph of their own; the grid already carries one from the command
+    // icons, and the language and theme cells stay words because they name no drawing aid.
+    ortho_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Ortho)));
+    polar_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Polar)));
+    osnap_->setIcon(QIcon(new GlyphIcon(GlyphIcon::Snap)));
     for (auto a : {grid_, ortho_, polar_, osnap_, lang_, theme_}) {
         auto b = new StatusCell(this);
         b->setDefaultAction(a);
         b->setAutoRaise(true);
-        b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        b->setIconSize({12, 12});
+        b->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         statusBar()->addPermanentWidget(b);
         if (a == osnap_) {
             b->setMenu(snapMenu_);

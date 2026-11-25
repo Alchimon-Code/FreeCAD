@@ -13,6 +13,7 @@
 #include <QComboBox>
 #include <QGridLayout>
 #include <QImage>
+#include <QPixmap>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -87,6 +88,26 @@ class RibbonWorkspace : public testing::Test {
 // setQuickAccess keeps filling it.
 // AutoCAD's ribbon keeps one height whatever tab is open, so switching tabs does not move the drawing
 // area; the strip is as tall as the tallest page.
+// AutoCAD's status bar carries a small glyph beside each drawing aid's word, so the cells read at a
+// glance instead of as three similar words in a row.
+TEST_F(RibbonWorkspace, DrawingAidCellsCarryAGlyph) {
+    for (auto name : {"gridMode", "orthoMode", "polarMode", "osnapMode"}) {
+        auto* action = window->findChild<QAction*>(name);
+        ASSERT_NE(action, nullptr) << name;
+        EXPECT_FALSE(action->icon().isNull()) << name;
+    }
+    auto* osnap = window->findChild<QAction*>("osnapMode");
+    const QPixmap glyph = osnap->icon().pixmap({12, 12});
+    EXPECT_FALSE(glyph.isNull());
+    // The aperture is drawn, not an empty square: some pixel inside carries ink.
+    const QImage image = glyph.toImage();
+    bool inked = false;
+    for (int x = 0; x < image.width() && !inked; ++x)
+        for (int y = 0; y < image.height() && !inked; ++y)
+            inked = qAlpha(image.pixel(x, y)) > 0;
+    EXPECT_TRUE(inked);
+}
+
 TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
     window->resize(1520, 880);
     window->show();

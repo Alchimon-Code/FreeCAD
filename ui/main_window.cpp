@@ -159,7 +159,9 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     connect(extents_, &QAction::triggered, this, [this] { canvas_->zoomExtents(); });
     settings_ = menuBar()->addMenu(QString());
     ortho_ = settings_->addAction(QString());
+    ortho_->setObjectName("orthoMode");
     polar_ = settings_->addAction(QString());
+    polar_->setObjectName("polarMode");
     ortho_->setCheckable(true);
     polar_->setCheckable(true);
     ortho_->setShortcut(Qt::Key_F8);
