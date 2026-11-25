@@ -427,7 +427,10 @@ void MainWindow::buildRibbon() {
                       {ortho_, polar_, osnap_, dynamic_, ribbonToggle_}, 2);
     ribbon_->addPanel("view", QT_TRANSLATE_NOOP("MainWindow", "Appearance"),
                       {theme_, panels_->menuAction(), cleanScreen_}, 2);
-    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_});
+    // The plugin commands stand two to a row: three words in one column made the Manage page the widest
+    // panel on the ribbon for the least content.
+    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_},
+                      2);
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Scripts"), {runScript_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Palettes"),
                       {inspector_->toggleViewAction(), layers_->toggleViewAction(),
