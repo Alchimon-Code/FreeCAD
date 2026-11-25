@@ -69,7 +69,6 @@ class FlatTabStyle : public QProxyStyle {
     }
 };
 
-namespace {
 // The ribbon and the menus name a command the way AutoCAD does, not the way it is typed: PLINE reads
 // Polyline, RECTANG reads Rectangle, DIMLINEAR reads Linear. The canonical name is what the command
 // line accepts, so only the title changes.
