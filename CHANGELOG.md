@@ -49,6 +49,8 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **Ribbon buttons at AutoCAD's size:** large commands draw a 32 px icon with room around it, the
+  small ones keep 16 px, and the gaps between a panel's parts are wide enough to read as groups.
 - **Ribbon chrome:** panels lost their boxes. The strip is one surface divided by hairlines, and the
   tabs carry no outline either: the current one is a patch of the page colour that flows into the
   panels, the way AutoCAD's ribbon band reads.

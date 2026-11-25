@@ -184,7 +184,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // them up.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(7, 5, 7, 3);
+    box->setContentsMargins(9, 6, 9, 3);
     box->setSpacing(2);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
@@ -290,7 +290,7 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent, bool large = true) {
     button->setDefaultAction(action);
     button->setToolButtonStyle(large ? Qt::ToolButtonTextUnderIcon : Qt::ToolButtonTextBesideIcon);
     button->setAutoRaise(true);
-    button->setIconSize(large ? QSize(26, 26) : QSize(16, 16));
+    button->setIconSize(large ? QSize(32, 32) : QSize(16, 16));
     button->setToolTip(action->toolTip());
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
@@ -413,10 +413,12 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     auto* buttons = new QWidget(frame);
     auto* strip = new QHBoxLayout(buttons);
     strip->setContentsMargins(0, 0, 0, 0);
-    strip->setSpacing(4);
+    // The air between a large command and the grid of small ones, and between two stacked large
+    // commands, is what makes a panel read as a group rather than as a wall of buttons.
+    strip->setSpacing(10);
     auto* leaders = new QVBoxLayout;
     leaders->setContentsMargins(0, 0, 0, 0);
-    leaders->setSpacing(2);
+    leaders->setSpacing(4);
     // The first `primary` actions of a panel are its large commands, the rest are small entries.
     const int first = std::clamp(primary, 0, int(actions.size()));
     for (int i = 0; i < first; ++i)
