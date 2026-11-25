@@ -402,11 +402,16 @@ void MainWindow::buildRibbon() {
     propertiesBox->addWidget(ribbon_->colorBox());
     propertiesBox->addWidget(ribbon_->weightBox());
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), properties);
+    // The Insert page carries what AutoCAD's does: the block pair, the clipboard with its base point,
+    // the drawing itself and the ways out of it. Four panels instead of three keeps the page honest
+    // about where a command lives.
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Block"), list({"BLOCK", "INSERT"}));
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"),
-                      list({"COPYCLIP", "CUTCLIP", "PASTECLIP"}));
-    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Import and scripts"),
-                      {open_, save_, runScript_}, 2);
+                      list({"COPYCLIP", "CUTCLIP", "PASTECLIP", "COPYBASE"}), 2);
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Drawings"),
+                      {new_, open_, save_, saveAs_}, 2, 2);
+    ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Export and scripts"),
+                      {exportPdf_, runScript_}, 1);
     ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Dimensions"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE"}),
@@ -422,6 +427,10 @@ void MainWindow::buildRibbon() {
                       {theme_, panels_->menuAction(), cleanScreen_}, 2);
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Plugins"), {load_, unload_, loadFolder_});
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Scripts"), {runScript_});
+    ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Palettes"),
+                      {inspector_->toggleViewAction(), layers_->toggleViewAction(),
+                       console_->toggleViewAction()},
+                      1, 0);
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Application"), {quit_});
     ribbon_->setPageTitles({QT_TRANSLATE_NOOP("MainWindow", "Home"),
                             QT_TRANSLATE_NOOP("MainWindow", "Insert"),

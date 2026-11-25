@@ -880,6 +880,18 @@
         <translation>Закрыть чертёж</translation>
     </message>
     <message>
+        <source>Drawings</source>
+        <translation>Чертежи</translation>
+    </message>
+    <message>
+        <source>Export and scripts</source>
+        <translation>Экспорт и скрипты</translation>
+    </message>
+    <message>
+        <source>Palettes</source>
+        <translation>Палитры</translation>
+    </message>
+    <message>
         <source>Command history</source>
         <translation>История команд</translation>
     </message>

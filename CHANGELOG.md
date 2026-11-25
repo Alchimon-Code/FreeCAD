@@ -49,6 +49,9 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **Fuller Insert and Manage pages:** Insert carries the block pair, the clipboard with its base point,
+  the drawing commands and the PDF export beside the script runner; Manage gains the palette switches
+  next to the plugin and application panels.
 - **Two to a row on the View page:** the drafting aids stand in two columns instead of one long one,
   and the Appearance panel gains the clean-screen switch, so the page is as dense as AutoCAD's.
 - **Status bar and toggle glyphs:** Ortho, Polar and Snap carry a small mark beside their word in the
