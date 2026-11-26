@@ -173,6 +173,21 @@ TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
 
 // The band is its tabs and its page, nothing else: the quick access toolbar moved to the title strip
 // years of code ago, but the ribbon kept its row.
+// The band is the ribbon plus the frame the style draws around an item. A plain toolbar asked the
+// style for a tool bar's height and came out about twenty-five pixels taller than what it carried.
+TEST_F(RibbonWorkspace, TheBandIsNoTallerThanItsRibbon) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    auto* band = window->findChild<QToolBar*>("ribbonBar");
+    ASSERT_NE(ribbon, nullptr);
+    ASSERT_NE(band, nullptr);
+    ASSERT_FALSE(band->isHidden());
+    EXPECT_LE(band->height(), ribbon->height() + 10)
+        << "the band pads the ribbon by " << band->height() - ribbon->height() << " px";
+}
+
 TEST_F(RibbonWorkspace, TheBandReservesNoRowForTheQuickAccessToolbar) {
     window->resize(1520, 880);
     window->show();

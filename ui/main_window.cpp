@@ -6,6 +6,7 @@
 #include "language.h"
 #include "layer_manager.h"
 #include "property_inspector.h"
+#include "band_bar.h"
 #include "ribbon.h"
 #include "viewport.h"
 #include <QScrollBar>
@@ -176,7 +177,7 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // The band belongs to the window, not to the drawing area: AutoCAD's tabs run from edge to edge
     // and the palettes start below them. A toolbar in the top area is what gives a widget that width,
     // so the ribbon rides in one with its own size policy.
-    ribbonBar_ = new QToolBar(this);
+    ribbonBar_ = new BandBar(this);
     ribbonBar_->setObjectName("ribbonBar");
     ribbonBar_->setMovable(false);
     ribbonBar_->setFloatable(false);
