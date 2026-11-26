@@ -158,6 +158,18 @@ int main(int argc, char** argv) {
     if (!saveFrame(window, out.filePath("workspace-dark-ru.png")))
         return 1;
 
+    // The same window with the palettes parked: AutoCAD folds them to a strip carrying their names and
+    // the drawing takes the width. This is the widest the drawing area gets.
+    if (auto* parked = window.findChild<QAction*>("paletteAutoHide")) {
+        parked->setChecked(true);
+        app.processEvents();
+        app.processEvents();
+        if (!saveFrame(window, out.filePath("workspace-parked-ru.png")))
+            return 1;
+        parked->setChecked(false);
+        app.processEvents();
+    }
+
     // The Home page of the same ribbon with the central circle selected and the colour and line
     // weight drop-downs in view.
     view.setSelection(circles);
