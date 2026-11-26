@@ -186,7 +186,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // them up.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(8, 4, 8, 2);
+    box->setContentsMargins(8, 3, 8, 1);
     box->setSpacing(1);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
@@ -194,7 +194,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     label->setProperty("titleSource", title);
     label->setAlignment(Qt::AlignHCenter);
     QFont titleFont = label->font();
-    titleFont.setPixelSize(10);
+    titleFont.setPixelSize(9);
     label->setFont(titleFont);
     label->setForegroundRole(QPalette::Dark);
     box->addWidget(label);
@@ -561,21 +561,10 @@ void Ribbon::askBandForRoom() {
     auto* bar = qobject_cast<QToolBar*>(parentWidget());
     if (!bar)
         return;
-    // A toolbar pads the widget it carries, and a band padded twice eats the drawing area. The band
-    // states the height the ribbon actually lays out — the tab strip plus the page on screen — plus the
-    // frame the style draws around an item, so the two can never drift apart. Asked from sizeHint the
-    // band came out a row too tall.
-    const int content = tabs_->height() + (pages_->isVisible() ? pages_->height() : 0);
-    if (content <= 0)
-        return;
-    const auto* style = bar->style();
-    const int frame = style->pixelMetric(QStyle::PM_ToolBarFrameWidth, nullptr, bar) +
-                      style->pixelMetric(QStyle::PM_ToolBarItemMargin, nullptr, bar);
-    const int wanted = content + 2 * frame;
-    if (bar->minimumHeight() != wanted) {
-        bar->setFixedHeight(wanted);
-        bar->layout()->invalidate();
-    }
+    // The band is asked to re-measure, never told a height: a fixed height taken from the widgets'
+    // current geometry feeds back into the layout and folds the ribbon shut.
+    bar->layout()->invalidate();
+    bar->updateGeometry();
 }
 
 void Ribbon::setCollapsed(bool collapsed) {
