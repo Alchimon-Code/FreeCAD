@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Ribbon band:** the ribbon spans the whole window and the palettes start under it, as in
+  AutoCAD, instead of being squeezed by the dock column.
 - **Window chrome:** the application mark stands at the left of the title strip and the quick
   access toolbar at its right, with the four menus under the mark; the documentation captures
   now show that strip with the ribbon open, which is how the window starts.

@@ -63,6 +63,7 @@ class MainWindow : public QMainWindow {
     void refreshContextMenu();
     void refreshContextStep();
     void applyRibbonMode(bool on);
+    void setRibbonVisible(bool on);
     void syncRibbon();
     void applyTheme(bool dark);
     void updateSnap();
@@ -97,6 +98,7 @@ class MainWindow : public QMainWindow {
     bool cleanRibbon_ = false, cleanMenu_ = true, cleanStatus_ = true;
     QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
+    QToolBar* ribbonBar_ = nullptr;
     QToolButton* app_ = nullptr;
     QDockWidget* console_;
     QLineEdit* input_;

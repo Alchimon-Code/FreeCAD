@@ -544,14 +544,22 @@ void Ribbon::resizeEvent(QResizeEvent* event) {
     syncChevrons();
 }
 
+// A ribbon that sits on a toolbar has to nudge it; a ribbon asked to stand on its own is left alone.
+void Ribbon::askBandForRoom() {
+    auto* bar = qobject_cast<QToolBar*>(parentWidget());
+    if (!bar)
+        return;
+    bar->layout()->invalidate();
+    bar->updateGeometry();
+}
+
 void Ribbon::setCollapsed(bool collapsed) {
     if (collapsed_ == collapsed)
         return;
     collapsed_ = collapsed;
     pages_->setVisible(!collapsed_);
     updateGeometry();
-    if (auto* window = parentWidget())
-        window->updateGeometry();
+    askBandForRoom();
 }
 
 // A page that fits its viewport has nothing to scroll, and the chevrons say so by going grey.
@@ -584,6 +592,9 @@ void Ribbon::updateStrip() {
     }
     if (need > 0)
         pages_->setFixedHeight(need + 4);
+    // The band is a widget action on a toolbar, and a toolbar caches the height of its items: a page
+    // that needs more room has to say so before the tabs can grow.
+    askBandForRoom();
     syncChevrons();
 }
 

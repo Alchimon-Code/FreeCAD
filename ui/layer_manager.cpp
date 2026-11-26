@@ -26,7 +26,20 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
     table_->setHorizontalHeader(new PaletteHeader(table_));
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    // AutoCAD's layer palette is narrower than its columns want to be: the name takes the slack and
+    // every other column is stated, so the palette stops squeezing the drawing area beside it.
+    auto* header = table_->horizontalHeader();
+    header->setSectionResizeMode(QHeaderView::Interactive);
+    header->setHighlightSections(false);
+    header->setStretchLastSection(false);
+    header->setMinimumSectionSize(24);
+    header->setSectionResizeMode(Name, QHeaderView::Stretch);
+    header->resizeSection(Current, 64);
+    header->resizeSection(Visible, 42);
+    header->resizeSection(Frozen, 58);
+    header->resizeSection(Locked, 58);
+    header->resizeSection(Color, 94);
+    header->resizeSection(Weight, 58);
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;
     add_ = new QPushButton(body);

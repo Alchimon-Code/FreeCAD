@@ -770,11 +770,11 @@
     </message>
     <message>
         <source>Frozen</source>
-        <translation>Заморожен</translation>
+        <translation>Замор.</translation>
     </message>
     <message>
         <source>Locked</source>
-        <translation>Заблокирован</translation>
+        <translation>Блок.</translation>
     </message>
     <message>
         <source>Color</source>

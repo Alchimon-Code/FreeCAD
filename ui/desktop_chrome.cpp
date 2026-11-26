@@ -374,7 +374,7 @@ void MainWindow::setupChrome() {
     if (ribbonToggle_->isChecked())
         applyRibbonMode(true);
     else
-        ribbon_->hide();
+        setRibbonVisible(false);
     connect(layers_, &LayerManager::message, this, [this] { syncRibbon(); });
     connect(ribbon_, &Ribbon::layerPicked, this, [this](const QString& name) {
         for (auto id : session_->document().layerIds())

@@ -57,6 +57,7 @@ class Ribbon final : public QWidget {
     QWidget* page(const QString& key);
     void updateStrip();
     void syncChevrons();
+    void askBandForRoom();
     void applyPageTitles();
     QTabBar* tabs_;
     QStackedWidget* pages_;

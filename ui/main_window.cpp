@@ -43,7 +43,9 @@
 #include <QStyleOptionTab>
 #include <QTabBar>
 #include <QTimer>
+#include <QSizePolicy>
 #include <QToolBar>
+#include <QWidgetAction>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -173,13 +175,22 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         quickAccess->setParent(this);
         menuBar()->setCornerWidget(quickAccess, Qt::TopRightCorner);
     }
-    auto* central = new QWidget(this);
-    auto* shell = new QVBoxLayout(central);
-    shell->setContentsMargins(0, 0, 0, 0);
-    shell->setSpacing(0);
-    shell->addWidget(ribbon_);
-    shell->addWidget(pane, 1);
-    setCentralWidget(central);
+    // The band belongs to the window, not to the drawing area: AutoCAD's tabs run from edge to edge
+    // and the palettes start below them. A toolbar in the top area is what gives a widget that width,
+    // so the ribbon rides in one with its own size policy.
+    ribbonBar_ = new QToolBar(this);
+    ribbonBar_->setObjectName("ribbonBar");
+    ribbonBar_->setMovable(false);
+    ribbonBar_->setFloatable(false);
+    ribbonBar_->setContentsMargins(0, 0, 0, 0);
+    ribbonBar_->layout()->setContentsMargins(0, 0, 0, 0);
+    ribbonBar_->layout()->setSpacing(0);
+    ribbon_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto* band = new QWidgetAction(ribbonBar_);
+    band->setDefaultWidget(ribbon_);
+    ribbonBar_->addAction(band);
+    addToolBar(Qt::TopToolBarArea, ribbonBar_);
+    setCentralWidget(pane);
     connect(tabs_, &QTabBar::currentChanged, this, [this](int i) {
         if (i >= 0 && session_)
             session_->selectSpace(tabs_->tabData(i).toString());
@@ -476,8 +487,7 @@ void MainWindow::applyCleanScreen(bool on) {
         cleanStatus_ = !statusBar()->isHidden();
         for (auto* bar : bars_)
             bar->hide();
-        if (ribbon_)
-            ribbon_->hide();
+        setRibbonVisible(false);
         inspector_->hide();
         layers_->hide();
         menuBar()->hide();
@@ -486,8 +496,7 @@ void MainWindow::applyCleanScreen(bool on) {
     }
     for (qsizetype i = 0; i < bars_.size() && i < cleanBars_.size(); ++i)
         bars_[i]->setVisible(cleanBars_[i]);
-    if (ribbon_)
-        ribbon_->setVisible(cleanRibbon_);
+    setRibbonVisible(cleanRibbon_);
     if (cleanDocks_.size() == 2) {
         inspector_->setVisible(cleanDocks_[0]);
         layers_->setVisible(cleanDocks_[1]);
@@ -664,6 +673,15 @@ void MainWindow::showContextMenu(const QPoint& globalPos) {
     contextMenu_->exec(globalPos);
 }
 
+// The band and the ribbon on it are shown and hidden as one: a hidden ribbon inside a visible
+// toolbar would leave an empty strip where the tabs were.
+void MainWindow::setRibbonVisible(bool on) {
+    if (ribbon_)
+        ribbon_->setVisible(on);
+    if (ribbonBar_)
+        ribbonBar_->setVisible(on);
+}
+
 void MainWindow::applyRibbonMode(bool on) {
     if (!ribbon_)
         return;
@@ -680,7 +698,7 @@ void MainWindow::applyRibbonMode(bool on) {
             bars_[i]->setVisible(i < classicVisibility_.size() ? classicVisibility_[i] : true);
         classicVisibility_.clear();
     }
-    ribbon_->setVisible(on);
+    setRibbonVisible(on);
     QSettings().setValue("ui/ribbon", on);
     if (on)
         syncRibbon();

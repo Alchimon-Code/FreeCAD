@@ -12,6 +12,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QDockWidget>
 #include <QGridLayout>
 #include <QImage>
 #include <QPixmap>
@@ -127,6 +128,24 @@ TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
         EXPECT_EQ(stack->height(), home) << "page " << page;
     }
     ribbon->setCurrentPage(0);
+}
+
+// The band is the window's, not the drawing area's: AutoCAD's tabs run from edge to edge and the
+// palettes start underneath them, so a dock cannot push the ribbon inwards.
+TEST_F(RibbonWorkspace, RibbonRunsEdgeToEdgeAboveThePalettes) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    auto* inspector = window->findChild<QDockWidget*>("PropertyInspector");
+    ASSERT_NE(ribbon, nullptr);
+    ASSERT_NE(inspector, nullptr);
+    ASSERT_FALSE(inspector->isHidden());
+    EXPECT_GE(ribbon->width(), window->width() - 16) << "the band spans the window";
+    const QPoint bandTop = ribbon->mapTo(window, QPoint(0, 0));
+    const QPoint paletteTop = inspector->mapTo(window, QPoint(0, 0));
+    EXPECT_LE(bandTop.y() + ribbon->height(), paletteTop.y())
+        << "the palettes begin under the band";
 }
 
 TEST_F(RibbonWorkspace, QuickAccessRidesOnTheMenuRow) {
