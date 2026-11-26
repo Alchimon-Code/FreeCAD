@@ -4,7 +4,7 @@ The images are captures of the running Qt Widgets / desktop OpenGL application, 
 
 | View | Subject |
 |---|---|
-| [Dark · RU](workspace-dark-ru.png) | Two inserts, mixed insertion points, layer and property docks |
+| [Dark · RU](workspace-dark-ru.png) | Two inserts, mixed insertion points, layer and property docks, ribbon open on the Home page |
 | [Light · EN](workspace-light-en.png) | Same window, selected circle, radius 27; names from the drawing stay in their original language |
 | [A4 layout](layout-eskd.png) | Model viewport, section A–A, ESKD-style frame and title block |
 | [PDF output](pdf-output.png) | Independent raster of the vector export, 144 dpi, 297 × 210 mm |

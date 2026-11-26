@@ -1,1 +1,1 @@
-application menu instead of the menu bar 2026-11-27T19:35:00Z
+title strip captures with the ribbon open 2026-11-27T20:05:00Z

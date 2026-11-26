@@ -134,7 +134,8 @@ int main(int argc, char** argv) {
     }
     auto console = window.findChild<QPlainTextEdit*>();
     console->clear(); // Don't include build-machine paths in documentation.
-    // The v0.1 captures show the classic toolbars; the ribbon is on by default since v0.2.0.
+    // The paper-space capture further down is still made with the classic toolbars, so the switch
+    // stays; the model views here are photographed with the ribbon the window opens with.
     auto setRibbon = [&](bool on) {
         auto* toggle = window.findChild<QAction*>("ribbonToggle");
         if (!toggle || toggle->isChecked() == on)
@@ -142,20 +143,23 @@ int main(int argc, char** argv) {
         toggle->trigger();
         app.processEvents();
     };
-    setRibbon(false);
-    command("_DIMSTYLE ESKD");
-    view.setSelection(inserts);
-    pointAt(view, {115.5, -18.5});
-    if (!saveFrame(window, out.filePath("workspace-dark-ru.png")))
-        return 1;
-
-    // v0.2.0 ribbon captures. Dark Russian Home page first, with the colour/weight drop-downs.
-    setRibbon(true);
+    // The window opens with the ribbon, the way AutoCAD does: the application mark and the quick
+    // access toolbar on the title strip, the tabs under them, then the panels. The first capture
+    // keeps that state rather than photographing the toolbars the ribbon replaced.
     auto* ribbon = window.findChild<Ribbon*>();
     auto* dynamicInput = window.findChild<QAction*>("dynamicInputToggle");
     if (!ribbon || !dynamicInput)
         return 1;
     ribbon->setCurrentPage(0);
+    command("_DIMSTYLE ESKD");
+    view.setSelection(inserts);
+    pointAt(view, {115.5, -18.5});
+    app.processEvents();
+    if (!saveFrame(window, out.filePath("workspace-dark-ru.png")))
+        return 1;
+
+    // The Home page of the same ribbon with the central circle selected and the colour and line
+    // weight drop-downs in view.
     view.setSelection(circles);
     pointAt(view, {-94, -43});
     app.processEvents();
