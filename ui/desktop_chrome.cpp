@@ -23,6 +23,7 @@
 #include <QSvgRenderer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QComboBox>
@@ -442,12 +443,12 @@ void MainWindow::buildRibbon() {
                       3);
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Layers"), ribbon_->layerBox());
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Blocks"), list({"BLOCK", "INSERT"}));
-    // Colour and line weight live in one Properties group, the way AutoCAD stacks them, which also
-    // buys the room for the Blocks panel on a 1520 px window.
+    // Colour and line weight live in one Properties group. AutoCAD stacks the two lists; side by side
+    // they cost one row instead of two, and the Home page is as tall as the band that carries it.
     auto* properties = new QWidget;
-    auto* propertiesBox = new QVBoxLayout(properties);
+    auto* propertiesBox = new QHBoxLayout(properties);
     propertiesBox->setContentsMargins(0, 0, 0, 0);
-    propertiesBox->setSpacing(4);
+    propertiesBox->setSpacing(6);
     propertiesBox->addWidget(ribbon_->colorBox());
     propertiesBox->addWidget(ribbon_->weightBox());
     ribbon_->addPanelWidget("home", QT_TRANSLATE_NOOP("MainWindow", "Properties"), properties);
@@ -486,7 +487,7 @@ void MainWindow::buildRibbon() {
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Palettes"),
                       {inspector_->toggleViewAction(), layers_->toggleViewAction(),
                        console_->toggleViewAction()},
-                      1, 0);
+                      2, 0);
     ribbon_->addPanel("manage", QT_TRANSLATE_NOOP("MainWindow", "Application"), {quit_});
     ribbon_->setPageTitles({QT_TRANSLATE_NOOP("MainWindow", "Home"),
                             QT_TRANSLATE_NOOP("MainWindow", "Insert"),
