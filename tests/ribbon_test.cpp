@@ -722,6 +722,9 @@ TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {
     window->resize(1520, 880);
     window->show();
     QApplication::processEvents();
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
     auto* ribbon = window->findChild<Ribbon*>();
     ASSERT_NE(ribbon, nullptr);
     auto* pages = ribbon->findChild<QStackedWidget*>("ribbonPages");
@@ -729,6 +732,7 @@ TEST_F(RibbonWorkspace, DoubleClickOnATabMinimizesTheRibbon) {
     ASSERT_NE(pages, nullptr);
     ASSERT_NE(tabs, nullptr);
     const int tall = ribbon->height();
+    ASSERT_GT(tall, tabs->height()) << "the ribbon is laid out before it is minimized";
     ASSERT_TRUE(pages->isVisible());
     const QPoint centre = tabs->tabRect(0).center();
     QMouseEvent press(QEvent::MouseButtonDblClick, QPointF(centre), QPointF(tabs->mapToGlobal(centre)),
