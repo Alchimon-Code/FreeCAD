@@ -38,8 +38,8 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     header->resizeSection(Visible, 40);
     header->resizeSection(Frozen, 56);
     header->resizeSection(Locked, 48);
-    header->resizeSection(Color, 86);
-    header->resizeSection(Weight, 56);
+    header->resizeSection(Color, 96);
+    header->resizeSection(Weight, 52);
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;
     add_ = new QPushButton(body);

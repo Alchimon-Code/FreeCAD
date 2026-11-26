@@ -254,7 +254,7 @@ class PageScroll : public QScrollArea {
         // The grid hint of a row of fixed-width buttons comes out short on some styles, so the page
         // also states how tall it has to be; taking both keeps a per-tab ribbon unclipped.
         const int height = std::max(content->sizeHint().height(), content->minimumSizeHint().height());
-        return {240, height + 4};
+        return {240, height};
     }
     QSize minimumSizeHint() const override { return sizeHint(); }
 
@@ -591,7 +591,7 @@ void Ribbon::updateStrip() {
         need = std::max({need, content->sizeHint().height(), content->minimumSizeHint().height()});
     }
     if (need > 0)
-        pages_->setFixedHeight(need + 4);
+        pages_->setFixedHeight(need);
     // The band is a widget action on a toolbar, and a toolbar caches the height of its items: a page
     // that needs more room has to say so before the tabs can grow.
     askBandForRoom();

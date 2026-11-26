@@ -459,8 +459,10 @@ void MainWindow::buildRibbon() {
     // not in the vocabulary the panels look up, so asking for them by name made an empty panel.
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Clipboard"),
                       {copy_, cut_, paste_, copyBase_}, 2);
+    // Two large commands stacked made this the tallest panel on the ribbon, and every other tab paid
+    // for it in drawing area. One large command and the rest beside it says the same thing shorter.
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Drawings"),
-                      {new_, open_, save_, saveAs_}, 2, 2);
+                      {new_, open_, save_, saveAs_}, 3, 1);
     ribbon_->addPanel("insert", QT_TRANSLATE_NOOP("MainWindow", "Export and scripts"),
                       {exportPdf_, runScript_}, 1);
     ribbon_->addPanel("annotate", QT_TRANSLATE_NOOP("MainWindow", "Dimensions"),

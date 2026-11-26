@@ -434,7 +434,11 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     attach(new DrawingPage(&session, ++serial_, documents_));
     retranslate();
     resize(1240, 800);
-    resizeDocks({inspector_}, {290}, Qt::Horizontal);
+    // AutoCAD's palettes take a palette's width and nothing more: two docks that size themselves to
+    // their tables were taking a third of the window away from the drawing.
+    for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)})
+        dock->setMaximumWidth(400);
+    resizeDocks({inspector_}, {300}, Qt::Horizontal);
     QSettings cfg;
     if (cfg.contains("window/geometry"))
         restoreGeometry(cfg.value("window/geometry").toByteArray());
