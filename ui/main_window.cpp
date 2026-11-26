@@ -357,7 +357,9 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     history_->setObjectName("commandHistory");
     history_->setReadOnly(true);
     history_->setMaximumBlockCount(150);
-    history_->setMaximumHeight(80);
+    // Three lines of transcript, the way AutoCAD's command line opens: the prompt, the line the
+    // command just answered and the one before it, with no empty slab under them.
+    history_->setMaximumHeight(60);
     input_ = new QLineEdit(panel);
     input_->setObjectName("commandInput");
     completions_ = new QStringListModel(this);
@@ -379,6 +381,7 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // widget, and the dock is still reachable from View - Panels and from Ctrl+9.
     console_->setTitleBarWidget(new QWidget(console_));
     addDockWidget(Qt::BottomDockWidgetArea, console_);
+    resizeDocks({console_}, {96}, Qt::Vertical);
     entityCount_ = new QLabel(this);
     inspector_ = new PropertyInspector(this);
     layers_ = new LayerManager(this);
