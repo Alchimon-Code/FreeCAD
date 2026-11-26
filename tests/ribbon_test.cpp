@@ -152,7 +152,7 @@ TEST_F(RibbonWorkspace, EveryPageKeepsToTheHeightOfItsButtons) {
         ASSERT_NE(scroll, nullptr) << "page " << page;
         const QWidget* content = scroll->widget();
         ASSERT_NE(content, nullptr) << "page " << page;
-        EXPECT_LE(content->sizeHint().height(), 100)
+        EXPECT_LE(content->sizeHint().height(), 72)
             << "page " << page << " asks " << content->sizeHint().height() << " and at least "
             << content->minimumSizeHint().height();
     }
