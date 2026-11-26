@@ -197,13 +197,19 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         if (i >= 0 && session_)
             session_->selectSpace(tabs_->tabData(i).toString());
     });
-    file_ = menuBar()->addMenu(QString());
-    edit_ = menuBar()->addMenu(QString());
-    view_ = menuBar()->addMenu(QString());
+    // The menus belong to the window, not to the menu bar: they move under the application mark once
+    // the title strip exists, and two owners for one menu is a double delete at shutdown.
+    auto menu = [this](QMenu*& target) {
+        target = new QMenu(this);
+        menuBar()->addMenu(target);
+    };
+    menu(file_);
+    menu(edit_);
+    menu(view_);
     extents_ = view_->addAction(QString());
     extents_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+E")));
     connect(extents_, &QAction::triggered, this, [this] { canvas_->zoomExtents(); });
-    settings_ = menuBar()->addMenu(QString());
+    menu(settings_);
     ortho_ = settings_->addAction(QString());
     ortho_->setObjectName("orthoMode");
     polar_ = settings_->addAction(QString());
