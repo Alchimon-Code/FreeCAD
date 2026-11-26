@@ -468,6 +468,18 @@ void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidge
     panelLabels_.append(label);
 }
 
+// The quick access toolbar rides on the window's title strip. Taking it out of the ribbon's column is
+// what stops the band from reserving a row for a toolbar that is no longer in it: the row came to
+// about the height of the toolbar, and the drawing area paid for it on every tab.
+QToolBar* Ribbon::takeQuickAccess() {
+    if (!quickAccess_)
+        return nullptr;
+    if (auto* box = qobject_cast<QVBoxLayout*>(layout()))
+        box->removeWidget(quickAccess_);
+    quickAccess_->setParent(nullptr);
+    return quickAccess_;
+}
+
 void Ribbon::setQuickAccess(const QList<QAction*>& actions) {
     quickAccess_->clear();
     for (auto* action : actions) {

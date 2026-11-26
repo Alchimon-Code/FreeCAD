@@ -29,6 +29,7 @@ class Ribbon final : public QWidget {
     [[nodiscard]] int currentPage() const;
     [[nodiscard]] QTabBar* tabs() const { return tabs_; }
     [[nodiscard]] QToolBar* quickAccess() const { return quickAccess_; }
+    QToolBar* takeQuickAccess();
     [[nodiscard]] QComboBox* layerBox() const { return layer_; }
     [[nodiscard]] QComboBox* colorBox() const { return color_; }
     [[nodiscard]] QComboBox* weightBox() const { return weight_; }

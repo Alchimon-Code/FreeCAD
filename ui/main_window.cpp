@@ -171,10 +171,8 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // AutoCAD keeps its quick access toolbar on the title strip instead of a band of its own. The
     // menu row is the strip this window has there, so the toolbar rides at its right end and the
     // ribbon begins directly with the tabs.
-    if (auto* quickAccess = ribbon_->quickAccess()) {
-        quickAccess->setParent(this);
+    if (auto* quickAccess = ribbon_->takeQuickAccess())
         menuBar()->setCornerWidget(quickAccess, Qt::TopRightCorner);
-    }
     // The band belongs to the window, not to the drawing area: AutoCAD's tabs run from edge to edge
     // and the palettes start below them. A toolbar in the top area is what gives a widget that width,
     // so the ribbon rides in one with its own size policy.

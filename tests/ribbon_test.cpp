@@ -171,6 +171,23 @@ TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
     EXPECT_GE(view->width(), window->width() * 7 / 10) << "the palettes keep to a third";
 }
 
+// The band is its tabs and its page, nothing else: the quick access toolbar moved to the title strip
+// years of code ago, but the ribbon kept its row.
+TEST_F(RibbonWorkspace, TheBandReservesNoRowForTheQuickAccessToolbar) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    ribbon->setCurrentPage(0);
+    QApplication::processEvents();
+    EXPECT_LE(ribbon->height(), ribbon->tabs()->height() + stack->height() + 8)
+        << "band " << ribbon->height() << ", tabs " << ribbon->tabs()->height() << ", page "
+        << stack->height();
+}
+
 TEST_F(RibbonWorkspace, RibbonRunsEdgeToEdgeAboveThePalettes) {
     window->resize(1520, 880);
     window->show();
