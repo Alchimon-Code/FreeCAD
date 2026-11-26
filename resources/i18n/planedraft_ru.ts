@@ -765,15 +765,15 @@
         <translation>Имя</translation>
     </message>
     <message>
-        <source>Visible</source>
-        <translation>Виден</translation>
+        <source>On</source>
+        <translation>Вкл</translation>
     </message>
     <message>
-        <source>Frozen</source>
+        <source>Freeze</source>
         <translation>Замор.</translation>
     </message>
     <message>
-        <source>Locked</source>
+        <source>Lock</source>
         <translation>Блок.</translation>
     </message>
     <message>
@@ -781,8 +781,16 @@
         <translation>Цвет</translation>
     </message>
     <message>
-        <source>Weight · mm</source>
-        <translation>Вес · мм</translation>
+        <source>Weight</source>
+        <translation>Вес</translation>
+    </message>
+    <message>
+        <source>Current layer</source>
+        <translation>Текущий слой</translation>
+    </message>
+    <message>
+        <source>Line weight in millimetres</source>
+        <translation>Вес линии в миллиметрах</translation>
     </message>
     <message>
         <source>New layer</source>

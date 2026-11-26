@@ -186,8 +186,8 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // them up.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(9, 6, 9, 3);
-    box->setSpacing(2);
+    box->setContentsMargins(8, 4, 8, 2);
+    box->setSpacing(1);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
     label->setObjectName("ribbonPanelTitle");
@@ -292,7 +292,7 @@ QToolButton* ribbonButton(QAction* action, QWidget* parent, bool large = true) {
     button->setDefaultAction(action);
     button->setToolButtonStyle(large ? Qt::ToolButtonTextUnderIcon : Qt::ToolButtonTextBesideIcon);
     button->setAutoRaise(true);
-    button->setIconSize(large ? QSize(32, 32) : QSize(16, 16));
+    button->setIconSize(large ? QSize(26, 26) : QSize(16, 16));
     button->setToolTip(action->toolTip());
     QFont font = button->font();
     font.setPointSizeF(std::max(7.5, font.pointSizeF() - 1.0));
@@ -417,7 +417,7 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     strip->setContentsMargins(0, 0, 0, 0);
     // The air between a large command and the grid of small ones, and between two stacked large
     // commands, is what makes a panel read as a group rather than as a wall of buttons.
-    strip->setSpacing(10);
+    strip->setSpacing(8);
     auto* leaders = new QVBoxLayout;
     leaders->setContentsMargins(0, 0, 0, 0);
     leaders->setSpacing(4);
@@ -429,8 +429,8 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     strip->addLayout(leaders);
     auto* grid = new QGridLayout;
     grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(2);
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(0);
     columns = std::max(1, columns);
     int rowHeight = 0;
     for (int i = first; i < actions.size(); ++i) {

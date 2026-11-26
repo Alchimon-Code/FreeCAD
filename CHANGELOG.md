@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
+  Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
+  «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of
+  its former width. The drawing area takes the difference.
 - **Ribbon band:** the ribbon spans the whole window and the palettes start under it, as in
   AutoCAD, instead of being squeezed by the dock column.
 - **Window chrome:** the application mark stands at the left of the title strip and the quick

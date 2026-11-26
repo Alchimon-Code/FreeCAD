@@ -132,6 +132,21 @@ TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
 
 // The band is the window's, not the drawing area's: AutoCAD's tabs run from edge to edge and the
 // palettes start underneath them, so a dock cannot push the ribbon inwards.
+// The window is for the drawing. AutoCAD's chrome takes about a fifth of the height and its palettes
+// a quarter of the width; a band that grows a row for one command, or a palette that spells its
+// headings out, takes that room back from the drawing.
+TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    auto* view = window->activeView();
+    ASSERT_NE(ribbon, nullptr);
+    ASSERT_NE(view, nullptr);
+    EXPECT_LT(ribbon->height(), window->height() / 5) << "the band stays a band";
+    EXPECT_GE(view->width(), window->width() * 7 / 10) << "the palettes keep to a third";
+}
+
 TEST_F(RibbonWorkspace, RibbonRunsEdgeToEdgeAboveThePalettes) {
     window->resize(1520, 880);
     window->show();

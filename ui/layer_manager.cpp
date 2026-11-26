@@ -34,12 +34,12 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     header->setStretchLastSection(false);
     header->setMinimumSectionSize(24);
     header->setSectionResizeMode(Name, QHeaderView::Stretch);
-    header->resizeSection(Current, 78);
-    header->resizeSection(Visible, 50);
-    header->resizeSection(Frozen, 62);
-    header->resizeSection(Locked, 56);
-    header->resizeSection(Color, 108);
-    header->resizeSection(Weight, 68);
+    header->resizeSection(Current, 26);
+    header->resizeSection(Visible, 40);
+    header->resizeSection(Frozen, 56);
+    header->resizeSection(Locked, 48);
+    header->resizeSection(Color, 86);
+    header->resizeSection(Weight, 56);
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;
     add_ = new QPushButton(body);
@@ -79,8 +79,15 @@ void LayerManager::bind(CommandSession* s) {
 }
 void LayerManager::retranslate() {
     setWindowTitle(tr("Layers"));
-    table_->setHorizontalHeaderLabels({tr("Current"), tr("Name"), tr("Visible"), tr("Frozen"), tr("Locked"),
-                                       tr("Color"), tr("Weight · mm")});
+    // AutoCAD's layer palette states its columns in the shortest words that still name them and
+    // leaves the status column untitled: a palette that spells the headings out in full is wider
+    // than the drawing it sits beside, and the drawing is what the window is for.
+    table_->setHorizontalHeaderLabels({QString(), tr("Name"), tr("On"), tr("Freeze"), tr("Lock"),
+                                       tr("Color"), tr("Weight")});
+    if (auto* current = table_->horizontalHeaderItem(Current))
+        current->setToolTip(tr("Current layer"));
+    if (auto* weight = table_->horizontalHeaderItem(Weight))
+        weight->setToolTip(tr("Line weight in millimetres"));
     add_->setText(tr("New layer"));
     remove_->setText(tr("Delete layer"));
     table_->setToolTip(

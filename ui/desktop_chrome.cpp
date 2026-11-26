@@ -430,10 +430,12 @@ void MainWindow::buildRibbon() {
     };
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Draw"),
                       list({"LINE", "PLINE", "CIRCLE", "ARC", "RECTANG", "POLYGON", "HATCH"}), 3);
+    // Five entries to a row instead of four: the Modify panel was the tallest block on the band and
+    // its fourth row cost every tab a strip of the drawing area for one command.
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Modify"),
                       list({"MOVE", "COPY", "ROTATE", "SCALE", "MIRROR", "TRIM", "EXTEND", "OFFSET",
                             "FILLET", "CHAMFER", "ARRAY", "MATCHPROP", "ERASE", "EXPLODE"}),
-                      4);
+                      5);
     ribbon_->addPanel("home", QT_TRANSLATE_NOOP("MainWindow", "Annotate"),
                       list({"DIMLINEAR", "DIMALIGNED", "DIMANGULAR", "DIMRADIUS", "DIMDIAMETER",
                             "DIMSTYLE", "DIST", "AREA"}),
