@@ -97,6 +97,7 @@ class MainWindow : public QMainWindow {
     bool cleanRibbon_ = false, cleanMenu_ = true, cleanStatus_ = true;
     QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
+    QToolButton* app_ = nullptr;
     QDockWidget* console_;
     QLineEdit* input_;
     QPlainTextEdit* history_;

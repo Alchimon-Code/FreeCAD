@@ -49,6 +49,9 @@
   the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
 - **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
   the star beside the name, not a red cross.
+- **No menu bar:** the File, Edit, View and Settings menus moved under one square mark at the left end
+  of the title strip, as AutoCAD keeps them under its application button; the quick access toolbar
+  holds the right end, and the strip between them is empty chrome rather than a row of menu words.
 - **Palette headers:** the Layers and Properties docks name their columns on a neutral strip with a
   hairline, as AutoCAD's palettes do, instead of on a slab of the accent colour the style picked.
 - **Marks on the Manage page:** the plugin pair, the plugins folder, the script runner and the way out

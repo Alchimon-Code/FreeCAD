@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QToolButton>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -250,7 +251,15 @@ TEST_F(Workspace, LanguageAndPaletteUpdateExistingDocksActionsAndSnapControls) {
     EXPECT_EQ(layers->windowTitle(), "Слои");
     EXPECT_EQ(field("radius")->text(), "*РАЗЛИЧНЫЕ*");
     EXPECT_EQ(bar->windowTitle(), "Редактирование");
-    EXPECT_TRUE(window->menuBar()->actions().first()->text().contains("Файл"));
+    // AutoCAD has no menu bar: the four menus live under the application mark at the left end of the
+    // title strip.
+    auto* app = window->findChild<QToolButton*>("applicationButton");
+    ASSERT_NE(app, nullptr);
+    ASSERT_NE(app->menu(), nullptr);
+    ASSERT_EQ(app->menu()->actions().size(), 4);
+    EXPECT_TRUE(app->menu()->actions().first()->text().contains("Файл"));
+    EXPECT_EQ(app->toolTip(), "Меню приложения");
+    EXPECT_TRUE(window->menuBar()->actions().isEmpty());
     EXPECT_EQ(osnap->text(), "ПРИВЯЗКА");
     EXPECT_EQ(osnap->shortcut(), QKeySequence(Qt::Key_F3));
     EXPECT_TRUE(osnap->toolTip().contains("Правая"));

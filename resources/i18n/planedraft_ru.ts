@@ -892,6 +892,10 @@
         <translation>Палитры</translation>
     </message>
     <message>
+        <source>Application menu</source>
+        <translation>Меню приложения</translation>
+    </message>
+    <message>
         <source>Command history</source>
         <translation>История команд</translation>
     </message>

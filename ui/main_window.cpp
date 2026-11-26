@@ -48,6 +48,39 @@
 #include <QVBoxLayout>
 
 namespace {
+// AutoCAD has no menu bar: the four menus live under one square mark at the left end of the title
+// strip, and the strip itself carries the quick access toolbar at its right end. The mark is drawn
+// here rather than taken from an icon file so it follows the theme like everything else.
+class ApplicationButton : public QToolButton {
+  public:
+    explicit ApplicationButton(QWidget* parent = nullptr) : QToolButton(parent) {
+        setObjectName("applicationButton");
+        setAutoRaise(true);
+        setPopupMode(QToolButton::InstantPopup);
+        setFixedSize(24, 22);
+        setCursor(Qt::ArrowCursor);
+    }
+
+  protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        const QRectF box = QRectF(rect()).adjusted(2.5, 2.5, -2.5, -2.5);
+        QColor face = palette().color(QPalette::Highlight);
+        if (underMouse())
+            face = face.lighter(115);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(face);
+        painter.drawRoundedRect(box, 3, 3);
+        QFont mark = font();
+        mark.setBold(true);
+        mark.setPixelSize(int(box.height()) - 5);
+        painter.setFont(mark);
+        painter.setPen(palette().color(QPalette::HighlightedText));
+        painter.drawText(box, Qt::AlignCenter, text());
+    }
+};
+
 // The style draws a box around every file tab. AutoCAD's file tabs are flat: the current one is a
 // shade lighter than the row it sits on and nothing else is drawn, so only the shape is replaced and
 // the label, the cross and the scroll behaviour stay with the style.
@@ -136,6 +169,19 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // AutoCAD keeps its quick access toolbar on the title strip instead of a band of its own. The
     // menu row is the strip this window has there, so the toolbar rides at its right end and the
     // ribbon begins directly with the tabs.
+    // AutoCAD's title strip is the application mark, the quick access toolbar and the window itself;
+    // there is no menu bar in the classic sense. The four menus become the mark's menu, and the strip
+    // is left to the toolbar.
+    auto* appMenu = new QMenu(this);
+    appMenu->setObjectName("applicationMenu");
+    for (auto* menu : {file_, edit_, view_, settings_}) {
+        menuBar()->removeAction(menu->menuAction());
+        appMenu->addMenu(menu);
+    }
+    app_ = new ApplicationButton(this);
+    app_->setText(QStringLiteral("P"));
+    app_->setMenu(appMenu);
+    menuBar()->setCornerWidget(app_, Qt::TopLeftCorner);
     if (auto* quickAccess = ribbon_->quickAccess()) {
         quickAccess->setParent(this);
         menuBar()->setCornerWidget(quickAccess, Qt::TopRightCorner);
@@ -739,6 +785,8 @@ void MainWindow::retranslate() {
     ribbonToggle_->setText(tr("Ribbon"));
     new_->setText(tr("New drawing"));
     close_->setText(tr("Close tab"));
+    if (app_)
+        app_->setToolTip(tr("Application menu"));
     translateChrome();
     inspector_->retranslate();
     layers_->retranslate();
