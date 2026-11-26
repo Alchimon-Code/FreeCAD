@@ -22,8 +22,10 @@ class BandBar : public QToolBar {
 
   private:
     const QWidget* carried() const {
-        const auto* action = actions().value(0);
-        return action ? widgetForAction(action) : nullptr;
+        // widgetForAction takes its action by pointer to non-const, and this question is asked from a
+        // const size hint.
+        auto* action = actions().value(0);
+        return action ? const_cast<BandBar*>(this)->widgetForAction(action) : nullptr;
     }
     int frame() const {
         const auto* metrics = style();
