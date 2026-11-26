@@ -135,6 +135,30 @@ TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
 // The window is for the drawing. AutoCAD's chrome takes about a fifth of the height and its palettes
 // a quarter of the width; a band that grows a row for one command, or a palette that spells its
 // headings out, takes that room back from the drawing.
+// A page is as tall as its buttons and its caption, and no more: the band is sized from the tallest
+// page, so one greedy page costs every tab a strip of the drawing area.
+TEST_F(RibbonWorkspace, EveryPageKeepsToTheHeightOfItsButtons) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(ribbon, nullptr);
+    ASSERT_NE(stack, nullptr);
+    for (int page = 0; page < ribbon->tabs()->count(); ++page) {
+        ribbon->setCurrentPage(page);
+        QApplication::processEvents();
+        const auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget());
+        ASSERT_NE(scroll, nullptr) << "page " << page;
+        const QWidget* content = scroll->widget();
+        ASSERT_NE(content, nullptr) << "page " << page;
+        EXPECT_LE(content->sizeHint().height(), 100)
+            << "page " << page << " asks " << content->sizeHint().height() << " and at least "
+            << content->minimumSizeHint().height();
+    }
+    ribbon->setCurrentPage(0);
+}
+
 TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
     window->resize(1520, 880);
     window->show();
