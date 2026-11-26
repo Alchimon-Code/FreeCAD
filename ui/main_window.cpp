@@ -169,19 +169,6 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // AutoCAD keeps its quick access toolbar on the title strip instead of a band of its own. The
     // menu row is the strip this window has there, so the toolbar rides at its right end and the
     // ribbon begins directly with the tabs.
-    // AutoCAD's title strip is the application mark, the quick access toolbar and the window itself;
-    // there is no menu bar in the classic sense. The four menus become the mark's menu, and the strip
-    // is left to the toolbar.
-    auto* appMenu = new QMenu(this);
-    appMenu->setObjectName("applicationMenu");
-    for (auto* menu : {file_, edit_, view_, settings_}) {
-        menuBar()->removeAction(menu->menuAction());
-        appMenu->addMenu(menu);
-    }
-    app_ = new ApplicationButton(this);
-    app_->setText(QStringLiteral("P"));
-    app_->setMenu(appMenu);
-    menuBar()->setCornerWidget(app_, Qt::TopLeftCorner);
     if (auto* quickAccess = ribbon_->quickAccess()) {
         quickAccess->setParent(this);
         menuBar()->setCornerWidget(quickAccess, Qt::TopRightCorner);
@@ -197,12 +184,9 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         if (i >= 0 && session_)
             session_->selectSpace(tabs_->tabData(i).toString());
     });
-    // The menus belong to the window, not to the menu bar: they move under the application mark once
-    // the title strip exists, and two owners for one menu is a double delete at shutdown.
-    auto menu = [this](QMenu*& target) {
-        target = new QMenu(this);
-        menuBar()->addMenu(target);
-    };
+    // The menus belong to the window alone. They are never installed on the menu bar, which exists only
+    // as the title strip that carries the application mark and the quick access toolbar.
+    auto menu = [this](QMenu*& target) { target = new QMenu(this); };
     menu(file_);
     menu(edit_);
     menu(view_);
@@ -400,6 +384,17 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     };
     connect(inspector_, &PropertyInspector::message, this, note);
     connect(layers_, &LayerManager::message, this, note);
+    // AutoCAD's title strip is the application mark, the quick access toolbar and the window itself;
+    // there is no menu bar in the classic sense. The four menus become the mark's menu, and the strip
+    // is left to the toolbar.
+    auto* appMenu = new QMenu(this);
+    appMenu->setObjectName("applicationMenu");
+    for (auto* submenu : {file_, edit_, view_, settings_})
+        appMenu->addMenu(submenu);
+    app_ = new ApplicationButton(this);
+    app_->setText(QStringLiteral("P"));
+    app_->setMenu(appMenu);
+    menuBar()->setCornerWidget(app_, Qt::TopLeftCorner);
     setupChrome();
     connect(quit_, &QAction::triggered, this, &QWidget::close);
     connect(load_, &QAction::triggered, this, [this] { choosePlugin(false); });
