@@ -142,8 +142,8 @@ TEST_F(RibbonWorkspace, RibbonRunsEdgeToEdgeAboveThePalettes) {
     ASSERT_NE(inspector, nullptr);
     ASSERT_FALSE(inspector->isHidden());
     EXPECT_GE(ribbon->width(), window->width() - 16) << "the band spans the window";
-    const QPoint bandTop = ribbon->mapTo(window, QPoint(0, 0));
-    const QPoint paletteTop = inspector->mapTo(window, QPoint(0, 0));
+    const QPoint bandTop = ribbon->mapTo(window.get(), QPoint(0, 0));
+    const QPoint paletteTop = inspector->mapTo(window.get(), QPoint(0, 0));
     EXPECT_LE(bandTop.y() + ribbon->height(), paletteTop.y())
         << "the palettes begin under the band";
 }
