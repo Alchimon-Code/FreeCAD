@@ -561,15 +561,21 @@ void Ribbon::askBandForRoom() {
     auto* bar = qobject_cast<QToolBar*>(parentWidget());
     if (!bar)
         return;
-    // A toolbar pads the widget it carries, and a band that is padded twice is a band that eats the
-    // drawing area. The ribbon states the band's height as its own plus the frame the style draws
-    // around an item, so the two can never drift apart.
+    // A toolbar pads the widget it carries, and a band padded twice eats the drawing area. The band
+    // states the height the ribbon actually lays out — the tab strip plus the page on screen — plus the
+    // frame the style draws around an item, so the two can never drift apart. Asked from sizeHint the
+    // band came out a row too tall.
+    const int content = tabs_->height() + (pages_->isVisible() ? pages_->height() : 0);
+    if (content <= 0)
+        return;
     const auto* style = bar->style();
     const int frame = style->pixelMetric(QStyle::PM_ToolBarFrameWidth, nullptr, bar) +
                       style->pixelMetric(QStyle::PM_ToolBarItemMargin, nullptr, bar);
-    bar->setFixedHeight(sizeHint().height() + 2 * frame);
-    bar->layout()->invalidate();
-    bar->updateGeometry();
+    const int wanted = content + 2 * frame;
+    if (bar->minimumHeight() != wanted) {
+        bar->setFixedHeight(wanted);
+        bar->layout()->invalidate();
+    }
 }
 
 void Ribbon::setCollapsed(bool collapsed) {
