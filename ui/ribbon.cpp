@@ -561,6 +561,13 @@ void Ribbon::askBandForRoom() {
     auto* bar = qobject_cast<QToolBar*>(parentWidget());
     if (!bar)
         return;
+    // A toolbar pads the widget it carries, and a band that is padded twice is a band that eats the
+    // drawing area. The ribbon states the band's height as its own plus the frame the style draws
+    // around an item, so the two can never drift apart.
+    const auto* style = bar->style();
+    const int frame = style->pixelMetric(QStyle::PM_ToolBarFrameWidth, nullptr, bar) +
+                      style->pixelMetric(QStyle::PM_ToolBarItemMargin, nullptr, bar);
+    bar->setFixedHeight(sizeHint().height() + 2 * frame);
     bar->layout()->invalidate();
     bar->updateGeometry();
 }
