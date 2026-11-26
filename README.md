@@ -37,7 +37,7 @@ The v0.2.0 workbench, captured from the running application rather than drawn:
 | ![Length and angle fields beside the crosshair while a line is drawn](docs/images/dynamic-input.png) |
 | ![A DWG written and read back by the bundled converters, open in its own tab](docs/images/dwg-open.png) |
 
-[Dark workspace in Russian](docs/images/workspace-dark-ru.png) · [PDF rendered at 144 dpi](docs/images/pdf-output.png) · [How these images were made](docs/images/README.md)
+[Dark workspace in Russian](docs/images/workspace-dark-ru.png) · [Palettes parked](docs/images/workspace-parked-ru.png) · [PDF rendered at 144 dpi](docs/images/pdf-output.png) · [How these images were made](docs/images/README.md)
 
 ## Architecture & design rationale
 

@@ -1,10 +1,11 @@
 # Gallery provenance
 
-The images are captures of the running Qt Widgets / desktop OpenGL application, not illustrations. All but the PDF raster use [panel.dxf](../../examples/drawings/panel.dxf). For the two model views the tool changes layer colours in memory for contrast (the `*` on the tab), selects the two inserts or the central circle, and switches the actual locale/theme actions. It undoes the colour change before showing the **Панель** paper-space tab. It does not edit the example DXF, load plugins or modify the user's settings.
+The images are captures of the running Qt Widgets / desktop OpenGL application, not illustrations. All but the PDF raster use [panel.dxf](../../examples/drawings/panel.dxf). For the two model views the tool changes layer colours in memory for contrast (the `*` on the tab), selects the two inserts or the central circle, and switches the actual locale/theme actions. It undoes the colour change before showing the **Панель** paper-space tab. It parks the palettes for one capture and opens them again. It does not edit the example DXF, load plugins or modify the user's settings.
 
 | View | Subject |
 |---|---|
 | [Dark · RU](workspace-dark-ru.png) | Two inserts, mixed insertion points, layer and property docks, ribbon open on the Home page; the band and the palettes are sized so the drawing keeps most of the window |
+| [Parked · RU](workspace-parked-ru.png) | Same window with «Свойства» and «Слои» parked as the strips that carry their names; the drawing takes the whole width |
 | [Light · EN](workspace-light-en.png) | Same window, selected circle, radius 27; names from the drawing stay in their original language |
 | [A4 layout](layout-eskd.png) | Model viewport, section A–A, ESKD-style frame and title block |
 | [PDF output](pdf-output.png) | Independent raster of the vector export, 144 dpi, 297 × 210 mm |
