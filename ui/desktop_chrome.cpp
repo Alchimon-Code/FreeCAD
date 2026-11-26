@@ -215,6 +215,13 @@ void MainWindow::setupChrome() {
         panels_->addAction(dock->toggleViewAction());
     // Ctrl+1 properties, Ctrl+2 layers and Ctrl+9 the command line, the three AutoCAD palette keys
     // whose palettes exist here.
+    // AutoCAD parks the palettes with one key and they keep the name that tells them apart.
+    autoHide_ = panels_->addAction(QString());
+    autoHide_->setObjectName("paletteAutoHide");
+    autoHide_->setCheckable(true);
+    autoHide_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+1")));
+    connect(autoHide_, &QAction::toggled, this, [this](bool on) { parkPalettes(on); });
+    panels_->addSeparator();
     inspector_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+1")));
     layers_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+2")));
     console_->toggleViewAction()->setShortcut(QKeySequence(QStringLiteral("Ctrl+9")));
@@ -522,6 +529,10 @@ void MainWindow::translateChrome() {
         a->setText(names[i++]);
     historyToggle_->setText(tr("Command history"));
     historyToggle_->setToolTip(tr("Expand the command history (F2)"));
+    if (autoHide_) {
+        autoHide_->setText(tr("Auto-hide palettes"));
+        autoHide_->setToolTip(tr("Park the properties and layers palettes as a strip (Ctrl+Shift+1)"));
+    }
     cleanScreen_->setText(tr("Clean screen"));
     cleanScreen_->setToolTip(tr("Hide the ribbon, palettes and menus (Ctrl+0)"));
     grid_->setText(tr("GRID"));

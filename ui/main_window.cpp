@@ -7,6 +7,7 @@
 #include "layer_manager.h"
 #include "property_inspector.h"
 #include "band_bar.h"
+#include "palette_title.h"
 #include "ribbon.h"
 #include "viewport.h"
 #include <QScrollBar>
@@ -388,6 +389,14 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     addDockWidget(Qt::RightDockWidgetArea, layers_);
     tabifyDockWidget(inspector_, layers_);
     inspector_->raise();
+    // AutoCAD's palettes park as a strip that carries their names, and a click on the strip opens the
+    // palette again. The strip is the dock's title bar, so it travels with the palette instead of
+    // floating above the drawing as a second widget to keep in step.
+    for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)}) {
+        auto* strip = new PaletteTitle(dock, [this] { parkPalettes(!palettesParked_); }, dock);
+        strip->setObjectName(QString("PaletteTitle.") + dock->objectName());
+        dock->setTitleBarWidget(strip);
+    }
     auto note = [this](const QString& s) {
         page_->append(s);
         // The prompt returns on its own: a hint must not sit in the status bar forever.
@@ -686,6 +695,23 @@ void MainWindow::setRibbonVisible(bool on) {
         ribbon_->setVisible(on);
     if (ribbonBar_)
         ribbonBar_->setVisible(on);
+}
+
+// A parked palette keeps its strip and gives its width to the drawing; the strip is a title bar, so
+// the palette is never hidden, only narrowed to the name it carries.
+void MainWindow::parkPalettes(bool parked) {
+    palettesParked_ = parked;
+    {
+        const QSignalBlocker guard(autoHide_);
+        if (autoHide_)
+            autoHide_->setChecked(parked);
+    }
+    for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)}) {
+        dock->widget()->setVisible(!parked);
+        dock->setMinimumWidth(parked ? 26 : 0);
+        dock->setMaximumWidth(parked ? 26 : 400);
+    }
+    resizeDocks({inspector_}, {parked ? 26 : 300}, Qt::Horizontal);
 }
 
 void MainWindow::applyRibbonMode(bool on) {

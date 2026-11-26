@@ -175,6 +175,29 @@ TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
 // years of code ago, but the ribbon kept its row.
 // The band is the ribbon plus the frame the style draws around an item. A plain toolbar asked the
 // style for a tool bar's height and came out about twenty-five pixels taller than what it carried.
+// AutoCAD parks its palettes as a strip that carries their names; a click on the strip opens them and
+// the drawing keeps the width in the meantime.
+TEST_F(RibbonWorkspace, ParkedPalettesLeaveTheDrawingTheWholeWidth) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* autoHide = child<QAction>("paletteAutoHide");
+    auto* view = window->activeView();
+    auto* inspector = window->findChild<QDockWidget*>("PropertyInspector");
+    ASSERT_NE(autoHide, nullptr);
+    ASSERT_NE(view, nullptr);
+    ASSERT_NE(inspector, nullptr);
+    const int open = view->width();
+    autoHide->setChecked(true);
+    QApplication::processEvents();
+    EXPECT_LE(inspector->width(), 40) << "a parked palette is the strip it carries";
+    EXPECT_GT(view->width(), open + 150) << "the drawing takes the width the palette gave back";
+    autoHide->setChecked(false);
+    QApplication::processEvents();
+    EXPECT_EQ(view->width(), open);
+    EXPECT_GT(inspector->width(), 200);
+}
+
 TEST_F(RibbonWorkspace, TheBandIsNoTallerThanItsRibbon) {
     window->resize(1520, 880);
     window->show();

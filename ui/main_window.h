@@ -63,6 +63,7 @@ class MainWindow : public QMainWindow {
     void refreshContextMenu();
     void refreshContextStep();
     void applyRibbonMode(bool on);
+    void parkPalettes(bool parked);
     void setRibbonVisible(bool on);
     void syncRibbon();
     void applyTheme(bool dark);
@@ -99,6 +100,8 @@ class MainWindow : public QMainWindow {
     QList<bool> classicVisibility_;
     QList<QToolBar*> bars_;
     QToolBar* ribbonBar_ = nullptr;
+    QAction* autoHide_ = nullptr;
+    bool palettesParked_ = false;
     QToolButton* app_ = nullptr;
     QDockWidget* console_;
     QLineEdit* input_;

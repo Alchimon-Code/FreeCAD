@@ -912,6 +912,14 @@
         <translation>Развернуть историю команд (F2)</translation>
     </message>
     <message>
+        <source>Auto-hide palettes</source>
+        <translation>Автоскрытие палитр</translation>
+    </message>
+    <message>
+        <source>Park the properties and layers palettes as a strip (Ctrl+Shift+1)</source>
+        <translation>Свернуть палитры «Свойства» и «Слои» в полоску (Ctrl+Shift+1)</translation>
+    </message>
+    <message>
         <source>Clean screen</source>
         <translation>Чистый экран</translation>
     </message>
