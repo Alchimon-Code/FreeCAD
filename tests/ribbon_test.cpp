@@ -471,10 +471,10 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
     // Both boxes read what the device measures from the base point, as AutoCAD's do, so a fresh
     // prompt never shows the placeholder a blank box would carry.
-    auto numbers = [](const QString& s) {
+    auto numbers = [](const QString& line) {
         QList<double> out;
-        const QRegularExpression pattern(QStringLiteral("-?\d+(?:\.\d+)?"));
-        for (const auto& match : pattern.globalMatch(s))
+        const QRegularExpression pattern(QStringLiteral(R"(-?\d+(?:\.\d+)?)"));
+        for (const auto& match : pattern.globalMatch(line))
             out << match.captured(0).toDouble();
         return out;
     };
