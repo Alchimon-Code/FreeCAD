@@ -43,9 +43,13 @@ class StatusCheck final : public QStyledItemDelegate {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(QPen(ink, 1));
-        QColor fill = ink;
-        fill.setAlpha(selected ? 70 : 40);
-        painter->setBrush(checked ? fill : Qt::NoBrush);
+        if (checked) {
+            QColor fill = ink;
+            fill.setAlpha(selected ? 70 : 40);
+            painter->setBrush(fill);
+        } else {
+            painter->setBrush(Qt::NoBrush); // stated apart: a ternary turns NoBrush into a colour
+        }
         painter->drawRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
         if (checked) {
             QPen tick(ink, 1.6);

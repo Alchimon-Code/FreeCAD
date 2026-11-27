@@ -170,12 +170,16 @@ jobs:
       # this job verified goes onto a draft release, which only the people who can push can see, so
       # nothing is distributed publicly while docs/LICENSING.md is still open.
       - name: Attach a trial build to a draft release
-        if: matrix.preset == 'windows-msvc' && github.event_name == 'push' && contains(github.event.head_commit.modified, 'docs/trial-request.txt')
+        if: matrix.preset == 'windows-msvc' && github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # The request is an edit to docs/trial-request.txt in this push; every other push leaves
+          # the packaging alone.
+          git show --name-only --format= HEAD -- docs/trial-request.txt | grep -q 'docs/trial-request.txt' ||
+            { echo 'No trial build requested in this push.'; exit 0; }
           tag="trial-${GITHUB_SHA:0:7}"
           notes="Trial build of ${GITHUB_SHA} from ${GITHUB_REF_NAME}: the portable ZIP and the installer this run verified. Unpack the ZIP and start PlaneDraft.exe; the DWG converters travel in tools/libredwg/. A preview of the branch, not a released version: the delivery terms in docs/LICENSING.md are still open, so the draft stays unpublished."
           gh release view "$tag" > /dev/null 2>&1 || gh release create "$tag" --draft --target "$GITHUB_SHA" --title "PlaneDraft trial build ${GITHUB_SHA:0:7}" --notes "$notes"
