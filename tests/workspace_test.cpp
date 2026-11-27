@@ -283,7 +283,7 @@ TEST_F(Workspace, LayerHeadingsFitTheirColumns) {
                 << caption.toStdString();
         }
         EXPECT_GE(header->sectionSize(5), 80); // the colour code keeps room for #BECED5
-        EXPECT_GE(header->sectionSize(1), 24); // and the name still holds a word
+        EXPECT_GE(header->sectionSize(1), 70); // and the name still holds «Размеры» whole
     };
     fits();
     auto locale = child<QAction>("localeSwitch");

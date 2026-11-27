@@ -33,7 +33,9 @@ class StatusCheck final : public QStyledItemDelegate {
         opt.features.setFlag(QStyleOptionViewItem::HasCheckIndicator, false);
         const QWidget* owner = opt.widget;
         QStyle* style = owner ? owner->style() : QApplication::style();
-        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, owner);
+        // Only the panel — the row's background, alternation and selection. The item control would
+        // draw the style's own indicator as well, and that indicator is what this replaces.
+        style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, owner);
         const bool selected = opt.state & QStyle::State_Selected;
         const QColor ink = opt.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
         QRect box(QPoint(), QSize(13, 13));
@@ -165,12 +167,12 @@ void LayerManager::fitColumns() {
     auto needed = [&](int column, int floor) {
         const auto* caption = table_->horizontalHeaderItem(column);
         const QString text = caption ? caption->text() : QString();
-        return std::max(floor, metrics.horizontalAdvance(text) + 16);
+        return std::max(floor, metrics.horizontalAdvance(text) + 12);
     };
-    header->resizeSection(Visible, needed(Visible, 36));
-    header->resizeSection(Frozen, needed(Frozen, 58));
-    header->resizeSection(Locked, needed(Locked, 48));
-    header->resizeSection(Weight, needed(Weight, 46));
+    header->resizeSection(Visible, needed(Visible, 34));
+    header->resizeSection(Frozen, needed(Frozen, 54));
+    header->resizeSection(Locked, needed(Locked, 46));
+    header->resizeSection(Weight, needed(Weight, 40));
     header->resizeSection(Color, std::max(94, needed(Color, 0)));
 }
 

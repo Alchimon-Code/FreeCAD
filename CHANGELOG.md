@@ -16,7 +16,8 @@
 - **Layer status columns:** «Вкл», «Замор.» and «Блок.» now draw one box of their own, in the colour
   of the text beside them — the style's indicator sits in the palette's base colour, which the dark
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
-  word, so «Замор.» and «Weight» stop being cut in half.
+  word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
+  leaves the name column whole words instead of an ellipsis.
 - **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
   Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
   «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of
