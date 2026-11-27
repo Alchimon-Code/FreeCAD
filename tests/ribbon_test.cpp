@@ -195,38 +195,6 @@ TEST_F(RibbonWorkspace, TheHomePageLaysOutEveryPanelOnTheFirstFrame) {
     }
 }
 
-// TEMPORARY probe: reports what the Home page lays out, in the language the application starts in.
-TEST_F(RibbonWorkspace, RibbonPanelProbe) {
-    Language russian;
-    ASSERT_TRUE(russian.setRussian(true));
-    CommandSession session;
-    MainWindow own(session, russian);
-    own.resize(1520, 880);
-    own.show();
-    QApplication::processEvents();
-    auto* stack = own.findChild<QStackedWidget*>("ribbonPages");
-    ASSERT_NE(stack, nullptr);
-    auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget());
-    ASSERT_NE(scroll, nullptr);
-    QWidget* page = scroll->widget();
-    QString report = QString("viewport=%1 page=%2 min=%3 scroll=%4 | ")
-                         .arg(scroll->viewport()->width())
-                         .arg(page->width())
-                         .arg(page->layout()->minimumSize().width())
-                         .arg(scroll->horizontalScrollBar()->value());
-    for (auto* label : page->findChildren<QLabel*>(QStringLiteral("ribbonPanelTitle"))) {
-        QWidget* panel = label->parentWidget();
-        report += QString("[%1 x=%2 w=%3 vis=%4] ")
-                      .arg(label->text())
-                      .arg(panel->x())
-                      .arg(panel->width())
-                      .arg(panel->isVisible() ? 1 : 0);
-    }
-    // The annotation on the Windows job keeps only lines that name a failure, so the report starts
-    // with the word it looks for.
-    FAIL() << "Actual: " << report.toStdString() << " panels=" << page->findChildren<QLabel*>().size();
-}
-
 TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
     window->resize(1520, 880);
     window->show();

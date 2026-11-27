@@ -7,6 +7,9 @@
 #include "property_inspector.h"
 #include "ribbon.h"
 #include "viewport.h"
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QStackedWidget>
 #include <QAction>
 #include <QApplication>
 #include <QDir>
@@ -150,7 +153,16 @@ int main(int argc, char** argv) {
     auto* dynamicInput = window.findChild<QAction*>("dynamicInputToggle");
     if (!ribbon || !dynamicInput)
         return 1;
+    // A page that has never been shown, or one that was scrolled, can be photographed at an offset;
+    // every frame starts at the first panel.
+    auto startOfPage = [&] {
+        if (auto* stack = window.findChild<QStackedWidget*>("ribbonPages"))
+            if (auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget()))
+                scroll->horizontalScrollBar()->setValue(0);
+        app.processEvents();
+    };
     ribbon->setCurrentPage(0);
+    startOfPage();
     command("_DIMSTYLE ESKD");
     view.setSelection(inserts);
     pointAt(view, {115.5, -18.5});
@@ -184,11 +196,13 @@ int main(int argc, char** argv) {
                               std::pair{4, "ribbon-manage-ru.png"}}) {
         ribbon->setCurrentPage(page);
         app.processEvents();
+        startOfPage();
         if (!saveFrame(window, out.filePath(QString::fromLatin1(name))))
             return 1;
     }
     ribbon->setCurrentPage(0);
     app.processEvents();
+    startOfPage();
 
     // Same window in the light English UI, ribbon on the Annotate page: a page that is populated
     // enough to show the strip, unlike the three small Insert panels.
