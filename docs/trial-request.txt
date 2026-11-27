@@ -1,3 +1,1 @@
-# Rewrite this line in a push to have CI attach its verified Windows package to a draft release
-# called trial-<short sha>; the draft is visible only to the people who can push to the repository.
-third trial build 2026-12-04T21:05:00Z
+fourth trial build 2026-12-05T19:40:00Z
