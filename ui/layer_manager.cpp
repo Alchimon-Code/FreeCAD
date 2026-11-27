@@ -23,6 +23,7 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     table_->setObjectName("layerTable");
     table_->setAlternatingRowColors(true);
     table_->verticalHeader()->hide();
+    table_->verticalHeader()->setDefaultSectionSize(20);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
     table_->setHorizontalHeader(new PaletteHeader(table_));

@@ -296,6 +296,9 @@ PropertyInspector::PropertyInspector(QWidget* parent) : QDockWidget(parent) {
     table_ = new QTableWidget(0, 2, body);
     table_->setObjectName("propertyTable");
     table_->verticalHeader()->hide();
+    // AutoCAD's palette packs a property a row; the style's default row is a third taller than the
+    // text it carries, which leaves the palette showing fewer properties than it has room for.
+    table_->verticalHeader()->setDefaultSectionSize(22);
     table_->setAlternatingRowColors(true);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setHorizontalHeader(new PaletteHeader(table_));
