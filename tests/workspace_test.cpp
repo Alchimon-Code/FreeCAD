@@ -43,9 +43,11 @@ class Workspace : public testing::Test {
     template <class T> T* child(const char* name) { return window->findChild<T*>(name); }
     QTableWidgetItem* field(const char* key) {
         auto table = child<QTableWidget>("propertyTable");
-        for (int r = 0; r < table->rowCount(); ++r)
-            if (table->item(r, 1)->data(Qt::UserRole) == key)
-                return table->item(r, 1);
+        for (int r = 0; r < table->rowCount(); ++r) {
+            auto* item = table->item(r, 1);
+            if (item && item->data(Qt::UserRole) == key)
+                return item;
+        }
         return nullptr;
     }
     void edit(const char* key, QString value) {
@@ -96,7 +98,11 @@ TEST_F(Workspace, MixedSelectionPublishesOneTransactionAndReindexesBothCurvesImm
     v.setSelection({l, arc, circle});
     EXPECT_FALSE(field("radius"));
     auto props = child<QTableWidget>("propertyTable");
-    EXPECT_EQ(props->rowCount(), 3);
+    int carried = 0;
+    for (int r = 0; r < props->rowCount(); ++r)
+        if (auto* item = props->item(r, 1); item && item->data(Qt::UserRole).isValid())
+            ++carried;
+    EXPECT_EQ(carried, 3);
     edit("color", "#247EAB");
     for (auto id : v.selectedIds())
         EXPECT_EQ(std::get<Color>(d.entity(id)->traits.color), (Color{36, 126, 171}));
@@ -168,6 +174,36 @@ TEST_F(Workspace, TypeSpecificPropertiesPreserveIdentityAndOtherTraits) {
     auto m = dynamic_cast<const BlockReference&>(*d.entity(ref)).placement();
     EXPECT_EQ(m.applyPoint({1, 1}), (Vec2{5, 1}));
     EXPECT_EQ(m.applyPoint({}), (Vec2{3, 4}));
+}
+TEST_F(Workspace, PropertyGroupsFoldAwayUnderTheirHeading) {
+    auto& d = s.document();
+    auto& v = *window->activeView();
+    auto line = d.add(Line({0, 0}, {5, 0}));
+    v.setSelection({line});
+    auto props = child<QTableWidget>("propertyTable");
+    auto heading = [&](const char* group) {
+        for (int r = 0; r < props->rowCount(); ++r)
+            if (auto* item = props->item(r, 0); item && item->data(Qt::UserRole) == group)
+                return r;
+        return -1;
+    };
+    const int general = heading("general"), geometry = heading("geometry");
+    EXPECT_GE(general, 0);
+    EXPECT_GT(geometry, general);
+    // The traits every entity carries come first, and the shape's own readings follow them.
+    EXPECT_LT(field("color")->row(), general + 4);
+    EXPECT_GT(field("end")->row(), geometry);
+    EXPECT_FALSE(props->isRowHidden(field("color")->row()));
+    QMetaObject::invokeMethod(props, "cellClicked", Q_ARG(int, general), Q_ARG(int, 0));
+    EXPECT_TRUE(props->isRowHidden(field("color")->row()));
+    EXPECT_FALSE(props->isRowHidden(field("end")->row()));
+    QMetaObject::invokeMethod(props, "cellClicked", Q_ARG(int, general), Q_ARG(int, 0));
+    EXPECT_FALSE(props->isRowHidden(field("color")->row()));
+    // A folded group stays folded while the palette is rewritten.
+    QMetaObject::invokeMethod(props, "cellClicked", Q_ARG(int, geometry), Q_ARG(int, 0));
+    edit("color", "#247EAB");
+    EXPECT_TRUE(props->isRowHidden(field("end")->row()));
+    EXPECT_FALSE(props->isRowHidden(field("color")->row()));
 }
 TEST_F(Workspace, LayerTableControlsCurrentTraitsAndLocksButNotObjectSnaps) {
     auto table = child<QTableWidget>("layerTable");

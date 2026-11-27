@@ -4,6 +4,7 @@
 #include "command_session.h"
 #include "viewport.h"
 #include <QComboBox>
+#include <QFont>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLocale>
@@ -31,6 +32,12 @@ QString xy(Vec2 p) { return num(p.x) + ", " + num(p.y); }
 QString angle(Vec2 d) { return num(std::atan2(d.y, d.x) / rad); }
 QString str(const std::string& s) { return QString::fromStdString(s); }
 QString rgb(Color c) { return QColor(c.r, c.g, c.b).name().toUpper(); }
+// AutoCAD's palette heads its list with the groups it shows; the traits every entity carries are the
+// general ones, and everything a shape adds about itself is geometry.
+QString sectionOf(const QString& key) {
+    return key == "layer" || key == "color" || key == "weight" ? QStringLiteral("general")
+                                                                : QStringLiteral("geometry");
+}
 QString byLayer() { return PropertyInspector::tr("ByLayer"); }
 QString byBlock() { return PropertyInspector::tr("ByBlock"); }
 template <class T, class F> QString format(const Property<T>& v, F f) {
@@ -308,6 +315,7 @@ PropertyInspector::PropertyInspector(QWidget* parent) : QDockWidget(parent) {
     layout->addWidget(table_);
     setWidget(body);
     connect(table_, &QTableWidget::itemChanged, this, &PropertyInspector::edited);
+    connect(table_, &QTableWidget::cellClicked, this, &PropertyInspector::toggled);
     connect(vertex_, &QSpinBox::valueChanged, this, [this] { refresh(); });
     retranslate();
 }
@@ -379,23 +387,70 @@ void PropertyInspector::refresh() {
             }
         }
     }
-    for (auto& f : data) {
-        int r = table_->rowCount();
-        table_->insertRow(r);
-        auto label = new QTableWidgetItem(f.label);
-        label->setFlags(label->flags() & ~Qt::ItemIsEditable);
-        auto val = new QTableWidgetItem(f.value);
-        val->setData(Key, f.key);
-        val->setData(Choices, f.choices);
-        val->setData(FreeText, f.custom);
-        if (!writable)
-            val->setFlags(val->flags() & ~Qt::ItemIsEditable);
-        table_->setItem(r, 0, label);
-        table_->setItem(r, 1, val);
+    sectionRows_.clear();
+    headerRow_.clear();
+    const QVector<QPair<QString, QString>> groups{{QStringLiteral("general"), tr("General")},
+                                                  {QStringLiteral("geometry"), tr("Geometry")}};
+    for (const auto& [key, title] : groups) {
+        QVector<Field> group;
+        for (auto& f : data)
+            if (sectionOf(f.key) == key)
+                group << f;
+        if (group.isEmpty())
+            continue;
+        // A headed row that keeps both cells: the second cell holds nothing, but the table stays
+        // addressable by row and column the way the rest of the window expects.
+        const int header = table_->rowCount();
+        table_->insertRow(header);
+        const QChar caret = collapsed_.value(key) ? QChar(0x25B8) : QChar(0x25BE);
+        auto* caption = new QTableWidgetItem(QString(caret) + QLatin1Char(' ') + title);
+        caption->setData(Qt::UserRole, key);
+        caption->setFlags(Qt::ItemIsEnabled);
+        QFont bold = caption->font();
+        bold.setBold(true);
+        caption->setFont(bold);
+        table_->setItem(header, 0, caption);
+        table_->setItem(header, 1, new QTableWidgetItem);
+        table_->setSpan(header, 0, 1, 2);
+        headerRow_.insert(header, key);
+        for (auto& f : group) {
+            int r = table_->rowCount();
+            table_->insertRow(r);
+            sectionRows_[key] << r;
+            auto label = new QTableWidgetItem(f.label);
+            label->setFlags(label->flags() & ~Qt::ItemIsEditable);
+            auto val = new QTableWidgetItem(f.value);
+            val->setData(Key, f.key);
+            val->setData(Choices, f.choices);
+            val->setData(FreeText, f.custom);
+            if (!writable)
+                val->setFlags(val->flags() & ~Qt::ItemIsEditable);
+            table_->setItem(r, 0, label);
+            table_->setItem(r, 1, val);
+        }
+        for (int r : sectionRows_.value(key))
+            table_->setRowHidden(r, collapsed_.value(key));
     }
     if (!writable)
         summary_->setText(tr("Selection includes a locked layer"));
 }
+// A click on a group's row folds it away or opens it; the rows stay in the table, so the values keep
+// the order they were read in.
+void PropertyInspector::toggled(int row, int) {
+    const auto key = headerRow_.value(row);
+    if (key.isEmpty())
+        return;
+    collapsed_[key] = !collapsed_.value(key);
+    if (auto* caption = table_->item(row, 0)) {
+        QString text = caption->text();
+        if (!text.isEmpty())
+            text[0] = collapsed_.value(key) ? QChar(0x25B8) : QChar(0x25BE);
+        caption->setText(text);
+    }
+    for (int r : sectionRows_.value(key))
+        table_->setRowHidden(r, collapsed_.value(key));
+}
+
 void PropertyInspector::edited(QTableWidgetItem* item) {
     if (writing_ || !session_ || !view_ || item->column() != 1)
         return;
@@ -405,6 +460,9 @@ void PropertyInspector::edited(QTableWidgetItem* item) {
         return;
     }
     auto key = item->data(Key).toString(), v = item->text();
+    if (key.isEmpty())
+        return;
+
     auto ids = ids_;
     {
         QScopedValueRollback guard(writing_, true);

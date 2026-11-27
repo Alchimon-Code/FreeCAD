@@ -1315,6 +1315,14 @@
         <translation>По блоку</translation>
     </message>
     <message>
+        <source>General</source>
+        <translation>Общие</translation>
+    </message>
+    <message>
+        <source>Geometry</source>
+        <translation>Геометрия</translation>
+    </message>
+    <message>
         <source>Layer</source>
         <translation>Слой</translation>
     </message>

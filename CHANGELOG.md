@@ -7,6 +7,9 @@
   do; the strip opens the palettes under the pointer and parks them again when it leaves, and a
   click keeps them open. Parked, the whole width goes to the drawing, and the window remembers the
   state for the next session.
+- **Property sections:** «Свойства» heads its list with «Общие» — layer, colour and weight — and
+  «Геометрия», the readings a shape adds about itself. A click on a heading folds its rows away and
+  opens them again, and a folded group stays folded while the palette is rewritten.
 - **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
   Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
   «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of
