@@ -415,6 +415,7 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
         strip->setObjectName(QString("PaletteTitle.") + dock->objectName());
         dock->setTitleBarWidget(strip);
     }
+    parkPalettes(QSettings().value("ui/palettesParked", false).toBool());
     auto note = [this](const QString& s) {
         page_->append(s);
         // The prompt returns on its own: a hint must not sit in the status bar forever.
@@ -718,6 +719,9 @@ void MainWindow::setRibbonVisible(bool on) {
 // A parked palette keeps its strip and gives its width to the drawing; the strip is a title bar, so
 // the palette is never hidden, only narrowed to the name it carries.
 void MainWindow::parkPalettes(bool parked) {
+    // AutoCAD remembers whether a palette was parked; so does this window, while the pointer opening a
+    // palette for a moment is not a state to remember.
+    QSettings().setValue("ui/palettesParked", parked);
     hoverOpened_ = false;
     if (hoverTimer_)
         hoverTimer_->stop();

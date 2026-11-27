@@ -197,6 +197,8 @@ TEST_F(RibbonWorkspace, ParkedPalettesLeaveTheDrawingTheWholeWidth) {
     QApplication::processEvents();
     EXPECT_EQ(view->width(), open);
     EXPECT_GT(inspector->width(), 200);
+    EXPECT_FALSE(QSettings().value("ui/palettesParked", true).toBool())
+        << "the opened palettes are what the next session opens";
 }
 
 // AutoCAD's parked palettes open under the pointer; the strip is what the pointer has to reach.
