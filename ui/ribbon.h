@@ -53,11 +53,13 @@ class Ribbon final : public QWidget {
 
   protected:
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
 
   private:
     QWidget* page(const QString& key);
     void updateStrip();
     void syncChevrons();
+    void syncPageWidths();
     void askBandForRoom();
     void applyPageTitles();
     QTabBar* tabs_;

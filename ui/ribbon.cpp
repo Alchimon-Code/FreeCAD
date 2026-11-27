@@ -13,6 +13,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QWheelEvent>
 #include <QHBoxLayout>
 #include <QPainter>
@@ -555,11 +556,32 @@ void Ribbon::evenColumns() {
         for (int column = 0; column < int(widest.size()); ++column)
             grid->setColumnMinimumWidth(column, widest[column]);
     }
+    syncPageWidths();
 }
 
 void Ribbon::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     syncChevrons();
+}
+
+// The first frame is laid out here: the chevrons say whether the page is wider than the strip, and
+// until now they only followed a tab change or a window resize, so a fresh window showed the first
+// panels of a page it could not scroll.
+void Ribbon::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    updateStrip();
+    syncChevrons();
+}
+
+// A scroll area sizes its page to the page's hint. A page whose panels need more than that hint is
+// clipped at the right, which leaves a blank strip where the next panel should start and hides the
+// panels beyond it; stating the width the layout needs keeps the strip honest.
+void Ribbon::syncPageWidths() {
+    for (auto* content : rows_) {
+        auto* layout = qobject_cast<QHBoxLayout*>(content->layout());
+        if (layout)
+            content->setMinimumWidth(layout->minimumSize().width());
+    }
 }
 
 // A ribbon that sits on a toolbar has to nudge it; a ribbon asked to stand on its own is left alone.

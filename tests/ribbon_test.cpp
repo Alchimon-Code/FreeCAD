@@ -183,6 +183,10 @@ TEST_F(RibbonWorkspace, TheHomePageLaysOutEveryPanelOnTheFirstFrame) {
         if (label->isVisible() && label->width() > 0)
             ++panels;
     EXPECT_GE(panels, 6) << "the Home page keeps its Draw, Modify, Annotate, Layers, Blocks and Properties";
+    // A strip narrower than the panels it carries clips the last of them and leaves a blank gap
+    // where the next panel should start.
+    EXPECT_GE(page->width(), page->layout()->minimumSize().width());
+    EXPECT_EQ(scroll->horizontalScrollBar()->value(), 0) << "a fresh page starts at its first panel";
     for (const char* name : {"ribbonLayer", "ribbonColor", "ribbonWeight"}) {
         auto* combo = ribbon->findChild<QComboBox*>(QString::fromLatin1(name));
         ASSERT_NE(combo, nullptr) << name;
