@@ -467,8 +467,8 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // AutoCAD's palettes take a palette's width and nothing more: two docks that size themselves to
     // their tables were taking a third of the window away from the drawing.
     for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)})
-        dock->setMaximumWidth(400);
-    resizeDocks({inspector_}, {380}, Qt::Horizontal);
+        dock->setMaximumWidth(420);
+    resizeDocks({inspector_}, {400}, Qt::Horizontal);
     QSettings cfg;
     if (cfg.contains("window/geometry"))
         restoreGeometry(cfg.value("window/geometry").toByteArray());
@@ -738,9 +738,9 @@ void MainWindow::setPalettesNarrow(bool parked) {
     for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)}) {
         dock->widget()->setVisible(!parked);
         dock->setMinimumWidth(parked ? 26 : 0);
-        dock->setMaximumWidth(parked ? 26 : 400);
+        dock->setMaximumWidth(parked ? 26 : 420);
     }
-    resizeDocks({inspector_}, {parked ? 26 : 380}, Qt::Horizontal);
+    resizeDocks({inspector_}, {parked ? 26 : 400}, Qt::Horizontal);
 }
 
 // The pointer over a parked strip opens the palettes; leaving them parks them again unless the user
