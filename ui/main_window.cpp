@@ -468,7 +468,7 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // their tables were taking a third of the window away from the drawing.
     for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)})
         dock->setMaximumWidth(400);
-    resizeDocks({inspector_}, {300}, Qt::Horizontal);
+    resizeDocks({inspector_}, {380}, Qt::Horizontal);
     QSettings cfg;
     if (cfg.contains("window/geometry"))
         restoreGeometry(cfg.value("window/geometry").toByteArray());
@@ -740,7 +740,7 @@ void MainWindow::setPalettesNarrow(bool parked) {
         dock->setMinimumWidth(parked ? 26 : 0);
         dock->setMaximumWidth(parked ? 26 : 400);
     }
-    resizeDocks({inspector_}, {parked ? 26 : 300}, Qt::Horizontal);
+    resizeDocks({inspector_}, {parked ? 26 : 380}, Qt::Horizontal);
 }
 
 // The pointer over a parked strip opens the palettes; leaving them parks them again unless the user

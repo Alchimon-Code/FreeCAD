@@ -3,6 +3,7 @@
 #include <QDockWidget>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QResizeEvent>
 #include <functional>
 
 // A palette's own title strip. A parked palette is as wide as this strip, so the label is drawn
@@ -16,12 +17,27 @@ class PaletteTitle : public QWidget {
         : QWidget(parent), dock_(dock), onClick_(std::move(onClick)), onHover_(std::move(onHover)) {
         setCursor(Qt::PointingHandCursor);
         setToolTip(QString());
-        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
-    [[nodiscard]] QSize sizeHint() const override { return {22, 120}; }
-    [[nodiscard]] QSize minimumSizeHint() const override { return {22, 30}; }
+    // Parked, the strip is as tall as the palette beside it; open, it is a title bar one line high.
+    // The policy is stated in both states, because a title bar that can grow takes half the palette.
+    [[nodiscard]] QSize sizeHint() const override {
+        return parked() ? QSize(22, 120) : QSize(120, verticalHeader());
+    }
+    [[nodiscard]] QSize minimumSizeHint() const override {
+        return parked() ? QSize(22, 30) : QSize(60, verticalHeader());
+    }
 
   protected:
+    void resizeEvent(QResizeEvent* event) override {
+        const bool nowParked = parked();
+        if (nowParked != wasParked_) {
+            wasParked_ = nowParked;
+            setSizePolicy(QSizePolicy::Preferred, nowParked ? QSizePolicy::Expanding : QSizePolicy::Fixed);
+            updateGeometry();
+        }
+        QWidget::resizeEvent(event);
+    }
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
         const QColor strip = palette().color(QPalette::Window);
@@ -30,7 +46,7 @@ class PaletteTitle : public QWidget {
         painter.drawLine(0, 0, 0, height() - 1);
         painter.setPen(palette().color(QPalette::WindowText));
         const QString caption = dock_ ? dock_->windowTitle() : QString();
-        if (width() < 40) {
+        if (parked()) {
             // Parked: the name reads down the strip, as AutoCAD's do.
             painter.save();
             painter.translate(width() / 2.0, height() / 2.0);
@@ -61,7 +77,10 @@ class PaletteTitle : public QWidget {
     }
 
   private:
+    [[nodiscard]] bool parked() const { return width() < 40; }
+    [[nodiscard]] int verticalHeader() const { return fontMetrics().height() + 6; }
     QDockWidget* dock_ = nullptr;
+    bool wasParked_ = false;
     std::function<void()> onClick_;
     std::function<void(bool)> onHover_;
 };

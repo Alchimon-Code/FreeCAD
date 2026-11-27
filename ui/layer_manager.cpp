@@ -36,11 +36,11 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     header->setMinimumSectionSize(24);
     header->setSectionResizeMode(Name, QHeaderView::Stretch);
     header->resizeSection(Current, 26);
-    header->resizeSection(Visible, 40);
-    header->resizeSection(Frozen, 56);
+    header->resizeSection(Visible, 36);
+    header->resizeSection(Frozen, 50);
     header->resizeSection(Locked, 48);
-    header->resizeSection(Color, 96);
-    header->resizeSection(Weight, 52);
+    header->resizeSection(Color, 88);
+    header->resizeSection(Weight, 46);
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;
     add_ = new QPushButton(body);
