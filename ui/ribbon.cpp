@@ -580,6 +580,15 @@ void Ribbon::evenColumns() {
 
 void Ribbon::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
+    // The window opens at one size and is given another a moment later; the pages were measured
+    // against the first one and keep that geometry, which is how a strip comes up three panels wide
+    // while the tabs are already in place.
+    if (auto* scroll = static_cast<PageScroll*>(pages_->currentWidget())) {
+        if (QWidget* page = scroll->widget()) {
+            page->adjustSize();
+            page->updateGeometry();
+        }
+    }
     syncChevrons();
 }
 
