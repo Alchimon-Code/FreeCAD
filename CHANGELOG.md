@@ -18,6 +18,10 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Ribbon width:** a ribbon page answers the scroll area with the size its layout asks for, so a page
+  whose translated captions outgrew the strip no longer loses its last three panels behind a blank
+  gap; the chevrons that say a page scrolls are there from the first frame instead of after a tab
+  change.
 - **Ribbon height:** a small entry is held to its own line instead of the button's worth of air the
   style reserves around it, and the panel and page margins lose a pixel each; the band is about
   sixteen pixels shorter on every tab, and the drawing takes them.
