@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QFontMetrics>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -264,6 +265,30 @@ TEST_F(Workspace, LayerTableControlsCurrentTraitsAndLocksButNotObjectSnaps) {
     EXPECT_EQ(s.editor().activeLayer(), DefaultLayer);
     s.execute("_UNDO");
     EXPECT_NE(d.layer(layer), nullptr);
+}
+TEST_F(Workspace, LayerHeadingsFitTheirColumns) {
+    auto table = child<QTableWidget>("layerTable");
+    auto* header = table->horizontalHeader();
+    ASSERT_NE(header, nullptr);
+    auto fits = [&] {
+        const QFontMetrics metrics = header->fontMetrics();
+        for (int c = 0; c < table->columnCount(); ++c) {
+            const auto* item = table->horizontalHeaderItem(c);
+            const QString caption = item ? item->text() : QString();
+            if (caption.isEmpty())
+                continue;
+            // The header draws its caption as one line, so a column narrower than the word cuts it.
+            EXPECT_GE(header->sectionSize(c), metrics.horizontalAdvance(caption) + 8) << caption;
+        }
+        EXPECT_GE(header->sectionSize(5), 80); // the colour code keeps room for #BECED5
+        EXPECT_GE(header->sectionSize(1), 24); // and the name still holds a word
+    };
+    fits();
+    auto locale = child<QAction>("localeSwitch");
+    ASSERT_TRUE(locale);
+    locale->trigger();
+    QApplication::processEvents();
+    fits();
 }
 TEST_F(Workspace, LanguageAndPaletteUpdateExistingDocksActionsAndSnapControls) {
     auto& d = s.document();

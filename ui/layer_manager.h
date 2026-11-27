@@ -21,6 +21,7 @@ class LayerManager final : public QDockWidget {
     void createLayer();
     void removeLayer();
     void pickColor(int row);
+    void fitColumns();
     QPointer<CommandSession> session_;
     QTableWidget* table_;
     QPushButton *add_, *remove_;

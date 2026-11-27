@@ -2,10 +2,16 @@
 #include "layer_manager.h"
 #include "palette_header.h"
 #include "command_session.h"
+#include <QApplication>
 #include <QColorDialog>
+#include <QFontMetrics>
 #include <QHeaderView>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPolygonF>
 #include <QPushButton>
 #include <QScopedValueRollback>
+#include <QStyledItemDelegate>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -13,6 +19,57 @@
 #include <set>
 namespace {
 enum Column { Current, Name, Visible, Frozen, Locked, Color, Weight, Count };
+// The style paints a check indicator in the palette's base colour, which the dark theme keeps close
+// to black, so the box of an unchecked layer all but disappears and the three status columns look
+// unlike each other. This draws one box for all of them, in the colour of the text beside it.
+class StatusCheck final : public QStyledItemDelegate {
+  public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option,
+               const QModelIndex& index) const override {
+        QStyleOptionViewItem opt = option;
+        initStyleOption(&opt, index);
+        const bool checked = opt.checkState == Qt::Checked;
+        opt.features.setFlag(QStyleOptionViewItem::HasCheckIndicator, false);
+        const QWidget* owner = opt.widget;
+        QStyle* style = owner ? owner->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, owner);
+        const bool selected = opt.state & QStyle::State_Selected;
+        const QColor ink = opt.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
+        QRect box(QPoint(), QSize(13, 13));
+        box.moveCenter(opt.rect.center());
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(QPen(ink, 1));
+        QColor fill = ink;
+        fill.setAlpha(selected ? 70 : 40);
+        painter->setBrush(checked ? fill : Qt::NoBrush);
+        painter->drawRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
+        if (checked) {
+            QPen tick(ink, 1.6);
+            tick.setCapStyle(Qt::RoundCap);
+            tick.setJoinStyle(Qt::RoundJoin);
+            painter->setPen(tick);
+            QPolygonF mark{{box.left() + 3.4, box.top() + 6.8},
+                           {box.left() + 5.6, box.top() + 9.0},
+                           {box.left() + 9.8, box.top() + 4.0}};
+            painter->drawPolyline(mark);
+        }
+        painter->restore();
+    }
+    // The status columns are toggles, so a click anywhere in one flips it: the style's own hit area
+    // sits where its indicator would be, and that indicator is no longer drawn.
+    bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option,
+                     const QModelIndex& index) override {
+        if (event->type() == QEvent::MouseButtonRelease &&
+            static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton &&
+            model->flags(index) & Qt::ItemIsUserCheckable) {
+            const bool on = index.data(Qt::CheckStateRole).toInt() == Qt::Checked;
+            return model->setData(index, on ? Qt::Unchecked : Qt::Checked, Qt::CheckStateRole);
+        }
+        return QStyledItemDelegate::editorEvent(event, model, option, index);
+    }
+};
 }
 LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     setObjectName("LayerManager");
@@ -37,10 +94,14 @@ LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
     header->setSectionResizeMode(Name, QHeaderView::Stretch);
     header->resizeSection(Current, 26);
     header->resizeSection(Visible, 36);
-    header->resizeSection(Frozen, 50);
+    header->resizeSection(Frozen, 58);
     header->resizeSection(Locked, 48);
     header->resizeSection(Color, 94);
     header->resizeSection(Weight, 46);
+    for (int c : {Current, Visible, Frozen, Locked}) {
+        auto* status = new StatusCheck(table_);
+        table_->setItemDelegateForColumn(c, status);
+    }
     layout->addWidget(table_);
     auto buttons = new QHBoxLayout;
     add_ = new QPushButton(body);
@@ -89,12 +150,30 @@ void LayerManager::retranslate() {
         current->setToolTip(tr("Current layer"));
     if (auto* weight = table_->horizontalHeaderItem(Weight))
         weight->setToolTip(tr("Line weight in millimetres"));
+    fitColumns();
     add_->setText(tr("New layer"));
     remove_->setText(tr("Delete layer"));
     table_->setToolTip(
         tr("Check Current to draw on a layer. Double-click a name, color or weight to edit it."));
     refresh();
 }
+// A caption that the column cuts in half reads as a defect, so every status column is as wide as the
+// word above it — «Замор.» in Russian, «Freeze» in English — and the name column takes the rest.
+void LayerManager::fitColumns() {
+    auto* header = table_->horizontalHeader();
+    const QFontMetrics metrics = header->fontMetrics();
+    auto needed = [&](int column, int floor) {
+        const auto* caption = table_->horizontalHeaderItem(column);
+        const QString text = caption ? caption->text() : QString();
+        return std::max(floor, metrics.horizontalAdvance(text) + 16);
+    };
+    header->resizeSection(Visible, needed(Visible, 36));
+    header->resizeSection(Frozen, needed(Frozen, 58));
+    header->resizeSection(Locked, needed(Locked, 48));
+    header->resizeSection(Weight, needed(Weight, 46));
+    header->resizeSection(Color, std::max(94, needed(Color, 0)));
+}
+
 void LayerManager::refresh() {
     if (writing_)
         return;
