@@ -10,6 +10,9 @@
 - **Property sections:** «Свойства» heads its list with «Общие» — layer, colour and weight — and
   «Геометрия», the readings a shape adds about itself. A click on a heading folds its rows away and
   opens them again, and a folded group stays folded while the palette is rewritten.
+- **Dynamic input:** the two boxes beside the crosshair carry the length and the angle the pointing
+  device measures from the base point, as AutoCAD's do, instead of standing empty with «…» until
+  something is typed; a typed value still wins over the measurement.
 - **Layer status columns:** «Вкл», «Замор.» and «Блок.» now draw one box of their own, in the colour
   of the text beside them — the style's indicator sits in the palette's base colour, which the dark
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its

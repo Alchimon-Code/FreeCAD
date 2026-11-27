@@ -6,6 +6,7 @@
 #include "ribbon.h"
 #include "viewport.h"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 #include <QAbstractButton>
@@ -23,6 +24,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMouseEvent>
+#include <QRegularExpression>
 #include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -467,6 +469,20 @@ TEST_F(RibbonWorkspace, DynamicInputTogglesWithF12AndShowsLengthAndAngle) {
     const auto text = view->dynamicInputText();
     EXPECT_TRUE(text.contains("L")) << text.toStdString();
     EXPECT_TRUE(text.contains("∠")) << text.toStdString();
+    // Both boxes read what the device measures from the base point, as AutoCAD's do, so a fresh
+    // prompt never shows the placeholder a blank box would carry.
+    auto numbers = [](const QString& s) {
+        QList<double> out;
+        const QRegularExpression pattern(QStringLiteral("-?\d+(?:\.\d+)?"));
+        for (const auto& match : pattern.globalMatch(s))
+            out << match.captured(0).toDouble();
+        return out;
+    };
+    const auto measured = numbers(text);
+    ASSERT_EQ(measured.size(), 2) << text.toStdString();
+    EXPECT_LT(measured.front(), 1e6); // a number, not the ellipsis of a blank box
+    EXPECT_LT(std::abs(measured.back()), 360.0);
+    s.editor().cancel();
 }
 
 // F2 is the text window in AutoCAD: the prompt shrinks to a single line and expands back into a

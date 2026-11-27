@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QKeyEvent>
+#include <QLocale>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
@@ -18,6 +19,7 @@
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace {
 pd::Vec2 pixel(QPointF p) { return {p.x(), p.y()}; }
@@ -661,11 +663,27 @@ void Viewport::refreshDynamicInput() {
         dynInput_->hide();
         return;
     }
-    auto mark = [this](const QString& s, int field) {
-        return dynField_ == field ? QStringLiteral("[%1]").arg(s.isEmpty() ? QStringLiteral("…") : s)
-                                  : (s.isEmpty() ? QStringLiteral("…") : s);
+    // AutoCAD fills both boxes with what the pointing device measures from the base point; typing
+    // replaces a value, and a box the user has not typed in falls back to the measurement.
+    auto measured = [this](bool angleField) {
+        if (!editor_ || !editor_->basePoint() || !overlay_.cursor)
+            return QString();
+        const auto delta = camera_.screenToWorld(*overlay_.cursor) - *editor_->basePoint();
+        const double value = angleField ? std::atan2(delta.y, delta.x) * 180.0 / std::numbers::pi
+                                        : delta.length();
+        if (!std::isfinite(value))
+            return QString();
+        return QLocale::c().toString(value, 'g', angleField ? 4 : 5);
     };
-    dynInput_->setText(tr("L %1  ∠ %2°").arg(mark(dynLength_, 0), mark(dynAngle_, 1)));
+    auto mark = [this, &measured](int field) {
+        QString value = field ? dynAngle_ : dynLength_;
+        if (value.isEmpty())
+            value = measured(field == 1);
+        if (value.isEmpty())
+            value = QStringLiteral("…");
+        return dynField_ == field ? QStringLiteral("[%1]").arg(value) : value;
+    };
+    dynInput_->setText(tr("L %1  ∠ %2°").arg(mark(0), mark(1)));
     dynInput_->adjustSize();
     const auto pos = overlay_.cursor.value() + pd::Vec2{18, 18};
     dynInput_->move(QPoint(qRound(pos.x), qRound(pos.y)));
