@@ -164,6 +164,33 @@ TEST_F(RibbonWorkspace, EveryPageKeepsToTheHeightOfItsButtons) {
     ribbon->setCurrentPage(0);
 }
 
+// The Home page carries six panels; a panel that is built but never laid out leaves the strip half a
+// band wide, which is what a fresh window showed while the tabs were already in place.
+TEST_F(RibbonWorkspace, TheHomePageLaysOutEveryPanelOnTheFirstFrame) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    auto* stack = ribbon->findChild<QStackedWidget*>("ribbonPages");
+    ASSERT_NE(stack, nullptr);
+    auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget());
+    ASSERT_NE(scroll, nullptr);
+    QWidget* page = scroll->widget();
+    ASSERT_NE(page, nullptr);
+    int panels = 0;
+    for (auto* label : page->findChildren<QLabel*>(QStringLiteral("ribbonPanelTitle")))
+        if (label->isVisible() && label->width() > 0)
+            ++panels;
+    EXPECT_GE(panels, 6) << "the Home page keeps its Draw, Modify, Annotate, Layers, Blocks and Properties";
+    for (const char* name : {"ribbonLayer", "ribbonColor", "ribbonWeight"}) {
+        auto* combo = ribbon->findChild<QComboBox*>(QString::fromLatin1(name));
+        ASSERT_NE(combo, nullptr) << name;
+        EXPECT_TRUE(combo->isVisible()) << name;
+        EXPECT_GT(combo->width(), 0) << name;
+    }
+}
+
 TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
     window->resize(1520, 880);
     window->show();
