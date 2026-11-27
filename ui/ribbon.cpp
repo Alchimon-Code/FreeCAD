@@ -244,7 +244,11 @@ void fitCaption(QToolButton* button) {
 // should start. A page answers with the size its layout asks for, so every panel stays inside it.
 class PageBody final : public QWidget {
   public:
-    using QWidget::QWidget;
+    explicit PageBody(QWidget* parent = nullptr) : QWidget(parent) {
+        // Minimum, not Preferred: the hint is then the floor the scroll area may not go under, and a
+        // page still grows to fill a wider window.
+        setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    }
     QSize sizeHint() const override {
         const auto* box = layout();
         return box ? box->sizeHint() : QWidget::sizeHint();
@@ -585,6 +589,14 @@ void Ribbon::resizeEvent(QResizeEvent* event) {
 void Ribbon::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     updateStrip();
+    // A page measured before the window had its size keeps that geometry until something asks again.
+    if (auto* scroll = static_cast<PageScroll*>(pages_->currentWidget())) {
+        if (QWidget* page = scroll->widget()) {
+            page->adjustSize();
+            page->updateGeometry();
+        }
+        scroll->horizontalScrollBar()->setValue(0);
+    }
     syncChevrons();
 }
 
