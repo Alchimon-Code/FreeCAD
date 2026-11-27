@@ -81,7 +81,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 300
     permissions:
-      contents: write # a trial build attaches its package to a draft release
+      contents: write
       actions: read
     strategy:
       fail-fast: false
@@ -170,38 +170,17 @@ jobs:
       # this job verified goes onto a draft release, which only the people who can push can see, so
       # nothing is distributed publicly while docs/LICENSING.md is still open.
       - name: Attach a trial build to a draft release
-        if: >-
-          matrix.preset == 'windows-msvc' && github.event_name == 'push' &&
-          contains(join(github.event.head_commit.modified, ',') +
-                   join(github.event.head_commit.added, ','), 'docs/trial-request.txt')
+        if: matrix.preset == 'windows-msvc' && github.event_name == 'push' && contains(github.event.head_commit.modified, 'docs/trial-request.txt')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tag="trial-${GITHUB_SHA:0:7}"
-          mkdir -p trial
-          cat > trial/notes.md <<EOF
-          Trial build for running this branch on a PC.
-
-          * Revision: $GITHUB_SHA
-          * Branch: $GITHUB_REF_NAME
-          * Package: the portable ZIP and the per-user installer this run verified.
-
-          Unpack the ZIP and start PlaneDraft.exe; the DWG converters travel in tools/libredwg/
-          beside it. This is a preview of the branch, not a released version, and the public delivery
-          terms in docs/LICENSING.md are still open, so the draft stays unpublished.
-          EOF
-          gh release view "$tag" > /dev/null 2>&1 ||
-            gh release create "$tag" --draft --target "$GITHUB_SHA" \
-              --title "PlaneDraft trial build ${GITHUB_SHA:0:7}" --notes-file trial/notes.md
-          cd build/windows-msvc/packages
-          gh release upload "$tag" --clobber \
-            PlaneDraft-*-windows-x64.zip \
-            PlaneDraft-*-windows-x64-setup.exe \
-            RUNTIME_INVENTORY.md SHA256SUMS
+          notes="Trial build of ${GITHUB_SHA} from ${GITHUB_REF_NAME}: the portable ZIP and the installer this run verified. Unpack the ZIP and start PlaneDraft.exe; the DWG converters travel in tools/libredwg/. A preview of the branch, not a released version: the delivery terms in docs/LICENSING.md are still open, so the draft stays unpublished."
+          gh release view "$tag" > /dev/null 2>&1 || gh release create "$tag" --draft --target "$GITHUB_SHA" --title "PlaneDraft trial build ${GITHUB_SHA:0:7}" --notes "$notes"
+          gh release upload "$tag" --clobber build/windows-msvc/packages/PlaneDraft-*-windows-x64.zip build/windows-msvc/packages/PlaneDraft-*-windows-x64-setup.exe build/windows-msvc/packages/RUNTIME_INVENTORY.md build/windows-msvc/packages/SHA256SUMS
           gh release view "$tag" --json url -q .url
-          gh release view "$tag" --json assets -q '.assets[].name'
       - name: Retain tested Windows release candidates
         if: matrix.preset == 'windows-msvc' && github.event_name == 'push'
         uses: actions/upload-artifact@v4
