@@ -279,7 +279,8 @@ TEST_F(Workspace, LayerHeadingsFitTheirColumns) {
             if (caption.isEmpty())
                 continue;
             // The header draws its caption as one line, so a column narrower than the word cuts it.
-            EXPECT_GE(header->sectionSize(c), metrics.horizontalAdvance(caption) + 8) << caption;
+            EXPECT_GE(header->sectionSize(c), metrics.horizontalAdvance(caption) + 8)
+                << caption.toStdString();
         }
         EXPECT_GE(header->sectionSize(5), 80); // the colour code keeps room for #BECED5
         EXPECT_GE(header->sectionSize(1), 24); // and the name still holds a word
