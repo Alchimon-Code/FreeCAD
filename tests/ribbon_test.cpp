@@ -222,7 +222,9 @@ TEST_F(RibbonWorkspace, RibbonPanelProbe) {
                       .arg(panel->width())
                       .arg(panel->isVisible() ? 1 : 0);
     }
-    FAIL() << report.toStdString();
+    // The annotation on the Windows job keeps only lines that name a failure, so the report starts
+    // with the word it looks for.
+    FAIL() << "Actual: " << report.toStdString() << " panels=" << page->findChildren<QLabel*>().size();
 }
 
 TEST_F(RibbonWorkspace, ChromeLeavesTheDrawingAreaMostOfTheWindow) {
