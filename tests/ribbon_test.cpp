@@ -155,7 +155,9 @@ TEST_F(RibbonWorkspace, EveryPageKeepsToTheHeightOfItsButtons) {
         ASSERT_NE(scroll, nullptr) << "page " << page;
         const QWidget* content = scroll->widget();
         ASSERT_NE(content, nullptr) << "page " << page;
-        if (content->sizeHint().height() > 92)
+        // A small entry is held to one line, so the tallest page — Home with its three rows — asks
+        // for a strip this short; the band used to keep a button's worth of air around every row.
+        if (content->sizeHint().height() > 82)
             ADD_FAILURE() << "page " << ribbon->tabs()->tabText(page).toStdString() << " asks "
                           << content->sizeHint().height() << " px";
     }

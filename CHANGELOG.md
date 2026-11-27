@@ -18,6 +18,9 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Ribbon height:** a small entry is held to its own line instead of the button's worth of air the
+  style reserves around it, and the panel and page margins lose a pixel each; the band is about
+  sixteen pixels shorter on every tab, and the drawing takes them.
 - **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
   Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
   «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of

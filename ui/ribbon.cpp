@@ -186,7 +186,7 @@ QFrame* panelFrame(const QString& title, QLabel** out, QWidget* parent) {
     // them up.
     frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* box = new QVBoxLayout(frame);
-    box->setContentsMargins(8, 3, 8, 1);
+    box->setContentsMargins(8, 2, 8, 0);
     box->setSpacing(1);
     box->addStretch(1);
     auto* label = new QLabel(QCoreApplication::translate("MainWindow", title.toUtf8().constData()), frame);
@@ -231,6 +231,11 @@ void fitCaption(QToolButton* button) {
     button->setMinimumWidth(needed);
     button->setMaximumWidth(needed);
     button->setMinimumHeight(hint.height());
+    // A small entry is one line of text beside a 16 px icon. The style reserves a button's worth of
+    // air around that line, and three rows of it is a dozen pixels the drawing never gets back, so a
+    // small entry is held to the line itself.
+    if (beside)
+        button->setFixedHeight(std::min(hint.height(), button->fontMetrics().height() + 6));
 }
 
 // A ribbon page is a fixed strip. Its height is the tallest panel, so a third row of buttons and the
@@ -378,7 +383,7 @@ void Ribbon::addPage(const QString& key) {
     index_[key] = tabs_->addTab(QString());
     auto* widget = new QWidget(pages_);
     auto* row = new QHBoxLayout(widget);
-    row->setContentsMargins(3, 3, 3, 3);
+    row->setContentsMargins(3, 2, 3, 2);
     row->setSpacing(3);
     row->addStretch(1);
     // A page keeps its natural width instead of squeezing panel buttons until their captions
@@ -436,7 +441,8 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     for (int i = first; i < actions.size(); ++i) {
         auto* button = ribbonButton(actions[i], buttons, false);
         grid->addWidget(button, (i - first) / columns, (i - first) % columns);
-        rowHeight = std::max(rowHeight, button->sizeHint().height());
+        // The held height, not the style's hint: the grid has to leave room for what is drawn.
+        rowHeight = std::max(rowHeight, button->minimumHeight());
     }
     const int small = int(actions.size()) - first;
     const int rows = (small + columns - 1) / columns;
