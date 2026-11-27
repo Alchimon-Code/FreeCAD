@@ -239,6 +239,22 @@ void fitCaption(QToolButton* button) {
         button->setFixedHeight(std::min(hint.height(), button->fontMetrics().height() + 6));
 }
 
+// A scroll area sizes its page to the page's hint, and a page whose panels need more than that hint
+// is clipped at the right: the panels beyond it vanish and a blank strip sits where the next one
+// should start. A page answers with the size its layout asks for, so every panel stays inside it.
+class PageBody final : public QWidget {
+  public:
+    using QWidget::QWidget;
+    QSize sizeHint() const override {
+        const auto* box = layout();
+        return box ? box->sizeHint() : QWidget::sizeHint();
+    }
+    QSize minimumSizeHint() const override {
+        const auto* box = layout();
+        return box ? box->minimumSize() : QWidget::minimumSizeHint();
+    }
+};
+
 // A ribbon page is a fixed strip. Its height is the tallest panel, so a third row of buttons and the
 // panel captions under it are never cut off; the extra scrollbar extent keeps the text visible when
 // a horizontal bar appears. The width hint stays small: the page scrolls, the window does not grow.
@@ -382,7 +398,7 @@ void Ribbon::addPage(const QString& key) {
     if (index_.contains(key))
         return;
     index_[key] = tabs_->addTab(QString());
-    auto* widget = new QWidget(pages_);
+    auto* widget = new PageBody(pages_);
     auto* row = new QHBoxLayout(widget);
     row->setContentsMargins(3, 2, 3, 2);
     row->setSpacing(3);
@@ -556,7 +572,6 @@ void Ribbon::evenColumns() {
         for (int column = 0; column < int(widest.size()); ++column)
             grid->setColumnMinimumWidth(column, widest[column]);
     }
-    syncPageWidths();
 }
 
 void Ribbon::resizeEvent(QResizeEvent* event) {
@@ -573,16 +588,6 @@ void Ribbon::showEvent(QShowEvent* event) {
     syncChevrons();
 }
 
-// A scroll area sizes its page to the page's hint. A page whose panels need more than that hint is
-// clipped at the right, which leaves a blank strip where the next panel should start and hides the
-// panels beyond it; stating the width the layout needs keeps the strip honest.
-void Ribbon::syncPageWidths() {
-    for (auto* content : rows_) {
-        auto* layout = qobject_cast<QHBoxLayout*>(content->layout());
-        if (layout)
-            content->setMinimumWidth(layout->minimumSize().width());
-    }
-}
 
 // A ribbon that sits on a toolbar has to nudge it; a ribbon asked to stand on its own is left alone.
 void Ribbon::askBandForRoom() {
