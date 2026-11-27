@@ -22,6 +22,7 @@
 #include <QAbstractItemView>
 #include <QCompleter>
 #include <QCoreApplication>
+#include <QCursor>
 #include <QDir>
 #include <QDockWidget>
 #include <QEvent>
@@ -392,8 +393,25 @@ MainWindow::MainWindow(CommandSession& session, Language& language, bool loadTru
     // AutoCAD's palettes park as a strip that carries their names, and a click on the strip opens the
     // palette again. The strip is the dock's title bar, so it travels with the palette instead of
     // floating above the drawing as a second widget to keep in step.
+    // A parked palette opens under the pointer and parks again when the pointer leaves; the park is
+    // waited out, because the strip sits where the pointer crosses on its way to the palette.
+    hoverTimer_ = new QTimer(this);
+    hoverTimer_->setSingleShot(true);
+    hoverTimer_->setInterval(250);
+    connect(hoverTimer_, &QTimer::timeout, this, [this] {
+        if (!hoverOpened_)
+            return;
+        const QPoint pointer = QCursor::pos();
+        for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)})
+            if (dock->rect().contains(dock->mapFromGlobal(pointer)))
+                return;
+        hoverOpened_ = false;
+        setPalettesNarrow(true);
+    });
     for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)}) {
-        auto* strip = new PaletteTitle(dock, [this] { parkPalettes(!palettesParked_); }, dock);
+        auto* strip = new PaletteTitle(
+            dock, [this] { parkPalettes(!palettesParked_); }, [this](bool inside) { hoverPalettes(inside); },
+            dock);
         strip->setObjectName(QString("PaletteTitle.") + dock->objectName());
         dock->setTitleBarWidget(strip);
     }
@@ -700,18 +718,41 @@ void MainWindow::setRibbonVisible(bool on) {
 // A parked palette keeps its strip and gives its width to the drawing; the strip is a title bar, so
 // the palette is never hidden, only narrowed to the name it carries.
 void MainWindow::parkPalettes(bool parked) {
-    palettesParked_ = parked;
+    hoverOpened_ = false;
+    if (hoverTimer_)
+        hoverTimer_->stop();
     {
         const QSignalBlocker guard(autoHide_);
         if (autoHide_)
             autoHide_->setChecked(parked);
     }
+    setPalettesNarrow(parked);
+}
+
+void MainWindow::setPalettesNarrow(bool parked) {
+    palettesParked_ = parked;
     for (auto* dock : {static_cast<QDockWidget*>(inspector_), static_cast<QDockWidget*>(layers_)}) {
         dock->widget()->setVisible(!parked);
         dock->setMinimumWidth(parked ? 26 : 0);
         dock->setMaximumWidth(parked ? 26 : 400);
     }
     resizeDocks({inspector_}, {parked ? 26 : 300}, Qt::Horizontal);
+}
+
+// The pointer over a parked strip opens the palettes; leaving them parks them again unless the user
+// opened them with a click, in which case they stay.
+void MainWindow::hoverPalettes(bool inside) {
+    if (inside) {
+        if (!palettesParked_ || hoverOpened_)
+            return;
+        if (hoverTimer_)
+            hoverTimer_->stop();
+        hoverOpened_ = true;
+        setPalettesNarrow(false);
+        return;
+    }
+    if (hoverOpened_ && hoverTimer_)
+        hoverTimer_->start();
 }
 
 void MainWindow::applyRibbonMode(bool on) {

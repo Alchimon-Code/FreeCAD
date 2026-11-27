@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDockWidget>
+#include <QEnterEvent>
 #include <QGridLayout>
 #include <QImage>
 #include <QPixmap>
@@ -196,6 +197,27 @@ TEST_F(RibbonWorkspace, ParkedPalettesLeaveTheDrawingTheWholeWidth) {
     QApplication::processEvents();
     EXPECT_EQ(view->width(), open);
     EXPECT_GT(inspector->width(), 200);
+}
+
+// AutoCAD's parked palettes open under the pointer; the strip is what the pointer has to reach.
+TEST_F(RibbonWorkspace, TheStripOpensThePaletteUnderThePointer) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* autoHide = child<QAction>("paletteAutoHide");
+    auto* inspector = window->findChild<QDockWidget*>("PropertyInspector");
+    auto* strip = window->findChild<QWidget*>("PaletteTitle.PropertyInspector");
+    ASSERT_NE(autoHide, nullptr);
+    ASSERT_NE(inspector, nullptr);
+    ASSERT_NE(strip, nullptr);
+    autoHide->setChecked(true);
+    QApplication::processEvents();
+    ASSERT_LE(inspector->width(), 40);
+    const QPointF centre(strip->width() / 2.0, strip->height() / 2.0);
+    QEnterEvent enter(centre, centre, strip->mapToGlobal(centre));
+    QApplication::sendEvent(strip, &enter);
+    QApplication::processEvents();
+    EXPECT_GT(inspector->width(), 200) << "the palette opens under the pointer";
 }
 
 TEST_F(RibbonWorkspace, TheBandIsNoTallerThanItsRibbon) {

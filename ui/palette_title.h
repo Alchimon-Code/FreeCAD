@@ -11,8 +11,9 @@
 // the translation that renames it — names the strip too.
 class PaletteTitle : public QWidget {
   public:
-    explicit PaletteTitle(QDockWidget* dock, std::function<void()> onClick, QWidget* parent = nullptr)
-        : QWidget(parent), dock_(dock), onClick_(std::move(onClick)) {
+    explicit PaletteTitle(QDockWidget* dock, std::function<void()> onClick,
+                          std::function<void(bool)> onHover = {}, QWidget* parent = nullptr)
+        : QWidget(parent), dock_(dock), onClick_(std::move(onClick)), onHover_(std::move(onHover)) {
         setCursor(Qt::PointingHandCursor);
         setToolTip(QString());
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
@@ -41,6 +42,18 @@ class PaletteTitle : public QWidget {
             painter.drawText(rect().adjusted(8, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, caption);
         }
     }
+    // AutoCAD's parked palettes open under the pointer and close when it leaves; the strip is what
+    // says where the pointer is, and the window decides whether to open or to wait.
+    void enterEvent(QEnterEvent* event) override {
+        if (onHover_)
+            onHover_(true);
+        QWidget::enterEvent(event);
+    }
+    void leaveEvent(QEvent* event) override {
+        if (onHover_)
+            onHover_(false);
+        QWidget::leaveEvent(event);
+    }
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton && onClick_)
             onClick_();
@@ -50,4 +63,5 @@ class PaletteTitle : public QWidget {
   private:
     QDockWidget* dock_ = nullptr;
     std::function<void()> onClick_;
+    std::function<void(bool)> onHover_;
 };

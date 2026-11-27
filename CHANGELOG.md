@@ -4,7 +4,8 @@
 
 - **Parked palettes:** «Вид → Панели → Автоскрытие палитр» (Ctrl+Shift+1) folds «Свойства» and
   «Слои» into a strip that carries their names down its side, as AutoCAD's auto-hidden palettes
-  do; a click on a strip opens the palettes again. Parked, the whole width goes to the drawing.
+  do; the strip opens the palettes under the pointer and parks them again when it leaves, and a
+  click keeps them open. Parked, the whole width goes to the drawing.
 - **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
   Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
   «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of

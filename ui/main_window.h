@@ -19,6 +19,7 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QStringListModel;
+class QTimer;
 class QToolBar;
 class QToolButton;
 class MainWindow : public QMainWindow {
@@ -64,6 +65,8 @@ class MainWindow : public QMainWindow {
     void refreshContextStep();
     void applyRibbonMode(bool on);
     void parkPalettes(bool parked);
+    void setPalettesNarrow(bool parked);
+    void hoverPalettes(bool inside);
     void setRibbonVisible(bool on);
     void syncRibbon();
     void applyTheme(bool dark);
@@ -102,6 +105,8 @@ class MainWindow : public QMainWindow {
     QToolBar* ribbonBar_ = nullptr;
     QAction* autoHide_ = nullptr;
     bool palettesParked_ = false;
+    bool hoverOpened_ = false;
+    QTimer* hoverTimer_ = nullptr;
     QToolButton* app_ = nullptr;
     QDockWidget* console_;
     QLineEdit* input_;
