@@ -202,6 +202,21 @@ TEST_F(RibbonWorkspace, ParkedPalettesLeaveTheDrawingTheWholeWidth) {
 }
 
 // AutoCAD's parked palettes open under the pointer; the strip is what the pointer has to reach.
+// The tab strip is as tall as its captions: the style's tab padding is a third taller than the words,
+// and the band carries that third on every page.
+TEST_F(RibbonWorkspace, TheTabStripIsAsTallAsItsCaption) {
+    window->resize(1520, 880);
+    window->show();
+    QApplication::processEvents();
+    auto* ribbon = window->findChild<Ribbon*>();
+    ASSERT_NE(ribbon, nullptr);
+    const int strip = ribbon->tabs()->height();
+    EXPECT_GT(strip, 0);
+    EXPECT_LE(strip, ribbon->tabs()->fontMetrics().height() + 10)
+        << "the strip is " << strip << " px for a " << ribbon->tabs()->fontMetrics().height()
+        << " px caption";
+}
+
 TEST_F(RibbonWorkspace, TheStripOpensThePaletteUnderThePointer) {
     window->resize(1520, 880);
     window->show();

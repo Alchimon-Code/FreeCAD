@@ -320,6 +320,10 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     tabs_->setObjectName("ribbonTabs");
     tabs_->setExpanding(false);
     tabs_->setDrawBase(false);
+    // AutoCAD's tab strip is as tall as the words on it. A tab bar asks the style for a tab's full
+    // padding, which is a third taller than the caption needs, and every page of the band then paid
+    // for that third.
+    tabs_->setFixedHeight(tabs_->fontMetrics().height() + 8);
     box->addWidget(tabs_);
     pages_ = new PageStack(this);
     pages_->setObjectName("ribbonPages");

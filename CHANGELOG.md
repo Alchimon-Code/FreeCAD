@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Tab strip:** the ribbon's tabs are as tall as the words on them instead of a tab's full padding,
+  which gives the drawing back the strip's spare third.
 - **Parked palettes:** «Вид → Панели → Автоскрытие палитр» (Ctrl+Shift+1) folds «Свойства» and
   «Слои» into a strip that carries their names down its side, as AutoCAD's auto-hidden palettes
   do; the strip opens the palettes under the pointer and parks them again when it leaves, and a
