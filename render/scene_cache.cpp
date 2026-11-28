@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
+#include "dash.hpp"
 #include "scene_cache.hpp"
 #include "tessellation.hpp"
 #include <planedraft/drafting.hpp>
@@ -144,14 +145,25 @@ void SceneCache::sync(const Document& doc, const Camera2D& camera, double dpr,
                             clipFace(*f, page.coverage, [&](Vec2 p) { fills.push_back(vertex(p, ink)); });
                             return;
                         }
+                        // A dashed or dotted linetype is split along the curve; the phase runs from one
+                        // segment of the entity to the next, so the pattern stays even all the way round.
+                        // Glyph outlines of a text keep their own solid ink.
+                        const bool plain = dynamic_cast<const Text*>(&leaf) != nullptr;
+                        Dasher dasher(plain ? std::string_view{} : std::string_view(style.lineType));
+                        auto emitLine = [&](Segment s) {
+                            vertices.push_back(vertex(s.a, ink));
+                            vertices.push_back(vertex(s.b, ink));
+                        };
                         visitStrokes(
                             leaf,
                             [&](const Stroke& stroke) {
                                 if (!std::holds_alternative<Segment>(stroke))
                                     page.curveLod = lod;
                                 tessellate(stroke, lod, page.coverage, [&](Segment s) {
-                                    vertices.push_back(vertex(s.a, ink));
-                                    vertices.push_back(vertex(s.b, ink));
+                                    if (dasher.solid())
+                                        emitLine(s);
+                                    else
+                                        dasher.split(s, emitLine);
                                 });
                             },
                             text_);

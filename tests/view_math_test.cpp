@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
+#include "dash.hpp"
 #include "overlay.hpp"
 #include "scene_cache.hpp"
 #include "tessellation.hpp"
@@ -8,6 +9,8 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <numbers>
+#include <utility>
+#include <vector>
 
 namespace {
 using namespace pd;
@@ -305,6 +308,44 @@ TEST(Overlay, DirectedFrameAndFeatureMarkersHaveDistinctScreenGeometry) {
         EXPECT_EQ(buildOverlay(v, c, state), 0u);
         EXPECT_EQ(v.size(), baseline + 2 * edges);
         EXPECT_GT(v.back().ink.g, v.back().ink.r);
+    }
+}
+// A hidden or centre line is drawn as lengths of ink, and the pattern keeps its phase from one segment
+// of an entity to the next: a dashed circle must read as one dashed circle.
+TEST(Dash, HiddenLinesArriveInPiecesWithThePhaseCarriedOver) {
+    auto ink = [](Dasher& dasher, std::initializer_list<Segment> segments) {
+        double total = 0;
+        std::vector<Segment> pieces;
+        for (auto s : segments)
+            dasher.split(s, [&](Segment piece) {
+                pieces.push_back(piece);
+                total += (piece.b - piece.a).length();
+            });
+        return std::pair{total, pieces};
+    };
+    Dasher whole("HIDDEN");
+    ASSERT_FALSE(whole.solid());
+    auto [oneLength, one] = ink(whole, {Segment{{0, 0}, {20, 0}}});
+    ASSERT_EQ(one.size(), 3u); // dash, dash, and the dash the end of the line cuts short
+    EXPECT_NEAR(one[0].a.x, 0., 1e-9);
+    EXPECT_NEAR(one[0].b.x, 6., 1e-9);
+    EXPECT_NEAR(one[1].a.x, 7.5, 1e-9);
+    EXPECT_NEAR(one[2].b.x, 20., 1e-9);
+
+    Dasher halves("HIDDEN");
+    auto [twoLength, two] = ink(halves, {Segment{{0, 0}, {10, 0}}, Segment{{10, 0}, {20, 0}}});
+    EXPECT_GT(two.size(), 0u);
+    // Restarting the pattern at the joint would lay down more ink than the whole line carries.
+    EXPECT_NEAR(twoLength, oneLength, 1e-9);
+    EXPECT_NEAR(twoLength, 15., 1e-9);
+}
+TEST(Dash, ContinuousAndUnknownNamesAreDrawnWhole) {
+    for (const char* name : {"Continuous", "ByLayer", "", "СПЛОШНАЯ", "MAKESHIFT"}) {
+        Dasher dasher(name);
+        EXPECT_TRUE(dasher.solid()) << name;
+        int pieces = 0;
+        dasher.split(Segment{{0, 0}, {5, 0}}, [&](Segment) { ++pieces; });
+        EXPECT_EQ(pieces, 1) << name;
     }
 }
 TEST(Overlay, TheCrosshairIsBrightAndItsPickboxIsTwoPixelsThick) {

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
+#include "dash.hpp"
 #include "scene_renderer.hpp"
 #include "qt_text.hpp"
 #include "tessellation.hpp"
@@ -210,16 +211,25 @@ void SceneRenderer::drawPage(const Document& doc, const Layout& layout, const Ca
                       Ink ink{c.r, c.g, c.b};
                       if (auto face = dynamic_cast<const SolidFace*>(&e))
                           clipFace(*face, box, [&](Vec2 p) { vertex(fill, p, ink); });
-                      else
+                      else {
+                          const bool plain = dynamic_cast<const Text*>(&e) != nullptr;
+                          Dasher dasher(plain ? std::string_view{} : std::string_view(s.lineType));
+                          auto emitLine = [&](Segment line) {
+                              vertex(lines, line.a, ink);
+                              vertex(lines, line.b, ink);
+                          };
                           visitStrokes(
                               e,
                               [&](const Stroke& st) {
                                   tessellate(st, camera.scale() * dpr, box, [&](Segment line) {
-                                      vertex(lines, line.a, ink);
-                                      vertex(lines, line.b, ink);
+                                      if (dasher.solid())
+                                          emitLine(line);
+                                      else
+                                          dasher.split(line, emitLine);
                                   });
                               },
                               qtTextStrokes);
+                      }
                   });
         auto triangles = fill.size();
         fill.insert(fill.end(), lines.begin(), lines.end());

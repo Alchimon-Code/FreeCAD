@@ -18,6 +18,10 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Dashed and dotted lines.** A linetype used to be a name on a layer and nothing more: hidden, centre
+  and phantom lines came out solid. The renderer now splits a stroke into the ink of its pattern — ISO
+  dash, dot, dash-dot and the Russian names that go with them — and carries the phase from one segment
+  of an entity to the next, so a dashed circle reads as one dashed circle.
 - **Splines on import.** A SPLINE record was skipped as an analytic curve too. Its control net is
   walked with de Boor's algorithm — weights included, so a rational arc lands on its circle — into a
   polyline of up to 512 points, and the import summary says the curve was approximated.
