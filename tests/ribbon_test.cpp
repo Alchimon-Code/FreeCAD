@@ -771,7 +771,8 @@ TEST_F(RibbonWorkspace, EveryRibbonPanelCarriesAControl) {
 // A panel of small buttons reads as a grid: the entries of one column start at the same x, so the
 // captions line up instead of stepping in and out with their lengths, the way AutoCAD draws them.
 TEST_F(RibbonWorkspace, SmallButtonsShareOneColumnWidth) {
-    window->resize(1520, 880);
+    // Wide enough that no panel folds: the grids of the folded ones are out of the picture.
+    window->resize(2600, 880);
     window->show();
     QApplication::processEvents();
     auto* ribbon = window->findChild<Ribbon*>();
