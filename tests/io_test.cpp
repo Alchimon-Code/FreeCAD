@@ -512,6 +512,12 @@ TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
     EXPECT_TRUE(walked->closed());
     ASSERT_GE(walked->vertices().size(), 32u);
     const auto bounds = walked->getBounds();
+    // A walked ellipse that stays at its centre means the axis groups were not read; say so plainly.
+    if (std::abs(bounds.max().x - bounds.min().x) < 1e-6)
+        FAIL() << "Actual: walked " << walked->vertices().size() << " points from ("
+               << walked->vertices().front().point.x << ", " << walked->vertices().front().point.y
+               << ") to (" << walked->vertices().back().point.x << ", "
+               << walked->vertices().back().point.y << "); " << why(r);
     EXPECT_NEAR(bounds.min().x, -2., 0.2);
     EXPECT_NEAR(bounds.max().x, 8., 0.2);
     EXPECT_NEAR(bounds.min().y, 1.5, 0.2);
