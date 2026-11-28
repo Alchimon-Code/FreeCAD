@@ -146,7 +146,7 @@ TEST_F(RibbonWorkspace, TheStripFoldsAPanelInsteadOfCuttingIt) {
     window->resize(1240, 800);
     window->show();
     QApplication::processEvents();
-    auto* stack = child<QStackedWidget>(QStringLiteral("ribbonPages"));
+    auto* stack = child<QStackedWidget>("ribbonPages");
     ASSERT_NE(stack, nullptr);
     auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget());
     ASSERT_NE(scroll, nullptr);
