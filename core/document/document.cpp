@@ -177,6 +177,8 @@ void Document::replaceContents(std::unique_ptr<Document> staging) {
     slots_.swap(staging->slots_);
     index_.swap(staging->index_);
     extraPoints_.swap(staging->extraPoints_);
+    // The linetypes of the drawing that just loaded, in place of the ones of the drawing before it.
+    lineTypes_.swap(staging->lineTypes_);
     nextId_ = staging->nextId_;
     entityCount_ = staging->entityCount_;
     history_ = UndoStack{};
