@@ -118,7 +118,15 @@ IoResult exportDrawing(const fs::path& file, const Document& d, const Layout* la
                     bool fill = dynamic_cast<const SolidFace*>(e);
                     f << "<path fill=\"" << (fill ? color : "none") << "\" stroke=\""
                       << (fill ? "none" : color) << "\" stroke-width=\""
-                      << num(style.lineWeight > 0 ? style.lineWeight : .01) << "\" d=\"";
+                      << num(style.lineWeight > 0 ? style.lineWeight : .01) << "\"";
+                    // The path is written in drawing units, so the pattern is too: no rescaling here.
+                    if (!fill && !item.dash.empty()) {
+                        f << " stroke-dasharray=\"";
+                        for (std::size_t i = 0; i < item.dash.size(); ++i)
+                            f << (i == 0 ? "" : " ") << num(std::abs(item.dash[i]));
+                        f << "\"";
+                    }
+                    f << " d=\"";
                     SvgPath sink{f};
                     path(*e, sink);
                     f << "\"/>\n";

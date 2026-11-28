@@ -173,6 +173,11 @@ IoResult exportDrawing(const fs::path& file, const Document& d, const Layout* la
                             xy(x) + " " + xy(y) + " " + xy(o) + " Tm <" + chars + "> Tj ET\nEMC\n";
                 } else {
                     data += n(st.lineWeight * pt) + " w\n";
+                    // The pen scales drawing units to points, and a dash pattern is in drawing units.
+                    data += "[";
+                    for (std::size_t i = 0; i < item.dash.size(); ++i)
+                        data += (i == 0 ? "" : " ") + n(std::abs(item.dash[i]) * scale);
+                    data += "] 0 d\n";
                     path(*e, pen);
                     data += dynamic_cast<const SolidFace*>(e) ? "f\n" : "S\n";
                 }

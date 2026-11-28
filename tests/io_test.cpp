@@ -419,6 +419,27 @@ TEST_F(Io, VectorExportsContainLayerBoundariesStylesCoordinatesCurvesAndActualUn
         }
     }
 }
+// The vector exports carry the dash pattern of a linetype as well: an SVG stroke-dasharray and a PDF dash
+// operator, both in the units their own path data uses.
+TEST_F(Io, VectorExportsCarryTheDashPatternOfALinetype) {
+    doc.setLineTypes({{"HIDDEN", {6, -1.5}}});
+    Layer hidden("Скрытые");
+    hidden.lineType = "HIDDEN";
+    LayerId layer = DefaultLayer;
+    doc.transact([&](Transaction& tx) { layer = tx.addLayer(hidden); });
+    Line outline{{0, 0}, {20, 0}};
+    outline.traits.layer = layer;
+    doc.add(outline);
+    auto svgPath = dir / "dash.svg";
+    ASSERT_TRUE(registry.write(svgPath, doc).ok());
+    EXPECT_NE(bytes(svgPath).find("stroke-dasharray=\"6 1.5\""), std::string::npos);
+    auto pdfPath = dir / "dash.pdf";
+    ASSERT_TRUE(registry.write(pdfPath, doc).ok());
+    // The pen puts the drawing on the page at its own scale, so the pattern arrives in points.
+    EXPECT_NE(bytes(pdfPath).find(" 0 d\n"), std::string::npos);
+    EXPECT_EQ(bytes(pdfPath).find("[] 0 d\n"), std::string::npos);
+}
+
 TEST_F(Io, TrueScalePdfAndDegenerateDrawingViewBox) {
     doc.add(Line({1e7, 1e7}, {1e7 + 25.4, 1e7}));
     auto file = dir / "page.pdf";

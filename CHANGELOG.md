@@ -18,6 +18,9 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Dashes in SVG and PDF.** The exported sheet used to say that it had no dash definition and drew every
+  line solid. It now writes the pattern of a drawing into the file — `stroke-dasharray` for SVG and the
+  dash operator for PDF, each in the units of its own path data — so a hidden edge stays hidden on paper.
 - **Linetype patterns.** A linetype used to arrive as a name only, so a drawing that called its line
   «ОСЕВ-СВОЙ» came out solid. The lengths in the LTYPE table (groups 49) now travel with the drawing,
   are used by the viewer ahead of its standard names, and are written back out, so the pattern survives

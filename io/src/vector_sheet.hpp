@@ -13,6 +13,7 @@ struct Sheet {
         const Entity* geometry;
         StrokeStyle style;
         std::optional<BoundingBox2D> clip;
+        std::vector<double> dash; // the pattern of the linetype, in drawing units
     };
     std::map<LayerId, std::vector<Item>> layers;
     BoundingBox2D bounds;
@@ -26,17 +27,22 @@ struct Sheet {
             if (layout && style.color == Color{})
                 style.color = Color{0, 0, 0};
             maxWeight = std::max(maxWeight, style.lineWeight);
-            auto name = style.lineType;
+            // A dash pattern belongs to the drawing. A line whose name it does not carry is written
+            // continuous, and the report names the miss instead of repeating it per entity.
+            auto dash = d.lineTypePattern(style.lineType);
+            std::string name = style.lineType;
             for (char& c : name)
                 if (c >= 'A' && c <= 'Z')
                     c += 32;
-            if (name != "continuous")
-                report.warn(0, "LTYPE", "no dash definition in model; exported as continuous");
+            const bool plain = name.empty() || name == "continuous" || name == "bylayer" ||
+                               name == "byblock";
+            if (!plain && dash.empty())
+                report.warn(0, "LTYPE", "no dash definition for this linetype; exported as continuous");
             std::shared_ptr<const Entity> owned;
             if (!borrow)
                 owned = e.clone();
             auto* ptr = borrow ? &e : owned.get();
-            layers[id].push_back({std::move(owned), ptr, style, clip});
+            layers[id].push_back({std::move(owned), ptr, style, clip, {dash.begin(), dash.end()}});
         };
         if (layout)
             visitPage(d, *layout,
