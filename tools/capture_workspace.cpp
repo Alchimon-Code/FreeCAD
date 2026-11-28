@@ -129,6 +129,27 @@ int main(int argc, char** argv) {
             tx.updateLayer(id, layer);
         }
     });
+    // A dash-dot layer through every circle is what a mechanical drawing always carries, and it puts
+    // the linetype the renderer honours into the picture instead of leaving it to the reader.
+    model.transact([&](pd::Transaction& tx) {
+        pd::Layer axis;
+        axis.name = "Осевые";
+        axis.color = pd::Color{120, 200, 225};
+        axis.lineType = "CENTER";
+        const auto layer = tx.addLayer(axis);
+        for (auto id : model.entityIds()) {
+            auto* circle = dynamic_cast<const pd::Circle*>(model.entity(id));
+            if (!circle)
+                continue;
+            const auto c = circle->center();
+            const double reach = circle->radius() * 1.45;
+            for (auto line : {pd::Line{{c.x - reach, c.y}, {c.x + reach, c.y}},
+                              pd::Line{{c.x, c.y - reach}, {c.x, c.y + reach}}}) {
+                line.traits.layer = layer;
+                tx.add(line);
+            }
+        }
+    });
     view.zoomExtents();
     pd::SelectionManager::Ids inserts, circles;
     for (auto id : model.entityIds()) {
