@@ -337,7 +337,7 @@ TEST(Dash, HiddenLinesArriveInPiecesWithThePhaseCarriedOver) {
     EXPECT_GT(two.size(), 0u);
     // Restarting the pattern at the joint would lay down more ink than the whole line carries.
     EXPECT_NEAR(twoLength, oneLength, 1e-9);
-    EXPECT_NEAR(twoLength, 15., 1e-9);
+    EXPECT_NEAR(twoLength, 17., 1e-9); // two dashes of six and the last one cut by the end of the line
 }
 TEST(Dash, ContinuousAndUnknownNamesAreDrawnWhole) {
     for (const char* name : {"Continuous", "ByLayer", "", "СПЛОШНАЯ", "MAKESHIFT"}) {
