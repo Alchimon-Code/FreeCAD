@@ -19,6 +19,7 @@
 #include <QMouseEvent>
 #include <QDockWidget>
 #include <QPainter>
+#include <QPixmap>
 #include <QThread>
 #include <QPlainTextEdit>
 #include <utility>
@@ -122,7 +123,8 @@ int main(int argc, char** argv) {
             if (id == pd::DefaultLayer)
                 continue;
             auto layer = *model.layer(id);
-            layer.color = layer.name == "Размеры" ? pd::Color{105, 197, 219} : pd::Color{190, 206, 213};
+            layer.color = layer.name == "Размеры" ? pd::Color{105, 197, 219}
+                                                   : pd::Color{190, 206, 213};
             layer.isLocked = layer.name == "Сечение";
             tx.updateLayer(id, layer);
         }
@@ -163,6 +165,43 @@ int main(int argc, char** argv) {
     };
     ribbon->setCurrentPage(0);
     startOfPage();
+    // TEMPORARY: the ribbon geometry as this environment lays it out, drawn into a sheet so it can be
+    // read back without a build log.
+    {
+        QString report;
+        auto* stack = window.findChild<QStackedWidget*>("ribbonPages");
+        if (auto* scroll = stack ? qobject_cast<QScrollArea*>(stack->currentWidget()) : nullptr) {
+            QWidget* page = scroll->widget();
+            report += QString("window %1x%2  viewport %3  page %4  min %5  scroll %6/%7\n")
+                          .arg(window.width())
+                          .arg(window.height())
+                          .arg(scroll->viewport()->width())
+                          .arg(page->width())
+                          .arg(page->minimumSizeHint().width())
+                          .arg(scroll->horizontalScrollBar()->value())
+                          .arg(scroll->horizontalScrollBar()->maximum());
+            for (auto* label : page->findChildren<QLabel*>(QStringLiteral("ribbonPanelTitle"))) {
+                auto* panel = label->parentWidget();
+                report += QString("[%1 x=%2 w=%3 vis=%4] ")
+                              .arg(label->text())
+                              .arg(panel->x())
+                              .arg(panel->width())
+                              .arg(panel->isVisible() ? 1 : 0);
+            }
+        } else {
+            report = QStringLiteral("no ribbon page");
+        }
+        QPixmap sheet(900, 120);
+        sheet.fill(Qt::white);
+        QPainter painter(&sheet);
+        painter.setPen(Qt::black);
+        QFont font = painter.font();
+        font.setPointSize(9);
+        painter.setFont(font);
+        painter.drawText(QRect(6, 6, 888, 108), Qt::TextWordWrap, report);
+        painter.end();
+        sheet.save(out.filePath("ribbon-report.png"));
+    }
     command("_DIMSTYLE ESKD");
     view.setSelection(inserts);
     pointAt(view, {115.5, -18.5});

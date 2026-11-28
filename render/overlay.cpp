@@ -14,7 +14,9 @@ std::size_t buildOverlay(std::vector<RenderVertex>& out, const Camera2D& camera,
         return 0;
     }
     const auto cursor = *state.cursor;
-    constexpr Ink green{68, 240, 115}, blue{75, 159, 255}, hair{216, 228, 235};
+    // The crosshair is the one thing on the screen the eye must find without looking for it: near
+    // white, so it carries over the grid and the drawing marks alike.
+    constexpr Ink green{68, 240, 115}, blue{75, 159, 255}, hair{245, 250, 253, 240};
     auto vertex = [&](Vec2 p, Ink c) {
         out.push_back({static_cast<float>(p.x), static_cast<float>(p.y), c});
     };
@@ -81,8 +83,11 @@ std::size_t buildOverlay(std::vector<RenderVertex>& out, const Camera2D& camera,
                     },
                     text);
     }
+    // A single-pixel pickbox reads as a smudge from a distance, so the box is drawn twice and the two
+    // frames make a two-pixel border the eye picks up in a photograph of the window.
     constexpr double r = OverlayState::aperture;
     rectangle(cursor - Vec2{r, r}, cursor + Vec2{r, r}, hair);
+    rectangle(cursor - Vec2{r - 1, r - 1}, cursor + Vec2{r - 1, r - 1}, hair);
     line({0, cursor.y}, cursor - Vec2{r, 0}, hair);
     line(cursor + Vec2{r, 0}, {camera.size().x, cursor.y}, hair);
     line({cursor.x, 0}, cursor - Vec2{0, r}, hair);

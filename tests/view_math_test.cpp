@@ -307,6 +307,19 @@ TEST(Overlay, DirectedFrameAndFeatureMarkersHaveDistinctScreenGeometry) {
         EXPECT_GT(v.back().ink.g, v.back().ink.r);
     }
 }
+TEST(Overlay, TheCrosshairIsBrightAndItsPickboxIsTwoPixelsThick) {
+    auto cam = view();
+    OverlayState state;
+    state.cursor = Vec2{110, 60};
+    std::vector<RenderVertex> v;
+    ASSERT_EQ(buildOverlay(v, cam, state), 0u);
+    // Four arms and two frames around the aperture, every one of them near white.
+    EXPECT_EQ(v.size(), 2u * (4u + 8u));
+    for (const auto& vertex : v) {
+        EXPECT_GE(vertex.ink.r, 240);
+        EXPECT_GE(vertex.ink.a, 230);
+    }
+}
 TEST(Overlay, TrackingGuideIsClippedAndDashedInLogicalPixelsAndGhostIsTranslucent) {
     auto cam = view({}, 1);
     cam.resize(220, 100);
