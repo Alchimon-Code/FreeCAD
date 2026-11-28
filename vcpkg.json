@@ -1,0 +1,19 @@
+{
+  "name": "planedraft",
+  "version-string": "0.2.0",
+  "license": "LGPL-2.1-or-later",
+  "builtin-baseline": "84bab45d415d22042bd0b9081aea57f362da3f35",
+  "default-features": ["gui"],
+  "features": {
+    "gui": {
+      "description": "Qt application, rendering and Linguist tools",
+      "dependencies": [
+        { "name": "qtbase", "default-features": false, "features": ["widgets", "opengl", "pcre2"] },
+        { "name": "qtsvg", "default-features": false },
+        { "name": "qttranslations", "default-features": false },
+        { "name": "qttools", "default-features": false, "features": ["linguist"], "host": true }
+      ]
+    },
+    "tests": { "description": "Build the GoogleTest suites", "dependencies": ["gtest"] }
+  }
+}

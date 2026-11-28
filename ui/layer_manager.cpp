@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+#include "layer_manager.h"
+#include "palette_header.h"
+#include "command_session.h"
+#include <QApplication>
+#include <QColorDialog>
+#include <QFontMetrics>
+#include <QHeaderView>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPolygonF>
+#include <QPushButton>
+#include <QScopedValueRollback>
+#include <QStyledItemDelegate>
+#include <QTableWidget>
+#include <QTimer>
+#include <QVBoxLayout>
+#include <algorithm>
+#include <set>
+namespace {
+enum Column { Current, Name, Visible, Frozen, Locked, Color, Weight, Count };
+// The style paints a check indicator in the palette's base colour, which the dark theme keeps close
+// to black, so the box of an unchecked layer all but disappears and the three status columns look
+// unlike each other. This draws one box for all of them, in the colour of the text beside it.
+class StatusCheck final : public QStyledItemDelegate {
+  public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option,
+               const QModelIndex& index) const override {
+        QStyleOptionViewItem opt = option;
+        initStyleOption(&opt, index);
+        const bool checked = opt.checkState == Qt::Checked;
+        opt.features.setFlag(QStyleOptionViewItem::HasCheckIndicator, false);
+        const QWidget* owner = opt.widget;
+        QStyle* style = owner ? owner->style() : QApplication::style();
+        // Only the panel — the row's background, alternation and selection. The item control would
+        // draw the style's own indicator as well, and that indicator is what this replaces.
+        style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, owner);
+        const bool selected = opt.state & QStyle::State_Selected;
+        const QColor ink = opt.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
+        QRect box(QPoint(), QSize(13, 13));
+        box.moveCenter(opt.rect.center());
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(QPen(ink, 1));
+        if (checked) {
+            QColor fill = ink;
+            fill.setAlpha(selected ? 70 : 40);
+            painter->setBrush(fill);
+        } else {
+            painter->setBrush(Qt::NoBrush); // stated apart: a ternary turns NoBrush into a colour
+        }
+        painter->drawRoundedRect(QRectF(box).adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
+        if (checked) {
+            QPen tick(ink, 1.6);
+            tick.setCapStyle(Qt::RoundCap);
+            tick.setJoinStyle(Qt::RoundJoin);
+            painter->setPen(tick);
+            QPolygonF mark{{box.left() + 3.4, box.top() + 6.8},
+                           {box.left() + 5.6, box.top() + 9.0},
+                           {box.left() + 9.8, box.top() + 4.0}};
+            painter->drawPolyline(mark);
+        }
+        painter->restore();
+    }
+    // The status columns are toggles, so a click anywhere in one flips it: the style's own hit area
+    // sits where its indicator would be, and that indicator is no longer drawn.
+    bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option,
+                     const QModelIndex& index) override {
+        if (event->type() == QEvent::MouseButtonRelease &&
+            static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton &&
+            model->flags(index) & Qt::ItemIsUserCheckable) {
+            const bool on = index.data(Qt::CheckStateRole).toInt() == Qt::Checked;
+            return model->setData(index, on ? Qt::Unchecked : Qt::Checked, Qt::CheckStateRole);
+        }
+        return QStyledItemDelegate::editorEvent(event, model, option, index);
+    }
+};
+}
+LayerManager::LayerManager(QWidget* parent) : QDockWidget(parent) {
+    setObjectName("LayerManager");
+    auto body = new QWidget(this);
+    auto layout = new QVBoxLayout(body);
+    layout->setContentsMargins(6, 6, 6, 6);
+    table_ = new QTableWidget(0, Count, body);
+    table_->setObjectName("layerTable");
+    table_->setAlternatingRowColors(true);
+    table_->verticalHeader()->hide();
+    table_->verticalHeader()->setDefaultSectionSize(20);
+    table_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setHorizontalHeader(new PaletteHeader(table_));
+    // AutoCAD's layer palette is narrower than its columns want to be: the name takes the slack and
+    // every other column is stated, so the palette stops squeezing the drawing area beside it.
+    auto* header = table_->horizontalHeader();
+    header->setSectionResizeMode(QHeaderView::Interactive);
+    header->setHighlightSections(false);
+    header->setStretchLastSection(false);
+    header->setMinimumSectionSize(24);
+    header->setSectionResizeMode(Name, QHeaderView::Stretch);
+    header->resizeSection(Current, 26);
+    header->resizeSection(Visible, 36);
+    header->resizeSection(Frozen, 58);
+    header->resizeSection(Locked, 48);
+    header->resizeSection(Color, 94);
+    header->resizeSection(Weight, 46);
+    for (int c : {Current, Visible, Frozen, Locked}) {
+        auto* status = new StatusCheck(table_);
+        table_->setItemDelegateForColumn(c, status);
+    }
+    layout->addWidget(table_);
+    auto buttons = new QHBoxLayout;
+    add_ = new QPushButton(body);
+    remove_ = new QPushButton(body);
+    add_->setObjectName("layerAdd");
+    remove_->setObjectName("layerRemove");
+    buttons->addWidget(add_);
+    buttons->addWidget(remove_);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    setWidget(body);
+    connect(add_, &QPushButton::clicked, this, &LayerManager::createLayer);
+    connect(remove_, &QPushButton::clicked, this, &LayerManager::removeLayer);
+    connect(table_, &QTableWidget::itemChanged, this, &LayerManager::edited);
+    connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int r, int c) {
+        if (c == Color)
+            pickColor(r);
+    });
+    retranslate();
+}
+void LayerManager::bind(CommandSession* s) {
+    if (session_) {
+        disconnect(session_, nullptr, this, nullptr);
+        disconnect(&session_->editor(), nullptr, this, nullptr);
+    }
+    session_ = s;
+    if (s) {
+        connect(&s->editor(), &EditController::activeLayerChanged, this, &LayerManager::refresh);
+        connect(s, &CommandSession::documentChanged, this, [this](const QList<pd::Change>& batch) {
+            if (std::any_of(batch.begin(), batch.end(), [](const auto& c) {
+                    return c.kind == pd::Change::Kind::Reset || c.object == pd::Change::Object::Layer;
+                }))
+                refresh();
+        });
+    }
+    refresh();
+}
+void LayerManager::retranslate() {
+    setWindowTitle(tr("Layers"));
+    // AutoCAD's layer palette states its columns in the shortest words that still name them and
+    // leaves the status column untitled: a palette that spells the headings out in full is wider
+    // than the drawing it sits beside, and the drawing is what the window is for.
+    table_->setHorizontalHeaderLabels({QString(), tr("Name"), tr("On"), tr("Freeze"), tr("Lock"),
+                                       tr("Color"), tr("Weight")});
+    if (auto* current = table_->horizontalHeaderItem(Current))
+        current->setToolTip(tr("Current layer"));
+    if (auto* weight = table_->horizontalHeaderItem(Weight))
+        weight->setToolTip(tr("Line weight in millimetres"));
+    fitColumns();
+    add_->setText(tr("New layer"));
+    remove_->setText(tr("Delete layer"));
+    table_->setToolTip(
+        tr("Check Current to draw on a layer. Double-click a name, color or weight to edit it."));
+    refresh();
+}
+// A caption that the column cuts in half reads as a defect, so every status column is as wide as the
+// word above it — «Замор.» in Russian, «Freeze» in English — and the name column takes the rest.
+void LayerManager::fitColumns() {
+    auto* header = table_->horizontalHeader();
+    const QFontMetrics metrics = header->fontMetrics();
+    auto needed = [&](int column, int floor) {
+        const auto* caption = table_->horizontalHeaderItem(column);
+        const QString text = caption ? caption->text() : QString();
+        return std::max(floor, metrics.horizontalAdvance(text) + 12);
+    };
+    header->resizeSection(Visible, needed(Visible, 34));
+    header->resizeSection(Frozen, needed(Frozen, 54));
+    header->resizeSection(Locked, needed(Locked, 46));
+    header->resizeSection(Weight, needed(Weight, 40));
+    header->resizeSection(Color, std::max(94, needed(Color, 0)));
+}
+
+void LayerManager::refresh() {
+    if (writing_)
+        return;
+    QSignalBlocker b(table_);
+    auto cur = table_->currentItem();
+    auto selected = cur ? cur->data(Qt::UserRole).toULongLong() : 0;
+    table_->setRowCount(0);
+    if (!session_)
+        return;
+    auto& d = session_->document();
+    for (auto id : d.layerIds()) {
+        auto& l = *d.layer(id);
+        auto row = table_->rowCount();
+        table_->insertRow(row);
+        for (int c = 0; c < Count; ++c) {
+            auto item = new QTableWidgetItem;
+            item->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(id));
+            auto flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+            switch (c) {
+            case Name:
+                item->setText(QString::fromStdString(l.name));
+                if (id != pd::DefaultLayer)
+                    flags |= Qt::ItemIsEditable;
+                break;
+            case Color: {
+                auto color = QColor(l.color.r, l.color.g, l.color.b);
+                item->setText(color.name().toUpper());
+                item->setData(Qt::DecorationRole, color);
+                break;
+            }
+            case Weight:
+                item->setText(QString::number(l.lineWeight, 'g', 15));
+                flags |= Qt::ItemIsEditable;
+                break;
+            default:
+                flags |= Qt::ItemIsUserCheckable;
+                item->setCheckState((c == Current   ? session_->editor().activeLayer() == id
+                                     : c == Visible ? l.isVisible
+                                     : c == Frozen  ? l.isFrozen
+                                                    : l.isLocked)
+                                        ? Qt::Checked
+                                        : Qt::Unchecked);
+            }
+            item->setFlags(flags);
+            table_->setItem(row, c, item);
+        }
+        if (id == selected)
+            table_->selectRow(row);
+    }
+}
+void LayerManager::edited(QTableWidgetItem* i) {
+    if (!session_ || writing_)
+        return;
+    auto id = i->data(Qt::UserRole).toULongLong();
+    auto col = i->column();
+    auto on = i->checkState() == Qt::Checked;
+    {
+        QScopedValueRollback guard(writing_, true);
+        try {
+            if (col == Current) {
+                if (on)
+                    session_->editor().setActiveLayer(id);
+            } else
+                session_->document().transact([&](pd::Transaction& t) {
+                    if (!t.layer(id))
+                        throw std::invalid_argument("missing layer");
+                    auto l = *t.layer(id);
+                    switch (col) {
+                    case Name:
+                        l.name = i->text().trimmed().toStdString();
+                        break;
+                    case Visible:
+                        l.isVisible = on;
+                        break;
+                    case Frozen:
+                        l.isFrozen = on;
+                        break;
+                    case Locked:
+                        l.isLocked = on;
+                        break;
+                    case Color: {
+                        QColor c(i->text());
+                        if (!c.isValid())
+                            throw std::invalid_argument("invalid color");
+                        l.color = {(uint8_t)c.red(), (uint8_t)c.green(), (uint8_t)c.blue()};
+                        break;
+                    }
+                    case Weight: {
+                        bool ok;
+                        l.lineWeight = i->text().toDouble(&ok);
+                        if (!ok)
+                            throw std::invalid_argument("invalid weight");
+                        break;
+                    }
+                    default:
+                        return;
+                    }
+                    t.updateLayer(id, l);
+                });
+        } catch (const std::exception&) {
+            emit message(tr("Layer not changed. Check the name and values."));
+        }
+    }
+    QTimer::singleShot(0, this, &LayerManager::refresh);
+}
+void LayerManager::pickColor(int row) {
+    auto item = table_->item(row, Color);
+    auto id = item->data(Qt::UserRole);
+    auto owner = session_;
+    auto color = QColorDialog::getColor(QColor(item->text()), this, tr("Layer color"),
+                                        QColorDialog::DontUseNativeDialog);
+    if (!color.isValid() || owner != session_)
+        return;
+    for (int r = 0; r < table_->rowCount(); ++r)
+        if (table_->item(r, Color)->data(Qt::UserRole) == id) {
+            table_->item(r, Color)->setText(color.name().toUpper());
+            break;
+        }
+}
+void LayerManager::createLayer() {
+    if (!session_)
+        return;
+    auto& d = session_->document();
+    std::set<std::string> used;
+    for (auto id : d.layerIds())
+        used.insert(d.layer(id)->name);
+    int i = 1;
+    std::string name;
+    do {
+        name = tr("Layer %1").arg(i++).toStdString();
+    } while (used.contains(name));
+    pd::LayerId id;
+    try {
+        d.transact([&](pd::Transaction& t) { id = t.addLayer(pd::Layer(name)); });
+    } catch (const std::exception&) {
+        emit message(tr("Cannot create layer."));
+        return;
+    }
+    refresh();
+    for (int r = 0; r < table_->rowCount(); ++r) {
+        auto item = table_->item(r, Name);
+        if (item->data(Qt::UserRole).toULongLong() == id) {
+            table_->setCurrentItem(item);
+            table_->editItem(item);
+            break;
+        }
+    }
+}
+void LayerManager::removeLayer() {
+    if (!session_ || !table_->currentItem())
+        return;
+    auto id = table_->currentItem()->data(Qt::UserRole).toULongLong();
+    try {
+        session_->document().transact([&](pd::Transaction& t) { t.removeLayer(id); });
+    } catch (const std::exception&) {
+        emit message(tr("Layer 0 and layers used by drawing objects cannot be deleted."));
+    }
+}

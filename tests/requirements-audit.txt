@@ -1,0 +1,5 @@
+# Independent readers used by sheet_audit, never imported or shipped by PlaneDraft.
+ezdxf==1.4.3
+pypdf==5.9.0
+pypdfium2==4.30.0
+numpy==2.4.6

@@ -1,0 +1,208 @@
+# Changelog
+
+## Unreleased
+
+- **Parked palettes:** «Вид → Панели → Автоскрытие палитр» (Ctrl+Shift+1) folds «Свойства» and
+  «Слои» into a strip that carries their names down its side, as AutoCAD's auto-hidden palettes
+  do; the strip opens the palettes under the pointer and parks them again when it leaves, and a
+  click keeps them open. Parked, the whole width goes to the drawing, and the window remembers the
+  state for the next session.
+- **Property sections:** «Свойства» heads its list with «Общие» — layer, colour and weight — and
+  «Геометрия», the readings a shape adds about itself. A click on a heading folds its rows away and
+  opens them again, and a folded group stays folded while the palette is rewritten.
+- **Dynamic input:** the two boxes beside the crosshair carry the length and the angle the pointing
+  device measures from the base point, as AutoCAD's do, instead of standing empty with «…» until
+  something is typed; a typed value still wins over the measurement.
+- **Layer status columns:** «Вкл», «Замор.» and «Блок.» now draw one box of their own, in the colour
+  of the text beside them — the style's indicator sits in the palette's base colour, which the dark
+  theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
+  word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
+  leaves the name column whole words instead of an ellipsis.
+- **Dashes in SVG and PDF.** The exported sheet used to say that it had no dash definition and drew every
+  line solid. It now writes the pattern of a drawing into the file — `stroke-dasharray` for SVG and the
+  dash operator for PDF, each in the units of its own path data — so a hidden edge stays hidden on paper.
+- **Linetype patterns.** A linetype used to arrive as a name only, so a drawing that called its line
+  «ОСЕВ-СВОЙ» came out solid. The lengths in the LTYPE table (groups 49) now travel with the drawing,
+  are used by the viewer ahead of its standard names, and are written back out, so the pattern survives
+  a round trip.
+- **Dashed and dotted lines.** A linetype used to be a name on a layer and nothing more: hidden, centre
+  and phantom lines came out solid. The renderer now splits a stroke into the ink of its pattern — ISO
+  dash, dot, dash-dot and the Russian names that go with them — and carries the phase from one segment
+  of an entity to the next, so a dashed circle reads as one dashed circle.
+- **Splines on import.** A SPLINE record was skipped as an analytic curve too. Its control net is
+  walked with de Boor's algorithm — weights included, so a rational arc lands on its circle — into a
+  polyline of up to 512 points, and the import summary says the curve was approximated.
+- **Ellipses on import.** An ELLIPSE record used to be thrown away with the rest of the analytic
+  curves, so a drawing with slots, ovals or elliptical callouts opened without them. The curve is now
+  walked into a closed (or open) polyline of up to 128 segments, which keeps its shape and its layer,
+  and the import summary says the curve was approximated.
+- **Ribbon folding.** A panel that no longer fits the strip folds down to its name, and its commands move
+  into the menu behind that name — the way AutoCAD shrinks a panel — instead of sliding out of sight. The
+  Russian Home page at 1520 pixels now shows all six panels: Draw open, Modify and Annotate folded, the
+  layer, block and property lists in view.
+- **Crosshair.** The crosshair is near white and its pickbox carries a two-pixel border, so it reads at a
+  glance on the dark canvas instead of looking like a smudge.
+- **Ribbon width:** a ribbon page answers the scroll area with the size its layout asks for, so a page
+  whose translated captions outgrew the strip no longer loses its last three panels behind a blank
+  gap; the chevrons that say a page scrolls are there from the first frame instead of after a tab
+  change.
+- **Ribbon height:** a small entry is held to its own line instead of the button's worth of air the
+  style reserves around it, and the panel and page margins lose a pixel each; the band is about
+  sixteen pixels shorter on every tab, and the drawing takes them.
+- **Room to draw:** the ribbon is a band again — 26 px large icons, five entries to a row in
+  Modify, tighter panel padding — and the layer palette states its columns as «Вкл», «Замор.»,
+  «Блок.», «Цвет» and «Вес» with an untitled status column, so the palette is about a third of
+  its former width. The drawing area takes the difference.
+- **Ribbon band:** the ribbon spans the whole window and the palettes start under it, as in
+  AutoCAD, instead of being squeezed by the dock column.
+- **Window chrome:** the application mark stands at the left of the title strip and the quick
+  access toolbar at its right, with the four menus under the mark; the documentation captures
+  now show that strip with the ribbon open, which is how the window starts.
+- **LINE:** the command keeps drawing segments until Enter, the way AutoCAD's LINE does, with `C`
+  to close the chain back to the first point and `U` to take the last segment back. The prompt names
+  the options once a segment exists. A chain typed in one line is committed as one transaction, so a
+  single `_UNDO` takes the whole command back.
+- **Coordinate entry:** `@dx,dy` and `@d<a` are offsets from the last picked point and `d<a` is a
+  polar offset from the origin, next to the absolute `x,y` the prompt already accepted. A leading
+  `@` before anything was picked repeats the prompt instead of drawing at the origin.
+- **Command line:** F2 (the AutoCAD text window key) and Ctrl+9 collapse the prompt to a single
+  line and expand it back into the scrolling history; the choice is remembered between sessions.
+- **Palettes and clean screen:** Ctrl+1 shows the properties palette, Ctrl+2 the layers palette and
+  Ctrl+9 the command line; Ctrl+0 hides the ribbon, both palettes, the toolbars and the menus while
+  keeping the prompt, and brings back exactly what was open before.
+- **Command aliases:** the acad.pgp keys for the commands the program actually has — `U` for undo,
+  `PA` paste, `ZE` zoom extents, `SE` dimension style, and `DL`/`DLI`, `DAL`, `DRA`, `DDI`, `DAN` for
+  the five dimension commands.
+- **Command line:** Up and Down walk what was typed, as in AutoCAD; a draft typed before the first
+  Up returns when the walk goes past the newest entry, and the completion list still owns the keys
+  while its popup is open.
+- **Dynamic input:** the length/angle label is created once per viewport. It used to be recreated on
+  every resize, zoom-extents and model/paper switch, which piled up hidden children and left
+  `findChild("dynamicInput")` pointing at an arbitrary label.
+- **Ribbon:** tab titles are translated from the source strings they were built from, exactly like
+  the panel titles, so the three copies of the same positional list in `MainWindow` are gone.
+- **Ribbon, drawn like AutoCAD's:** every panel is its own framed group on the page, the current tab
+  merges into the page on a darker band, and the strip is exactly as tall as the tab in front of the
+  user, so a short Insert page no longer leaves a block of empty ribbon. Panels lead with one large
+  command and list the rest as small entries beside it, and a double click on a tab minimizes the
+  ribbon to its tabs.
+- **Ribbon captions:** a caption is never elided — the button is measured against the label rectangle
+  the style actually paints — and commands are titled the way AutoCAD titles them (`Polyline`,
+  `Rectangle`, `Linear`), with the ellipsis kept for the entries that open a dialog.
+- **Quick access row:** the row above the tabs sits on the same darker band as the tabs, so the top of
+  the window reads as one piece of chrome instead of a floating toolbar strip.
+- **Command line and status bar:** the prompt's dock has no caption bar and opens with `Command:`, and
+  the status bar reads as
+  flat cells with a hairline and an accent line under an active toggle, like AutoCAD's. The
+  coordinate readout owns the left end of the bar and no hint can hide it any more.
+- **Russian captions read as words:** a command name is one token on the command line and several on
+  a button, so `_MATCHPROP` reads «Копировать свойства» on the ribbon instead of «Копироватьсв», and
+  the clipboard group is spelled out the same way.
+- **Ribbon grid:** the small buttons of a panel share one column width, so the captions line up as a
+  grid, and the ribbon measures its captions again when the translations arrive, so a longer Russian
+  label is never clipped mid word.
+- **Panel captions on one baseline:** every panel on a page takes the height of the tallest one, so
+  the titles line up across the strip as they do in AutoCAD instead of floating at different heights.
+- **File tabs:** the cross on a drawing tab is one plain glyph in the text colour; unsaved edits are
+  the star beside the name, not a red cross.
+- **No menu bar:** the File, Edit, View and Settings menus moved under one square mark at the left end
+  of the title strip, as AutoCAD keeps them under its application button; the quick access toolbar
+  holds the right end, and the strip between them is empty chrome rather than a row of menu words.
+- **Palette headers:** the Layers and Properties docks name their columns on a neutral strip with a
+  hairline, as AutoCAD's palettes do, instead of on a slab of the accent colour the style picked.
+- **Marks on the Manage page:** the plugin pair, the plugins folder, the script runner and the way out
+  carry glyphs of their own, so the page is not a column of bare words.
+- **The clipboard panel had nothing in it:** it asked for the COPYCLIP family by command name, and
+  those names are not in the vocabulary the panels draw from, so the panel carried a title and no
+  buttons. It now shows the Edit menu's own copy, cut, paste and copy-with-base-point actions, and a
+  test walks every panel to make sure none is empty.
+- **Fuller Insert and Manage pages:** Insert carries the block pair, the clipboard with its base point,
+  the drawing commands and the PDF export beside the script runner; Manage gains the palette switches
+  next to the plugin and application panels.
+- **Two to a row on the View page:** the drafting aids stand in two columns instead of one long one,
+  and the Appearance panel gains the clean-screen switch, so the page is as dense as AutoCAD's.
+- **Status bar and toggle glyphs:** Ortho, Polar and Snap carry a small mark beside their word in the
+  status bar, and the View page's other toggles — the dynamic input, the ribbon and the theme — carry
+  one on the ribbon, so no panel mixes glyphs and bare words. The marks are drawn from the palette at
+  paint time like the command icons, so they follow the theme.
+- **One ribbon height:** the strip is as tall as its tallest page, so switching from Home to Insert no
+  longer shrinks it and moves the drawing area; the Insert panel's block command reads «Создать блок»
+  instead of repeating the panel title.
+- **Quick access on the menu row:** the toolbar of new/open/save/undo/redo sits at the right end of the
+  menu strip and draws no band of its own, the way AutoCAD keeps it on the title strip; the ribbon
+  now begins directly with its tabs.
+- **File tabs without boxes:** the current drawing's tab is a flat patch a shade lighter than the row
+  it sits on, and the other tabs draw no outline, as in AutoCAD; the cross, the labels and the
+  dragging stay with the style.
+- **Tab band in both themes:** the strip behind the tabs and the quick access row takes a shade that
+  follows the theme — a hair of shading in the light one instead of the heavy gray a fixed darkening
+  produced.
+- **Ribbon buttons at AutoCAD's size:** large commands draw a 32 px icon with room around it, the
+  small ones keep 16 px, and the gaps between a panel's parts are wide enough to read as groups.
+- **Ribbon chrome:** panels lost their boxes. The strip is one surface divided by hairlines, and the
+  tabs carry no outline either: the current one is a patch of the page colour that flows into the
+  panels, the way AutoCAD's ribbon band reads.
+- **Shortcut menu:** while a command runs, the drawing's context menu opens with `Enter` and
+  `Cancel`, the two keys AutoCAD puts first there; they step back and step out of the command.
+- **Snap hint:** the point under the crosshair is named beside its marker, with the same word the
+  object-snap menu carries, as AutoCAD does.
+- **Ribbon scrolling:** the panels move with two chevrons on the tab band and with the wheel, the way
+  AutoCAD scrolls a ribbon that does not fit; the strip keeps no scroll bar of its own.
+
+## v0.2.0
+
+Verified by the five CI jobs and by the Windows payload that ran its own converters on a real drawing and round-tripped `panel.dxf` through DWG; 27 runtime files in the inventory.
+
+DWG out of the box, a ribbon workbench and the classic AutoCAD command set.
+
+- **DWG:** the pinned LibreDWG 0.14 programs `dwg2dxf` and `dxf2dwg` travel with the portable ZIP, the
+  installer and the installed Linux tree under `tools/libredwg/`. PlaneDraft finds them beside the
+  executable and then on `PATH`, so no environment variable or manual install is needed. The
+  converters stay separate GPLv3 processes: the LGPL core never links, loads or ships libredwg.
+  `*.dwg *.dxf` are accepted by the open and save dialogs. Reading uses the native converter
+  (R2.10 … R2018+), writing targets R2000 by default (`dxf2dwg -a r2000`). 3D entities are skipped
+  with a summary on the command line, and text rotation survives the round trip.
+- **Ribbon:** Home, Insert, Annotate, View and Manage pages with Draw, Modify, Annotations, Layers,
+  Blocks, Properties, Plugins and Scripts panels; a quick access toolbar for New, Open, Save, PDF,
+  Undo and Redo; layer, colour and line-weight drop-downs that edit the selection in one undo step.
+  View → Ribbon switches back to the five classic toolbars and remembers the choice. Every page is
+  a fixed strip as tall as its tallest panel — three rows of Modify commands and the panel captions
+  stay inside it — while a narrow window scrolls the page sideways instead of eliding a caption.
+  Captions are never elided, and the panels follow the light and dark palettes while the theme can
+  be switched at any time.
+- **CAD ergonomics:** Space confirms a step or repeats the last command on an empty prompt (except
+  while entering free text), a middle double-click zooms to the drawing extents, the right-button
+  menu offers repeat, recent commands, properties, erase, clipboard and a base point, and F12 shows
+  dynamic length/angle input beside the crosshair with Tab switching between the fields.
+- **Command line:** autocomplete over every command and alias; built-in EN and RU alias tables
+  (`L`/`ОТ`, `REC`/`ПРЯМ`, `POL`/`МН`, `CHA`/`ФАС`, …) that a user `aliases.ini` extends or
+  overrides; `_ZOOM` routed to the view; `COPYCLIP`, `CUTCLIP`, `COPYBASE` and `PASTECLIP` with the
+  usual Ctrl+C/X/V and Ctrl+Shift+C shortcuts.
+- **New commands:** `_RECTANG`/`ПРЯМОУГ` (closed polyline), `_POLYGON`/`МН-УГОЛ` (inscribed or
+  circumscribed), `_CHAMFER`/`ФАСКА` (two distances), `_ARRAY`/`МАССИВ` (rectangular and polar, one
+  undo step), `_MATCHPROP`/`КОПИРОВАТЬСВ`, `_DIST`/`ДИСТ` and `_AREA`/`ПЛОЩАДЬ` reporting to the
+  command line. Circles, three-point arcs and polylines accept typed points as well as picks.
+- **Tests:** new coverage for every added command, the alias resolution, clipboard, repeat,
+  ribbon/QAT/combos, Space-as-Enter, F12 and the extents double-click, plus DWG round-trip tests
+  through `pdconvert` on Linux and Windows.
+
+### Compatibility notes
+
+Windows packages now contain two extra GPLv3 executables and their licence text; see the runtime
+inventory and notices. DWG output is R2000 unless a newer version is requested. Unsupported DXF/DWG
+content is reported and may be simplified on import.
+
+## v0.1.0
+
+First PlaneDraft 2D release series: draw at model scale, compose a sheet and issue it as a vector file.
+
+- **Drafting:** analytic 2D geometry, nested blocks, hatching with islands, five dimension types, ISO/ESKD styles and scaled paper-space viewports. The included mounting-panel drawing has a dimensioned view and hatched section A–A on an A4 sheet.
+- **Editing:** move, copy, rotate, scale, mirror, trim, extend, offset, fillet and erase, plus object snaps, Ortho/polar tracking and grips. Multi-object property changes and spatial index updates share one undo step.
+- **Workbench:** independent drawing tabs, dockable properties, layer manager, five SVG toolbars, bilingual command line, live Russian/English and light/dark switching. Fractional-DPI rendering covers the entire widget framebuffer.
+- **Exchange:** native support for a documented subset of ASCII DXF; vector SVG/PDF output from the application and the Qt-free `pdconvert` CLI. Optional external DWG conversion is off by default.
+- **Extensions:** a sized C ABI v2 with v1 compatibility, two sample modules and a transactional PlaneDraft Lisp interpreter with an example script.
+- **Distribution:** MSVC 2022 x64 portable ZIP and per-user Inno Setup installer generated from the same payload. Both forms passed cold-PATH loading, named A4 PDF export and runtime inventory checks. The installer offers an optional DXF handler without replacing another application's default. The 25 runtime files have a SHA-256 inventory; matching port records and full PCRE2/SLJIT notices travel with the binaries.
+
+### Compatibility notes
+
+A desktop OpenGL 4.5 Core driver is required for the GUI, not for `pdconvert`. Unsupported DXF content can be lost: review import diagnostics and save a copy. Dimensions and hatches are not associative with adjacent entities. No DWG converter, proprietary CAD SDK or graphics driver is bundled. Host: LGPL-2.1-or-later; public SDK and examples: MIT. Consult the package notices for third-party terms.

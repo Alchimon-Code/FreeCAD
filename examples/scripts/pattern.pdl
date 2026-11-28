@@ -1,0 +1,20 @@
+; Copyright (c) 2026 PlaneDraft contributors. SPDX-License-Identifier: MIT
+; UTF-8 PlaneDraft Lisp. Run once per session: _RUNSCRIPT ".../pattern.pdl"
+; A whole invocation (including the layer) is one undo step. No installed runtime required.
+(defun hole-center (i count radius)
+  (let ((angle (/ (* 2 pi i) count)))
+    (list (* radius (cos angle)) (* radius (sin angle)))))
+
+(with-transaction doc "Pitch circle"
+  (let ((layer-id (add_layer doc "Pitch circle" (list 80 192 232))))
+    (add_circle doc (list 0 0) 30 layer-id)
+    (for (i 8)
+      (add_circle doc (hole-center i 8 30) 2.5 layer-id))))
+
+; Select objects in the viewport; _SHIFTSEL 15 (RU: СДВИГВЫБОРА 15).
+(defcommand "SHIFTSEL" "СДВИГВЫБОРА"
+  (with-transaction doc "Move selection"
+    (let ((dx (if (= args "") 10 (number args))) (ids (selection doc)))
+      (foreach (id ids) (transform doc id (list 1 0 dx 0 1 0)))
+      (print "Moved:" (length ids)))))
+(print "Created eight holes; _SHIFTSEL is ready.")

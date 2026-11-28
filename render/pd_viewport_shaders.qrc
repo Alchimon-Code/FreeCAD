@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/pd">
+        <file>shaders/stroke.vert</file><file>shaders/stroke.frag</file>
+        <file>shaders/grid.vert</file><file>shaders/grid.frag</file>
+    </qresource>
+</RCC>

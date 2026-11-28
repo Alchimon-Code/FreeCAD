@@ -1,0 +1,1095 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+#include "dxf_common.hpp"
+#include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <numeric>
+#include <optional>
+#include <planedraft/drafting.hpp>
+#include <set>
+namespace pd::io {
+namespace {
+using namespace dxf;
+struct Group {
+    int code;
+    std::string value;
+    size_t line;
+};
+struct Record {
+    std::string type;
+    size_t line = 0;
+    std::vector<Group> groups, extra;
+    size_t foreignLine = 0; // loss of opaque per-record metadata, not a skipped entity
+    void warnIfPartial(IoResult& r) const {
+        if (foreignLine)
+            r.warn(foreignLine, type, "nonstandard or application-specific groups not imported");
+    }
+    const Group* get(int code) const {
+        for (auto& g : groups)
+            if (g.code == code)
+                return &g;
+        return nullptr;
+    }
+    std::string str(int c, std::string fallback = {}) const {
+        auto* g = get(c);
+        return g ? g->value : std::move(fallback);
+    }
+    int i(int c, int fallback = 0) const {
+        auto* g = get(c);
+        return g ? integer(g->value) : fallback;
+    }
+    double n(int c, double fallback = 0) const {
+        auto* g = get(c);
+        return g ? real(g->value) : fallback;
+    }
+    double required(int c) const {
+        auto* g = get(c);
+        if (!g)
+            throw std::invalid_argument("missing group " + std::to_string(c));
+        return real(g->value);
+    }
+    Vec2 xy(int c) const { return {required(c), required(c + 10)}; }
+    std::span<const Group> field(std::string_view name) const {
+        for (size_t j = 0; j < extra.size(); ++j)
+            if (extra[j].code == 1000 && extra[j].value == name)
+                return std::span(extra).subspan(j + 1);
+        return {};
+    }
+};
+class Records {
+  public:
+    explicit Records(const fs::path& file) {
+        if (!fs::is_regular_file(file))
+            throw Failure(IoStatus::FileError, "cannot open DXF");
+        if (fs::file_size(file) > maxFileBytes)
+            throw Failure(IoStatus::InvalidData, "DXF exceeds size limit");
+        stream_.open(file, std::ios::binary);
+        if (!stream_)
+            throw Failure(IoStatus::FileError, "cannot open DXF");
+        next_ = pair();
+    }
+    std::optional<Record> next() {
+        if (!next_)
+            return {};
+        auto start = std::move(*next_);
+        if (start.code != 0)
+            throw Failure(IoStatus::InvalidData, "expected group 0", start.line);
+        Record r{upper(trim(start.value)), start.line, {}, {}};
+        bool pd = false;
+        int braces = 0;
+        while ((next_ = pair()) && next_->code != 0) {
+            auto& g = *next_;
+            if (!r.foreignLine &&
+                (g.code < 0 || g.code > 1071 || g.code == 102 || (g.code == 1001 && g.value != "PLANEDRAFT")))
+                r.foreignLine = g.line;
+            if (g.code < 0 || g.code > 1071)
+                continue;
+            if (g.code == 102) {
+                if (g.value.starts_with('{'))
+                    ++braces;
+                else if (g.value == "}" && braces)
+                    --braces;
+                continue;
+            }
+            if (braces)
+                continue;
+            if (g.code == 1001) {
+                pd = g.value == "PLANEDRAFT";
+                continue;
+            }
+            if (g.code >= 1000) {
+                if (pd)
+                    r.extra.push_back(std::move(g));
+            } else
+                r.groups.push_back(std::move(g));
+            if (r.groups.size() + r.extra.size() > maxRecordGroups)
+                throw Failure(IoStatus::InvalidData, "DXF record too large", r.line, r.type);
+        }
+        return r;
+    }
+
+  private:
+    std::ifstream stream_;
+    size_t line_ = 0, bytes_ = 0;
+    std::optional<Group> next_;
+    bool line(std::string& s) {
+        if (!std::getline(stream_, s)) {
+            if (stream_.bad())
+                throw Failure(IoStatus::FileError, "DXF read failed", line_);
+            return false;
+        }
+        ++line_;
+        bytes_ += s.size() + 1;
+        if (bytes_ > maxFileBytes + 1 || s.size() > maxLineBytes)
+            throw Failure(IoStatus::InvalidData, "DXF input limit exceeded", line_);
+        if (s.ends_with('\r'))
+            s.pop_back();
+        return true;
+    }
+    std::optional<Group> pair() {
+        std::string k, v;
+        while (line(k)) {
+            if (line_ == 1 && k.starts_with("\xef\xbb\xbf"))
+                k.erase(0, 3);
+            if (trim(k).empty())
+                continue;
+            int code;
+            try {
+                code = integer(k);
+            } catch (...) {
+                throw Failure(IoStatus::InvalidData, "invalid ASCII group code", line_);
+            }
+            if (!line(v))
+                throw Failure(IoStatus::InvalidData, "invalid or truncated group", line_);
+            if (code != 999)
+                return Group{code, std::move(v), line_ - 1};
+        }
+        return {};
+    }
+};
+Color rgb(int n) {
+    if (n < 0 || n > 0xffffff)
+        throw std::invalid_argument("invalid RGB color");
+    return {(uint8_t)(n >> 16), (uint8_t)(n >> 8), (uint8_t)n};
+}
+Color color(const Record& r, int index) {
+    if (r.get(420))
+        return rgb(r.i(420));
+    auto e = r.field("RGB");
+    if (!e.empty() && e[0].code == 1071) {
+        auto c = rgb(integer(e[0].value));
+        if (closestAci(c) == index)
+            return c;
+    }
+    return aci(index);
+}
+double weight(const Record& r, int w) {
+    auto e = r.field("WEIGHT");
+    if (!e.empty() && e[0].code == 1040) {
+        auto mm = real(e[0].value);
+        if (mm >= 0 && weightCode(mm) == w)
+            return mm;
+    }
+    return w < 0 ? .25 : w * .01;
+}
+struct UnsupportedPart : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+// MTEXT stores formatting in the string itself. PlaneDraft's model text is single-line, so
+// paragraphs become separate Text entities and the inline formatting is removed explicitly
+// rather than leaking control sequences into the drawing.
+std::vector<std::string> mtextParagraphs(std::string_view raw) {
+    std::string plain;
+    plain.reserve(raw.size());
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        char c = raw[i];
+        if (c != '\\' || i + 1 >= raw.size()) {
+            if (c == '{' || c == '}')
+                continue; // grouping braces, not content
+            plain += c;
+            continue;
+        }
+        char next = raw[++i];
+        switch (next) {
+        case 'P':
+            plain += '\n';
+            break;
+        case '~':
+            plain += ' ';
+            break;
+        case '\\':
+        case '{':
+        case '}':
+            plain += next;
+            break;
+        case 'L':
+        case 'l':
+        case 'O':
+        case 'o':
+        case 'K':
+        case 'k':
+            break; // underline/overline/strike toggles have no value
+        case 'S': {
+            // Stacked fraction: a^b or a#b becomes a single-line a/b.
+            auto end = raw.find(';', i + 1);
+            if (end == std::string_view::npos)
+                break;
+            auto body = raw.substr(i + 1, end - i - 1);
+            for (auto ch : body)
+                plain += (ch == '^' || ch == '#') ? '/' : ch;
+            i = end;
+            break;
+        }
+        default:
+            // \A, \C, \c, \f, \F, \H, \Q, \T, \W and \p take a value up to ';'.
+            if (std::string_view("ACcfFHQTWp").find(next) != std::string_view::npos) {
+                auto end = raw.find(';', i + 1);
+                i = end == std::string_view::npos ? raw.size() : end;
+            } else {
+                plain += next;
+            }
+            break;
+        }
+    }
+    std::vector<std::string> paragraphs;
+    std::string line;
+    for (char c : plain) {
+        if (c == '\n') {
+            paragraphs.push_back(line);
+            line.clear();
+        } else if (c != '\r') {
+            line += c;
+        }
+    }
+    paragraphs.push_back(line);
+    return paragraphs;
+}
+
+// Why a record is not part of the 2D model. The reason is reported per type and counted, so a
+// real DWG import produces a short summary instead of one line per ignored object.
+const char* unsupportedReason(const std::string& type) {
+    static const std::set<std::string> solid{"3DFACE", "3DSOLID", "BODY", "REGION", "SURFACE",
+                                             "MESH", "PLANESURFACE", "EXTRUDEDSURFACE",
+                                             "LOFTEDSURFACE", "REVOLVEDSURFACE", "SWEPTSURFACE"};
+    if (solid.contains(type))
+        return "3D or solid entity skipped by the 2D model";
+
+    if (type == "POINT")
+        return "point entity skipped by the 2D model";
+    if (type == "LEADER" || type == "MLEADER" || type == "MULTILEADER" || type == "MLINE")
+        return "leader/multiline annotation skipped";
+    if (type == "IMAGE" || type == "WIPEOUT" || type == "PDFUNDERLAY" || type == "DWFUNDERLAY" ||
+        type == "DGNUNDERLAY")
+        return "external underlay skipped";
+    if (type == "RAY" || type == "XLINE")
+        return "construction line skipped";
+    if (type == "POLYLINE")
+        return "legacy POLYLINE skipped; only LWPOLYLINE is imported";
+    return "unsupported entity type";
+}
+
+struct Ocs {
+    double sign;
+    Vec2 world(Vec2 v) const { return {sign * v.x, v.y}; }
+};
+struct Import {
+    Transaction& tx;
+    IoResult& res;
+    Document::LineTypeTable& lineTypes;
+    std::string page = "ANSI_1252";
+    bool declaredLegacyPage = false;
+    std::map<std::string, LayerId> layers{{"0", DefaultLayer}};
+    std::map<LayerId, Layer> locked;
+    size_t entities = 0;
+    std::set<std::string> declared;
+    std::map<std::string, DimStyle> styles;
+    std::map<std::string, std::shared_ptr<const BlockDefinition>> blocks;
+    void dimStyle(const Record& r) {
+        DimStyle s;
+        s.arrowSize = r.n(41, 2.5);
+        s.textHeight = r.n(140, 2.5);
+        s.extensionGap = r.n(42, .625);
+        s.extensionOverrun = r.n(44, 1.25);
+        s.textGap = std::abs(r.n(147, .625));
+        s.precision = r.i(271, 2);
+        if (r.n(142) > 0) {
+            s.arrow = DimStyle::Arrow::Tick;
+            s.arrowSize = r.n(142);
+        }
+        auto post = text(r, 3);
+        if (auto i = post.find("<>"); i != post.npos) {
+            s.prefix = post.substr(0, i);
+            s.suffix = post.substr(i + 2);
+        }
+        styles[symbolKey(text(r, 2))] = s;
+    }
+    Import(Transaction& t, IoResult& result, Document::LineTypeTable& patterns)
+        : tx(t), res(result), lineTypes(patterns) {}
+    std::string text(const Record& r, int c, std::string def = {}) const {
+        return stringValue(r.str(c, std::move(def)));
+    }
+    std::string stringValue(std::string_view raw) const { return decode(raw, page, declaredLegacyPage); }
+    void header(const Record& r) {
+        bool legacy = false, declared = false;
+        for (size_t j = 1; j < r.groups.size(); ++j) {
+            auto& k = r.groups[j - 1];
+            auto& v = r.groups[j];
+            if (k.code != 9)
+                continue;
+            if (k.value == "$ACADVER")
+                legacy = v.value.starts_with("AC10") && v.value < "AC1021";
+            if (k.value == "$DWGCODEPAGE") {
+                declared = true;
+                page = upper(trim(v.value));
+            }
+            if (k.value == "$INSUNITS" && integer(v.value) != 0 && integer(v.value) != 4)
+                res.warn(v.line, "$INSUNITS",
+                         "model units retained without rescaling; export assumes millimetres");
+            if (k.value == "$ACADVER" && v.value != "AC1015" && v.value != "AC1018")
+                res.warn(v.line, r.type, "not AC1015; reading supported 2D subset");
+        }
+        declaredLegacyPage = legacy && declared;
+    }
+    // A linetype is its name and a run of lengths along the curve: positive ink, negative a gap, zero a
+    // dot. Keeping them is what makes the dashed line of a drawing look like the drawing and not like a
+    // guess at it.
+    void lineType(const Record& r) {
+        if (r.i(73) <= 0)
+            return;
+        std::vector<double> pattern;
+        for (auto& g : r.groups)
+            if (g.code == 49)
+                pattern.push_back(real(g.value));
+        if (pattern.empty()) {
+            res.warn(r.line, "LTYPE", "dash count without lengths; pattern ignored");
+            return;
+        }
+        lineTypes[text(r, 2)] = std::move(pattern);
+    }
+    void layer(const Record& r) {
+        r.warnIfPartial(res);
+        Layer l(text(r, 2));
+        int index = r.i(62, 7);
+        if (index == 0 || index < -255 || index > 255)
+            throw std::invalid_argument("invalid layer ACI");
+        l.color = color(r, std::abs(index));
+        l.isVisible = index > 0;
+        l.isFrozen = (r.i(70) & 1) != 0;
+        l.isLocked = false;
+        l.lineType = text(r, 6, "Continuous");
+        l.lineWeight = weight(r, r.i(370, -3));
+        auto key = symbolKey(l.name);
+        if (!declared.insert(key).second) {
+            res.warn(r.line, "LAYER", "duplicate layer definition; kept first");
+            return;
+        }
+        LayerId id;
+        if (auto it = layers.find(key); it != layers.end()) {
+            id = it->second;
+            tx.updateLayer(id, l);
+        } else {
+            if (layers.size() >= maxLayers)
+                throw std::invalid_argument("duplicate or excessive layers");
+            id = tx.addLayer(l);
+            layers.emplace(key, id);
+        }
+        if (r.i(70) & 4) {
+            l.isLocked = true;
+            locked.insert_or_assign(id, std::move(l));
+        }
+    }
+    LayerId layerId(const Record& r) {
+        auto name = text(r, 8, "0");
+        auto key = symbolKey(name);
+        if (auto it = layers.find(key); it != layers.end())
+            return it->second;
+        if (layers.size() >= maxLayers)
+            throw std::invalid_argument("too many layers");
+        auto id = tx.addLayer(Layer(name));
+        layers[key] = id;
+        res.warn(r.line, "LAYER", "created undeclared entity layer");
+        return id;
+    }
+    std::unique_ptr<Entity> label(const Record& r, Ocs o) {
+        auto str = text(r, 1);
+        double h = r.required(40), width = r.n(41, 1);
+        if (h <= 0 || width <= 0)
+            throw std::invalid_argument("invalid text height/width");
+        BoundingBox2D ink{{0, 0}, {.6 * h * unicode(str).size(), h}};
+        auto ext = r.field("INK");
+        if (ext.size() >= 4 && ext[0].code == 1040 && ext[1].code == 1040 && ext[2].code == 1040 &&
+            ext[3].code == 1040)
+            ink = {{real(ext[0].value), real(ext[1].value)}, {real(ext[2].value), real(ext[3].value)}};
+        double a = r.n(50) * rad, sy = h / (ink.max().y - ink.min().y), sx = sy * width;
+        int hor = r.i(72), vert = r.i(73);
+        bool fit = hor == 3 || hor == 5;
+        auto p = o.world(r.xy(!fit && (hor || vert) ? 11 : 10));
+        if (fit) {
+            auto base = r.xy(11) - r.xy(10);
+            sx = base.length() / (ink.max().x - ink.min().x);
+            if (hor == 3)
+                sy = sx / width;
+            a = std::atan2(base.y, base.x);
+        }
+        int gen = r.i(71);
+        if (gen & 2)
+            sx = -sx;
+        if (gen & 4)
+            sy = -sy;
+        auto linear = Matrix3x3::scaling(o.sign, 1) * Matrix3x3::rotation(a) *
+                      Matrix3x3(sx, sy * std::tan(r.n(51) * rad), 0, 0, sy, 0);
+        if (hor || vert) {
+            auto lo = ink.min(), hi = ink.max();
+            double ax = hor == 2 ? hi.x : hor == 1 || hor == 4 ? std::midpoint(lo.x, hi.x) : lo.x;
+            double ay = vert == 3               ? hi.y
+                        : vert == 2 || hor == 4 ? std::midpoint(lo.y, hi.y)
+                        : vert == 1             ? lo.y
+                                                : 0;
+            p = p - linear.applyVector({ax, ay});
+        }
+        return std::make_unique<Text>(str, ink, Matrix3x3::translation(p) * linear);
+    }
+    std::unique_ptr<Entity> hatch(const Record& r) {
+        auto name = upper(text(r, 2));
+        HatchPattern pat;
+        if (r.i(70))
+            pat = HatchPattern::Solid;
+        else if (name == "ANSI31")
+            pat = HatchPattern::ANSI31;
+        else if (name == "GRID" || name == "NET")
+            pat = HatchPattern::Grid;
+        else if (name == "PD_CONCRETE")
+            pat = HatchPattern::Concrete;
+        else
+            throw UnsupportedPart("unsupported hatch pattern or missing boundaries");
+        size_t pos = 0;
+        auto seek = [&](int code) {
+            while (pos < r.groups.size() && r.groups[pos].code != code)
+                ++pos;
+        };
+        auto take = [&](int code) {
+            if (pos >= r.groups.size() || r.groups[pos].code != code)
+                throw std::invalid_argument("incomplete hatch boundary");
+            return std::string_view(r.groups[pos++].value);
+        };
+        auto point = [&](int code) {
+            double x = real(take(code));
+            return Vec2{x, real(take(code + 10))};
+        };
+        auto count = [&](int code) {
+            int n = integer(take(code));
+            if (n <= 0 || n > 200000)
+                throw std::invalid_argument("invalid hatch count");
+            return n;
+        };
+        seek(91);
+        int n = count(91);
+        std::vector<Polyline> loops;
+        for (int j = 0; j < n; ++j) {
+            seek(92);
+            int flags = integer(take(92));
+            std::vector<Vertex> v;
+            if (flags & 2) {
+                bool bulges = integer(take(72));
+                if (!integer(take(73)))
+                    throw UnsupportedPart("open hatch boundary");
+                int cnt = count(93);
+                for (int i = 0; i < cnt; ++i) {
+                    auto p = point(10);
+                    double b =
+                        bulges && pos < r.groups.size() && r.groups[pos].code == 42 ? real(take(42)) : 0;
+                    v.push_back({p, b});
+                }
+            } else {
+                int cnt = count(93);
+                std::optional<Vec2> end;
+                for (int i = 0; i < cnt; ++i) {
+                    int kind = integer(take(72));
+                    auto p = point(10);
+                    Vec2 q;
+                    double bulge = 0;
+                    if (kind == 1)
+                        q = point(11);
+                    else if (kind == 2) {
+                        double radius = real(take(40)), a = real(take(50)) * rad, b = real(take(51)) * rad;
+                        if (radius <= EPSILON)
+                            throw std::invalid_argument("invalid hatch edge radius");
+                        bool ccw = integer(take(73));
+                        double sweep = std::fmod(b - a, 2 * std::numbers::pi);
+                        if (sweep <= 0)
+                            sweep += 2 * std::numbers::pi;
+                        auto center = p;
+                        auto at = [&](double t) { return center + Vec2{std::cos(t), std::sin(t)} * radius; };
+                        if (!ccw) {
+                            // With group 73 = 0 both stored angles are measured clockwise.
+                            a = -a;
+                            b = -b;
+                            sweep = -sweep;
+                        }
+                        p = at(a);
+                        q = at(b);
+                        if (std::abs(sweep) >= 2 * std::numbers::pi - 1e-12) {
+                            if (cnt != 1 || radius <= EPSILON)
+                                throw std::invalid_argument("invalid circular hatch loop");
+                            v = {{p, std::copysign(1., sweep)},
+                                 {center - (p - center), std::copysign(1., sweep)}};
+                            break;
+                        }
+                        bulge = std::tan(sweep / 4);
+                    } else
+                        throw UnsupportedPart("unsupported hatch edge type");
+                    if (end && (*end - p).length() > EPSILON)
+                        throw UnsupportedPart("disconnected hatch edges");
+                    v.push_back({p, bulge});
+                    end = q;
+                }
+                if (end && (*end - v.front().point).length() > EPSILON)
+                    throw UnsupportedPart("open hatch edges");
+            }
+            loops.emplace_back(std::move(v), true);
+        }
+        return std::make_unique<Hatch>(std::move(loops), pat, r.n(41, 1), r.n(52) * rad);
+    }
+    std::unique_ptr<Entity> dimension(const Record& r) {
+        auto kind = r.i(70) & 15;
+        std::vector<Vec2> p;
+        DimKind k;
+        if (kind < 2) {
+            k = kind ? DimKind::Aligned : DimKind::Linear;
+            p = {r.xy(13), r.xy(14), r.xy(10)};
+        } else if (kind == 3 || kind == 4) {
+            k = kind == 3 ? DimKind::Diameter : DimKind::Radius;
+            auto a = r.xy(10), b = r.xy(15);
+            p = {kind == 3 ? midpoint(a, b) : a, b, r.get(11) ? r.xy(11) : b};
+        } else if (kind == 5) {
+            k = DimKind::Angular;
+            p = {r.xy(15), r.xy(13), r.xy(14), r.xy(10)};
+        } else if (kind == 2) {
+            auto a = r.xy(13), b = r.xy(14), c = r.xy(15), e = r.xy(10);
+            auto hit = intersectSupports(Segment{a, b}, Segment{c, e});
+            if (hit.kind != Intersection::Kind::OnePoint)
+                throw UnsupportedPart("parallel angular dimension");
+            k = DimKind::Angular;
+            p = {hit.first, (b - hit.first).length() > EPSILON ? b : a,
+                 (e - hit.first).length() > EPSILON ? e : c, r.xy(16)};
+        } else
+            throw UnsupportedPart("unsupported dimension type");
+        auto it = styles.find(symbolKey(text(r, 3, "Standard")));
+        // Linear dimensions are rotated by group 50. LibreDWG 0.14 drops that group for vertical
+        // dimensions, so fall back to the direction of the definition points instead of measuring
+        // the projection that would be zero.
+        double axis = r.n(50) * rad;
+        if (kind == 0 && !r.get(50) && std::abs(p[1].y - p[0].y) > std::abs(p[1].x - p[0].x))
+            axis = std::numbers::pi / 2;
+        return std::make_unique<Dimension>(k, p, it == styles.end() ? DimStyle{} : it->second, axis);
+    }
+    // Repeating X/Y group pairs, in file order: a spline carries its control points and its fit points
+    // that way.
+    static std::vector<Vec2> points(const Record& r, int code) {
+        std::vector<Vec2> out;
+        bool y = false;
+        for (auto& g : r.groups) {
+            if (g.code == code) {
+                out.push_back({real(g.value), 0.});
+                y = false;
+            } else if (g.code == code + 10 && !out.empty()) {
+                out.back().y = real(g.value);
+                y = true;
+            }
+        }
+        if (!y)
+            out.clear();
+        return out;
+    }
+    std::unique_ptr<Entity> geometry(const Record& r, Ocs o) {
+        if (r.type == "INSERT") {
+            auto it = blocks.find(symbolKey(text(r, 2)));
+            if (it == blocks.end())
+                throw UnsupportedPart("missing or unsupported block definition");
+            if (r.i(70, 1) != 1 || r.i(71, 1) != 1)
+                throw UnsupportedPart("array insert not supported");
+            auto ref = std::make_unique<BlockReference>(it->second, r.xy(10), Vec2{r.n(41, 1), r.n(42, 1)},
+                                                        r.n(50) * rad);
+            if (o.sign < 0)
+                ref->transform(Matrix3x3::scaling(-1, 1));
+            return ref;
+        }
+        if (r.type == "HATCH" || r.type == "DIMENSION") {
+            auto e = r.type == "HATCH" ? hatch(r) : dimension(r);
+            if (o.sign < 0)
+                e->transform(Matrix3x3::scaling(-1, 1));
+            return e;
+        }
+        if (r.type == "SOLID") {
+            if (r.get(13) && (r.xy(13) - r.xy(12)).length() > EPSILON)
+                throw UnsupportedPart("quadrilateral SOLID not supported");
+            return std::make_unique<SolidFace>(o.world(r.xy(10)), o.world(r.xy(11)), o.world(r.xy(12)));
+        }
+        if (r.type == "LINE")
+            return std::make_unique<Line>(r.xy(10), r.xy(11));
+        if (r.type == "CIRCLE")
+            return std::make_unique<Circle>(o.world(r.xy(10)), r.required(40));
+        if (r.type == "ELLIPSE") {
+            // DXF keeps an ellipse as a centre, the vector to the end of its major axis, and the ratio of
+            // the minor axis to the major one. The 2D model carries no ellipse, so the curve is walked
+            // into a polyline of a few dozen segments: the shape survives the import, the type does not.
+            const Vec2 major{o.sign * r.n(11), r.n(21)};
+            const double a = major.length();
+            if (a <= EPSILON)
+                throw UnsupportedPart("degenerate ELLIPSE without a major axis");
+            const double ratio = r.get(40) ? r.n(40) : 1.;
+            if (ratio <= 0)
+                throw UnsupportedPart("degenerate ELLIPSE with a zero axis ratio");
+            const Vec2 u = major * (1. / a), v{-u.y, u.x};
+            const double from = r.get(41) ? r.n(41) : 0.;
+            double to = r.get(42) ? r.n(42) : 2 * std::numbers::pi;
+            while (to <= from)
+                to += 2 * std::numbers::pi;
+            const double sweep = to - from;
+            const int segments = std::clamp(int(std::ceil(sweep / (std::numbers::pi / 32))), 8, 128);
+            const Vec2 centre = o.world(r.xy(10));
+            std::vector<Vertex> walked;
+            walked.reserve(static_cast<std::size_t>(segments) + 1);
+            for (int i = 0; i <= segments; ++i) {
+                const double t = from + sweep * i / segments;
+                walked.push_back({centre + u * (a * std::cos(t)) + v * (a * ratio * std::sin(t)), 0});
+            }
+            const bool closed = std::abs(sweep - 2 * std::numbers::pi) < 1e-6;
+            if (closed)
+                walked.pop_back();
+            res.warn(r.line, r.type, "ellipse imported as a polyline: the curve is approximated");
+            return std::make_unique<Polyline>(std::move(walked), closed);
+        }
+        if (r.type == "SPLINE") {
+            // A spline is a control net, a knot vector and, when it carries a circle, a weight per
+            // control point. Walking it with de Boor's algorithm gives points that lie on the very
+            // curve, and the 2D model keeps them as a polyline.
+            const std::vector<Vec2> control = points(r, 10);
+            const std::vector<Vec2> fit = points(r, 11);
+            std::vector<double> knots, weights;
+            for (auto& g : r.groups) {
+                if (g.code == 40)
+                    knots.push_back(real(g.value));
+                else if (g.code == 41)
+                    weights.push_back(real(g.value));
+            }
+            const int degree = std::clamp(r.i(71, 3), 1, 25);
+            std::vector<Vertex> walked;
+            // Bit 1 is a closed spline, bit 2 a periodic one, which is closed as well.
+            const bool closed = (r.i(70) & 3) != 0;
+            if (int(control.size()) >= degree + 1 &&
+                int(knots.size()) == int(control.size()) + degree + 1) {
+                const int n = int(control.size());
+                const auto sample = [&](double u) {
+                    int span = degree;
+                    for (int i = degree; i < n; ++i)
+                        if (u >= knots[i] && u < knots[i + 1]) {
+                            span = i;
+                            break;
+                        }
+                    if (u >= knots[n])
+                        span = n - 1;
+                    double px[26], py[26], pw[26];
+                    for (int j = 0; j <= degree; ++j) {
+                        const int at = std::clamp(span - degree + j, 0, n - 1);
+                        const double w = j < int(weights.size()) ? weights[at] : 1.;
+                        px[j] = control[at].x * w;
+                        py[j] = control[at].y * w;
+                        pw[j] = w;
+                    }
+                    for (int round = 1; round <= degree; ++round) {
+                        for (int j = degree; j >= round; --j) {
+                            const double lo = knots[span - degree + j], hi = knots[span + 1 + j - round];
+                            const double alpha = hi > lo ? (u - lo) / (hi - lo) : 0.;
+                            px[j] = px[j - 1] * (1 - alpha) + px[j] * alpha;
+                            py[j] = py[j - 1] * (1 - alpha) + py[j] * alpha;
+                            pw[j] = pw[j - 1] * (1 - alpha) + pw[j] * alpha;
+                        }
+                    }
+                    const double w = pw[degree] != 0 ? pw[degree] : 1.;
+                    return Vec2{px[degree] / w, py[degree] / w};
+                };
+                const double from = knots[degree], to = knots[n];
+                const int segments = std::clamp(8 * n, 32, 512);
+                walked.reserve(static_cast<std::size_t>(segments) + 1);
+                for (int i = 0; i <= segments; ++i)
+                    walked.push_back({o.world(sample(from + (to - from) * i / segments)), 0});
+                if (closed && (walked.back().point - walked.front().point).length() < 1e-6)
+                    walked.pop_back();
+            } else if (fit.size() >= 2) {
+                for (const auto& point : fit)
+                    walked.push_back({o.world(point), 0});
+                if (closed && (walked.back().point - walked.front().point).length() < 1e-6)
+                    walked.pop_back();
+            } else {
+                throw UnsupportedPart("SPLINE without a knot vector or fit points");
+            }
+            if (walked.size() < 2)
+                throw UnsupportedPart("degenerate SPLINE");
+            res.warn(r.line, r.type, "spline imported as a polyline: the curve is approximated");
+            return std::make_unique<Polyline>(std::move(walked), closed);
+        }
+        if (r.type == "TEXT")
+            return label(r, o);
+        if (r.type == "ARC") {
+            auto from = r.required(50), to = r.required(51);
+            auto a = std::fmod(from, 360.), b = std::fmod(to, 360.);
+            double sweep = std::fmod(b - a, 360.);
+            if (sweep == 0 && from != to) {
+                res.warn(r.line, r.type, "full-turn ARC imported as CIRCLE");
+                return std::make_unique<Circle>(o.world(r.xy(10)), r.required(40));
+            }
+            if (sweep < 0)
+                sweep += 360.;
+            return std::make_unique<Arc>(CircularArc(o.world(r.xy(10)), r.required(40),
+                                                     (o.sign > 0 ? a : 180 - a) * rad, o.sign * sweep * rad));
+        }
+        std::vector<Vertex> vertices;
+        bool y = false;
+        for (auto& g : r.groups) {
+            if (g.code == 10) {
+                if (!vertices.empty() && !y)
+                    throw std::invalid_argument("missing vertex Y");
+                vertices.push_back({{o.sign * real(g.value), 0}, 0});
+                y = false;
+            } else if (g.code == 20 || g.code == 42) {
+                if (vertices.empty())
+                    throw std::invalid_argument("missing vertex X");
+                if (g.code == 20) {
+                    vertices.back().point.y = real(g.value);
+                    y = true;
+                } else
+                    vertices.back().bulge = o.sign * real(g.value);
+            }
+        }
+        if (!y || r.i(90, -1) != static_cast<int>(vertices.size()))
+            throw std::invalid_argument("incorrect LWPOLYLINE vertex count");
+        return std::make_unique<Polyline>(std::move(vertices), (r.i(70) & 1) != 0);
+    }
+    std::vector<std::unique_ptr<Entity>> mtext(const Record& r, Ocs o) {
+        std::string raw;
+        for (auto& g : r.groups)
+            if (g.code == 3 || g.code == 1)
+                raw += stringValue(g.value); // 3: leading chunks, 1: final chunk
+        auto paragraphs = mtextParagraphs(raw);
+        double h = r.n(40, 2.5), width = r.n(41, 1), a = r.n(50) * rad;
+        if (!(h > 0) || !(width > 0) || !std::isfinite(h) || !std::isfinite(width))
+            throw UnsupportedPart("invalid MTEXT height or width factor");
+        int attachment = r.i(71, 1);
+        if (attachment < 1 || attachment > 9)
+            attachment = 1;
+        // AutoCAD: default line spacing is 1.66 x the character height; attachment 1..3 top,
+        // 4..6 middle, 7..9 bottom, columns left/centre/right by the remainder.
+        double lineHeight = h * 5 / 3;
+        double total = paragraphs.size() > 1 ? (paragraphs.size() - 1) * lineHeight : 0;
+        double first = attachment <= 3 ? -h : attachment >= 7 ? total : (total - h) / 2;
+        auto origin = o.world({});
+        std::vector<std::unique_ptr<Entity>> out;
+        bool formatting = false;
+        for (std::size_t i = 0; i < paragraphs.size(); ++i) {
+            auto& text = paragraphs[i];
+            if (text.find_first_not_of(" \t") == std::string::npos && paragraphs.size() > 1)
+                continue; // empty paragraph keeps its vertical advance only
+            if (text.empty())
+                continue;
+            double w = .6 * h * static_cast<double>(unicode(text).size());
+            double dx = attachment % 3 == 2 ? -w / 2 : attachment % 3 == 0 ? -w : 0;
+            auto placement = Matrix3x3::translation(origin) * Matrix3x3::scaling(o.sign, 1) *
+                             Matrix3x3::rotation(a) *
+                             Matrix3x3::translation({dx, first - static_cast<double>(i) * lineHeight}) *
+                             Matrix3x3::scaling(width, 1);
+            out.push_back(std::make_unique<Text>(text, BoundingBox2D{{0, 0}, {w, h}}, placement));
+            if (raw.find("\\P") != std::string::npos || raw.find('{') != std::string::npos ||
+                raw.find("\\f") != std::string::npos || raw.find("\\H") != std::string::npos)
+                formatting = true;
+        }
+        if (out.empty())
+            throw UnsupportedPart("empty MTEXT");
+        res.warn(r.line, "MTEXT",
+                 "multiline text imported as single-line text; inline formatting and columns are not kept");
+        if (formatting && out.size() > 1)
+            res.warn(r.line, "MTEXT", "paragraphs were placed with the default line spacing");
+        return out;
+    }
+    std::vector<std::unique_ptr<Entity>> entity(const Record& r) {
+        auto skip = [&](const char* why) {
+            ++res.skipped;
+            res.warn(r.line, r.type.substr(0, 80), why);
+        };
+        if (r.type != "LINE" && r.type != "CIRCLE" && r.type != "ARC" && r.type != "TEXT" &&
+            r.type != "MTEXT" && r.type != "LWPOLYLINE" && r.type != "INSERT" &&
+            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID" && r.type != "ELLIPSE" &&
+            r.type != "SPLINE") {
+            skip(unsupportedReason(r.type));
+            return {};
+        }
+        double nz = r.n(230, 1);
+        if (r.type != "LINE" && (std::abs(r.n(210)) > EPSILON || std::abs(r.n(220)) > EPSILON ||
+                                 std::abs(std::abs(nz) - 1) > EPSILON)) {
+            skip("non-planar extrusion");
+            return {};
+        }
+        if (r.type == "LINE" && std::abs(r.n(30) - r.n(31)) > EPSILON) {
+            skip("non-planar line");
+            return {};
+        }
+        r.warnIfPartial(res);
+        if (r.type == "LWPOLYLINE" && (r.n(43) != 0 || r.get(40) || r.get(41)))
+            res.warn(r.line, r.type, "variable/constant polyline width ignored");
+        if (r.n(39) != 0 || r.n(30) != 0 || r.n(38) != 0)
+            res.warn(r.line, r.type, "projected elevation/thickness to XY");
+        if (++entities > maxEntities)
+            throw std::invalid_argument("too many entities");
+        std::vector<std::unique_ptr<Entity>> out;
+        try {
+            if (r.type == "MTEXT")
+                out = mtext(r, {nz < 0 ? -1. : 1.});
+            else
+                out.push_back(geometry(r, {nz < 0 ? -1. : 1.}));
+        } catch (const UnsupportedPart& err) {
+            skip(err.what());
+            return {};
+        }
+        int c = r.i(62, 256);
+        if (c < -256 || c > 256)
+            throw std::invalid_argument("invalid entity ACI");
+        for (auto& e : out) {
+            e->traits.layer = layerId(r);
+            e->traits.isVisible = r.i(60) == 0;
+            int aciValue = c;
+            if (aciValue < 0) {
+                e->traits.isVisible = false;
+                aciValue = -aciValue;
+            }
+            if (r.get(420))
+                e->traits.color = rgb(r.i(420));
+            else if (aciValue == 0)
+                e->traits.color = ByBlock{};
+            else if (aciValue != 256)
+                e->traits.color = color(r, aciValue);
+            auto lt = text(r, 6, "BYLAYER");
+            if (upper(lt) == "BYBLOCK")
+                e->traits.lineType = ByBlock{};
+            else if (upper(lt) != "BYLAYER")
+                e->traits.lineType = lt;
+            int w = r.i(370, -1);
+            if (w == -2)
+                e->traits.lineWeight = ByBlock{};
+            else if (w != -1)
+                e->traits.lineWeight = weight(r, w);
+        }
+        return out;
+    }
+};
+void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant,
+           Document::LineTypeTable& lineTypes) {
+    Records input(path);
+    Import imp(tx, res, lineTypes);
+    std::string section, table;
+    struct RawBlock {
+        std::string name, owner;
+        Vec2 base;
+        std::vector<Record> members;
+    };
+    std::map<std::string, RawBlock> raw;
+    RawBlock* current = nullptr;
+    std::vector<Record> model, papers;
+    std::map<std::string, Layout> layouts;
+    std::multimap<int, std::string> tabs;
+    size_t count = 0;
+    bool entities = false, eof = false;
+    while (auto rec = input.next()) {
+        const auto& r = *rec;
+        try {
+            if (eof)
+                throw std::invalid_argument("records after EOF");
+            if (r.type == "SECTION") {
+                if (!section.empty() || !r.get(2))
+                    throw std::invalid_argument("invalid SECTION");
+                section = upper(trim(r.str(2)));
+                if (section == "HEADER")
+                    imp.header(r);
+                if (section == "ENTITIES") {
+                    if (entities)
+                        throw std::invalid_argument("duplicate ENTITIES");
+                    entities = true;
+                }
+                continue;
+            }
+            if (r.type == "ENDSEC") {
+                if (section.empty() || !table.empty())
+                    throw std::invalid_argument("unexpected ENDSEC");
+                section.clear();
+                continue;
+            }
+            if (r.type == "EOF") {
+                if (!section.empty() || !entities)
+                    throw std::invalid_argument("unfinished/missing section");
+                eof = true;
+                continue;
+            }
+            if (section.empty())
+                throw std::invalid_argument("record outside SECTION");
+            if (section == "TABLES") {
+                if (r.type == "TABLE") {
+                    if (!table.empty() || !r.get(2))
+                        throw std::invalid_argument("invalid TABLE");
+                    table = upper(trim(r.str(2)));
+                } else if (r.type == "ENDTAB") {
+                    if (table.empty())
+                        throw std::invalid_argument("unexpected ENDTAB");
+                    table.clear();
+                } else if (table == "LAYER" && r.type == "LAYER")
+                    imp.layer(r);
+                else if (table == "LTYPE" && r.type == "LTYPE")
+                    imp.lineType(r);
+                else if (table == "DIMSTYLE" && r.type == "DIMSTYLE")
+                    imp.dimStyle(r);
+            } else if (section == "BLOCKS") {
+                if (r.type == "BLOCK") {
+                    auto name = imp.text(r, 2);
+                    auto key = symbolKey(name);
+                    current = nullptr;
+                    if (!name.starts_with('*') || upper(name).starts_with("*PAPER_SPACE")) {
+                        auto [it, ok] =
+                            raw.try_emplace(key, RawBlock{name, r.str(330), {r.n(10), r.n(20)}, {}});
+                        if (ok)
+                            current = &it->second;
+                        else
+                            res.warn(r.line, "BLOCK", "duplicate definition ignored");
+                    }
+                } else if (r.type == "ENDBLK")
+                    current = nullptr;
+                else if (current) {
+                    if (++count > maxEntities)
+                        throw std::invalid_argument("too many entities");
+                    current->members.push_back(std::move(*rec));
+                }
+            } else if (section == "ENTITIES") {
+                if (++count > maxEntities)
+                    throw std::invalid_argument("too many entities");
+                model.push_back(std::move(*rec)); // partition by owner once LAYOUT objects are known
+            } else if (section == "OBJECTS" && r.type == "LAYOUT") {
+                std::string name, owner;
+                for (auto& g : r.groups) {
+                    if (g.code == 1)
+                        name = imp.stringValue(g.value);
+                    if (g.code == 330)
+                        owner = g.value;
+                }
+                if (upper(name) == "MODEL")
+                    continue;
+                double w = r.n(44), h = r.n(45);
+                if (w <= 0 || h <= 0)
+                    continue;
+                Layout l;
+                l.name = name;
+                l.landscape = w >= h;
+                l.frame = l.stamp = false;
+                bool matched = false;
+                for (auto format : {Paper::A4, Paper::A3, Paper::A2, Paper::A1}) {
+                    l.paper = format;
+                    if ((l.size() - Vec2{w, h}).length() < .1) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    res.warn(r.line, "LAYOUT", "non-ISO paper size skipped");
+                    continue;
+                }
+                l.margins = {r.n(40), r.n(41), r.n(42), r.n(43)};
+                auto x = r.field("SHEET");
+                if (x.size() >= 4) {
+                    l.frame = integer(x[0].value);
+                    l.stamp = integer(x[1].value);
+                    l.designation = imp.stringValue(x[2].value);
+                    l.title = imp.stringValue(x[3].value);
+                }
+                if (layouts.contains(owner))
+                    throw std::invalid_argument("duplicate paper space owner");
+                tabs.emplace(r.i(71), owner);
+                layouts[owner] = std::move(l);
+            }
+        } catch (const std::logic_error& e) {
+            throw Failure(IoStatus::InvalidData, e.what(), r.line, r.type);
+        }
+    }
+    if (!eof)
+        throw Failure(IoStatus::InvalidData, "missing EOF (truncated DXF)");
+    BlockDependencies graph;
+    for (auto& [key, b] : raw) {
+        if (b.name.starts_with('*')) {
+            for (auto& r : b.members)
+                papers.push_back(std::move(r));
+            continue;
+        }
+        auto& deps = graph[key];
+        for (auto& r : b.members)
+            if (r.type == "INSERT") {
+                auto target = symbolKey(imp.text(r, 2));
+                if (raw.contains(target) && !raw.at(target).name.starts_with('*'))
+                    deps.push_back(target);
+            }
+    }
+    auto parseEntity = [&](const Record& r) -> std::vector<std::unique_ptr<Entity>> {
+        try {
+            return imp.entity(r);
+        } catch (const std::logic_error& err) {
+            if (!tolerant)
+                throw Failure(IoStatus::InvalidData, err.what(), r.line, r.type);
+            ++res.skipped;
+            res.warn(r.line, r.type, std::string("converter output record skipped: ") + err.what());
+            return {};
+        }
+    };
+    for (auto& key : blockOrder(graph)) {
+        auto& b = raw.at(key);
+        std::vector<std::unique_ptr<Entity>> owned;
+        std::vector<const Entity*> members;
+        for (auto& r : b.members)
+            for (auto& e : parseEntity(r)) {
+                if (b.base != Vec2{})
+                    e->transform(Matrix3x3::translation(-b.base));
+                members.push_back(e.get());
+                owned.push_back(std::move(e));
+            }
+        if (!members.empty())
+            imp.blocks[key] = tx.defineBlock(b.name, members);
+        else
+            res.warn(0, "BLOCK", "empty block definition skipped");
+    }
+    for (auto& r : model) {
+        if (r.i(67) || layouts.contains(r.str(330)))
+            papers.push_back(std::move(r));
+        else
+            for (auto& e : parseEntity(r))
+                tx.add(*e);
+    }
+    for (auto& r : papers) {
+        auto it = layouts.find(r.str(330));
+        if (it == layouts.end()) {
+            ++res.skipped;
+            res.warn(r.line, r.type, "unsupported paper space");
+            continue;
+        }
+        auto& l = it->second;
+        if (r.type == "VIEWPORT") {
+            if (r.i(69) == 1 || r.i(68) == 0)
+                continue;
+            if (std::abs(r.n(51)) > EPSILON || std::abs(r.n(16)) + std::abs(r.n(26)) > EPSILON) {
+                res.warn(r.line, r.type, "rotated/3D viewport skipped");
+                continue;
+            }
+            auto p = r.xy(10);
+            Vec2 half{r.required(40) / 2, r.required(41) / 2};
+            BoundingBox2D box(p - half, p + half);
+            if (!BoundingBox2D({}, l.size()).contains(box)) {
+                res.warn(r.line, r.type, "off-page viewport skipped");
+                continue;
+            }
+            l.viewports.emplace_back(box, r.xy(12) + Vec2{r.n(17), r.n(27)}, 2 * half.y / r.required(45));
+        } else if (r.field("FURNITURE").empty()) {
+            for (auto& e : parseEntity(r))
+                l.paperEntities.emplace_back(std::move(e));
+        }
+    }
+    for (auto& [_, owner] : tabs)
+        tx.addLayout(std::move(layouts.at(owner)));
+    for (auto& [id, l] : imp.locked)
+        tx.updateLayer(id, l);
+}
+} // namespace
+IoResult DxfHandler::read(const fs::path& p, Document& d) const {
+    Document::LineTypeTable lineTypes;
+    auto result = checked([&](IoResult& r) {
+        d.transact([&](Transaction& tx) { parse(p, tx, r, tolerant_, lineTypes); });
+    });
+    // The dash patterns belong to the drawing, not to an edit: they are kept beside it, and a drawing
+    // that fails to load keeps none.
+    if (result.ok())
+        d.setLineTypes(std::move(lineTypes));
+    return result;
+}
+} // namespace pd::io
