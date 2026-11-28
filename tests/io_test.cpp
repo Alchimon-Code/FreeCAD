@@ -492,6 +492,35 @@ TEST_F(Io, MtextFormattingAndParagraphsBecomePlainSingleLineText) {
     EXPECT_NE(why(r).find("multiline"), std::string::npos);
 }
 
+// A drawing that carries ellipses used to come in without them. The 2D model has no ellipse, so the
+// curve arrives as a polyline that keeps its shape and says so in the import summary.
+TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
+    auto p = dir / "ellipse.dxf";
+    put(p, section +
+               // Centre at (3, 4), major axis 10 long along X, half as tall, whole turn.
+               "0\nELLIPSE\n8\nСлой\n10\n3\n20\n4\n11\n10\n21\n0\n"
+               "40\n0.5\n41\n0\n42\n6.283185307179586\n" +
+               line + finish);
+    auto r = registry.read(p, doc);
+    ASSERT_TRUE(r.ok()) << why(r);
+    ASSERT_EQ(doc.size(), 1u);
+    const auto& shape = dynamic_cast<const Polyline&>(*doc.entity(doc.entityIds().front()));
+    EXPECT_TRUE(shape.closed());
+    ASSERT_GE(shape.vertices().size(), 32u);
+    const auto bounds = shape.getBounds();
+    EXPECT_NEAR(bounds.min().x, -2., 0.2);
+    EXPECT_NEAR(bounds.max().x, 8., 0.2);
+    EXPECT_NEAR(bounds.min().y, 1.5, 0.2);
+    EXPECT_NEAR(bounds.max().y, 6.5, 0.2);
+    EXPECT_NE(why(r).find("approximated"), std::string::npos);
+    // A degenerate ellipse is still a part that cannot be placed, and it is reported as one.
+    auto q = dir / "degenerate.dxf";
+    put(q, section + "0\nELLIPSE\n10\n0\n20\n0\n" + line + finish);
+    auto bad = registry.read(q, doc);
+    ASSERT_TRUE(bad.ok()) << why(bad);
+    EXPECT_EQ(bad.skipped, 1u);
+}
+
 TEST_F(Io, UnsupportedRealWorldEntitiesAreCountedByType) {
     auto p = dir / "mixed.dxf";
     put(p, section +

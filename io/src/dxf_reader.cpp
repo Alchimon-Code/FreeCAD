@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 #include "dxf_common.hpp"
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <numeric>
@@ -253,7 +254,7 @@ const char* unsupportedReason(const std::string& type) {
                                              "LOFTEDSURFACE", "REVOLVEDSURFACE", "SWEPTSURFACE"};
     if (solid.contains(type))
         return "3D or solid entity skipped by the 2D model";
-    if (type == "SPLINE" || type == "ELLIPSE")
+    if (type == "SPLINE")
         return "analytic curve entity skipped (not converted to a polyline)";
     if (type == "POINT")
         return "point entity skipped by the 2D model";
@@ -574,6 +575,37 @@ struct Import {
             return std::make_unique<Line>(r.xy(10), r.xy(11));
         if (r.type == "CIRCLE")
             return std::make_unique<Circle>(o.world(r.xy(10)), r.required(40));
+        if (r.type == "ELLIPSE") {
+            // DXF keeps an ellipse as a centre, the vector to the end of its major axis, and the ratio of
+            // the minor axis to the major one. The 2D model carries no ellipse, so the curve is walked
+            // into a polyline of a few dozen segments: the shape survives the import, the type does not.
+            const Vec2 major{o.sign * r.n(11), r.n(21)};
+            const double a = major.length();
+            if (a <= EPSILON)
+                throw UnsupportedPart("degenerate ELLIPSE without a major axis");
+            const double ratio = r.get(40) ? r.n(40) : 1.;
+            if (ratio <= 0)
+                throw UnsupportedPart("degenerate ELLIPSE with a zero axis ratio");
+            const Vec2 u = major * (1. / a), v{-u.y, u.x};
+            const double from = r.get(41) ? r.n(41) : 0.;
+            double to = r.get(42) ? r.n(42) : 2 * std::numbers::pi;
+            while (to <= from)
+                to += 2 * std::numbers::pi;
+            const double sweep = to - from;
+            const int segments = std::clamp(int(std::ceil(sweep / (std::numbers::pi / 32))), 8, 128);
+            const Vec2 centre = o.world(r.xy(10));
+            std::vector<Vertex> walked;
+            walked.reserve(static_cast<std::size_t>(segments) + 1);
+            for (int i = 0; i <= segments; ++i) {
+                const double t = from + sweep * i / segments;
+                walked.push_back({centre + u * (a * std::cos(t)) + v * (a * ratio * std::sin(t)), 0});
+            }
+            const bool closed = std::abs(sweep - 2 * std::numbers::pi) < 1e-6;
+            if (closed)
+                walked.pop_back();
+            res.warn(r.line, r.type, "ellipse imported as a polyline: the curve is approximated");
+            return std::make_unique<Polyline>(std::move(walked), closed);
+        }
         if (r.type == "TEXT")
             return label(r, o);
         if (r.type == "ARC") {
@@ -663,7 +695,7 @@ struct Import {
         };
         if (r.type != "LINE" && r.type != "CIRCLE" && r.type != "ARC" && r.type != "TEXT" &&
             r.type != "MTEXT" && r.type != "LWPOLYLINE" && r.type != "INSERT" &&
-            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID") {
+            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID" && r.type != "ELLIPSE") {
             skip(unsupportedReason(r.type));
             return {};
         }

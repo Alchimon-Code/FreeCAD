@@ -18,6 +18,10 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Ellipses on import.** An ELLIPSE record used to be thrown away with the rest of the analytic
+  curves, so a drawing with slots, ovals or elliptical callouts opened without them. The curve is now
+  walked into a closed (or open) polyline of up to 128 segments, which keeps its shape and its layer,
+  and the import summary says the curve was approximated.
 - **Ribbon folding.** A panel that no longer fits the strip folds down to its name, and its commands move
   into the menu behind that name — the way AutoCAD shrinks a panel — instead of sliding out of sight. The
   Russian Home page at 1520 pixels now shows all six panels: Draw open, Modify and Annotate folded, the
