@@ -497,7 +497,7 @@ TEST_F(Io, MtextFormattingAndParagraphsBecomePlainSingleLineText) {
 TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
     auto p = dir / "ellipse.dxf";
     put(p, section +
-               // Centre at (3, 4), major axis 10 long along X, half as tall, whole turn.
+               // Centre at (3, 4), half the major axis 10 long along X, half as tall, whole turn.
                "0\nELLIPSE\n8\nСлой\n10\n3\n20\n4\n11\n10\n21\n0\n"
                "40\n0.5\n41\n0\n42\n6.283185307179586\n" +
                line + finish);
@@ -518,10 +518,10 @@ TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
                << walked->vertices().front().point.x << ", " << walked->vertices().front().point.y
                << ") to (" << walked->vertices().back().point.x << ", "
                << walked->vertices().back().point.y << "); " << why(r);
-    EXPECT_NEAR(bounds.min().x, -2., 0.2);
-    EXPECT_NEAR(bounds.max().x, 8., 0.2);
-    EXPECT_NEAR(bounds.min().y, 1.5, 0.2);
-    EXPECT_NEAR(bounds.max().y, 6.5, 0.2);
+    EXPECT_NEAR(bounds.min().x, -7., 0.2);
+    EXPECT_NEAR(bounds.max().x, 13., 0.2);
+    EXPECT_NEAR(bounds.min().y, -1., 0.2);
+    EXPECT_NEAR(bounds.max().y, 9., 0.2);
     EXPECT_NE(why(r).find("approximated"), std::string::npos);
     // A degenerate ellipse is still a part that cannot be placed, and it is reported as one.
     auto q = dir / "degenerate.dxf";
