@@ -503,11 +503,15 @@ TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
                line + finish);
     auto r = registry.read(p, doc);
     ASSERT_TRUE(r.ok()) << why(r);
-    ASSERT_EQ(doc.size(), 1u);
-    const auto& shape = dynamic_cast<const Polyline&>(*doc.entity(doc.entityIds().front()));
-    EXPECT_TRUE(shape.closed());
-    ASSERT_GE(shape.vertices().size(), 32u);
-    const auto bounds = shape.getBounds();
+    ASSERT_EQ(doc.size(), 2u); // the sample line of the fixture and the walked ellipse
+    const Polyline* walked = nullptr;
+    for (auto id : doc.entityIds())
+        if (auto* poly = dynamic_cast<const Polyline*>(doc.entity(id)))
+            walked = poly;
+    ASSERT_NE(walked, nullptr) << "the ellipse arrives as a polyline";
+    EXPECT_TRUE(walked->closed());
+    ASSERT_GE(walked->vertices().size(), 32u);
+    const auto bounds = walked->getBounds();
     EXPECT_NEAR(bounds.min().x, -2., 0.2);
     EXPECT_NEAR(bounds.max().x, 8., 0.2);
     EXPECT_NEAR(bounds.min().y, 1.5, 0.2);
