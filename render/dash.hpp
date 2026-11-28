@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -63,6 +65,15 @@ class Dasher {
             tokens_.push_back({length, value >= 0});
         }
         left_ = tokens_.front().first;
+    }
+    // A pattern as the drawing carried it: positive lengths are ink, negative ones gaps, a zero a dot.
+    explicit Dasher(std::span<const double> pattern, double scale = 1) {
+        if (!(scale > 0))
+            return;
+        for (double value : pattern)
+            tokens_.push_back({(value == 0 ? 0.2 : std::abs(value)) * scale, value >= 0});
+        if (!tokens_.empty())
+            left_ = tokens_.front().first;
     }
     // Continuous strokes, and every name this table does not know, are drawn whole.
     [[nodiscard]] bool solid() const { return tokens_.empty(); }

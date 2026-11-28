@@ -149,7 +149,11 @@ void SceneCache::sync(const Document& doc, const Camera2D& camera, double dpr,
                         // segment of the entity to the next, so the pattern stays even all the way round.
                         // Glyph outlines of a text keep their own solid ink.
                         const bool plain = dynamic_cast<const Text*>(&leaf) != nullptr;
-                        Dasher dasher(plain ? std::string_view{} : std::string_view(style.lineType));
+                        const auto pattern = plain ? std::span<const double>{}
+                                                   : doc.lineTypePattern(style.lineType);
+                        Dasher dasher = pattern.empty() ? Dasher(plain ? std::string_view{}
+                                                                      : std::string_view(style.lineType))
+                                                        : Dasher(pattern);
                         auto emitLine = [&](Segment s) {
                             vertices.push_back(vertex(s.a, ink));
                             vertices.push_back(vertex(s.b, ink));

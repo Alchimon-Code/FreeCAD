@@ -339,6 +339,18 @@ TEST(Dash, HiddenLinesArriveInPiecesWithThePhaseCarriedOver) {
     EXPECT_NEAR(twoLength, oneLength, 1e-9);
     EXPECT_NEAR(twoLength, 17., 1e-9); // two dashes of six and the last one cut by the end of the line
 }
+// A drawing may carry its own pattern under its own name; those lengths are used as they are written.
+TEST(Dash, ADrawingPatternIsUsedAsItSays) {
+    const std::vector<double> pattern{8, -2};
+    Dasher dasher{std::span<const double>(pattern)};
+    ASSERT_FALSE(dasher.solid());
+    std::vector<Segment> pieces;
+    dasher.split(Segment{{0, 0}, {20, 0}}, [&](Segment s) { pieces.push_back(s); });
+    ASSERT_EQ(pieces.size(), 2u);
+    EXPECT_NEAR(pieces[0].b.x, 8., 1e-9);
+    EXPECT_NEAR(pieces[1].a.x, 10., 1e-9);
+    EXPECT_NEAR(pieces[1].b.x, 18., 1e-9);
+}
 TEST(Dash, ContinuousAndUnknownNamesAreDrawnWhole) {
     for (const char* name : {"Continuous", "ByLayer", "", "СПЛОШНАЯ", "MAKESHIFT"}) {
         Dasher dasher(name);

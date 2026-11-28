@@ -213,7 +213,12 @@ void SceneRenderer::drawPage(const Document& doc, const Layout& layout, const Ca
                           clipFace(*face, box, [&](Vec2 p) { vertex(fill, p, ink); });
                       else {
                           const bool plain = dynamic_cast<const Text*>(&e) != nullptr;
-                          Dasher dasher(plain ? std::string_view{} : std::string_view(s.lineType));
+                          const auto pattern = plain ? std::span<const double>{}
+                                                     : doc.lineTypePattern(s.lineType);
+                          Dasher dasher =
+                              pattern.empty()
+                                  ? Dasher(plain ? std::string_view{} : std::string_view(s.lineType))
+                                  : Dasher(pattern);
                           auto emitLine = [&](Segment line) {
                               vertex(lines, line.a, ink);
                               vertex(lines, line.b, ink);

@@ -6,8 +6,11 @@
 
 #include <exception>
 #include <functional>
+#include <map>
 #include <span>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace pd {
 struct Change {
@@ -78,6 +81,19 @@ class Document {
     [[nodiscard]] StrokeStyle resolveStyle(const Entity& entity, const StrokeStyle* parent = nullptr,
                                            const Layer* effectiveLayer = nullptr) const;
 
+    // Dash patterns of the drawing as it carried them: a linetype is a run of lengths along the curve,
+    // positive for ink and negative for a gap. They belong to the drawing, not to an edit, so they are
+    // set when it is loaded and never go through a transaction.
+    using LineTypeTable = std::map<std::string, std::vector<double>>;
+    [[nodiscard]] const LineTypeTable& lineTypes() const { return lineTypes_; }
+    void setLineTypes(LineTypeTable table) { lineTypes_ = std::move(table); }
+    // Empty when the drawing carries no pattern under that name, which is when the viewer falls back to
+    // the standard names it knows.
+    [[nodiscard]] std::span<const double> lineTypePattern(const std::string& name) const {
+        auto it = lineTypes_.find(name);
+        return it == lineTypes_.end() ? std::span<const double>{} : std::span<const double>(it->second);
+    }
+
     // New drawing/ID namespace. Publish a completely built model and both indexes in one Reset;
     // keep observers and the Document address, but neither old nor staging Undo/Redo history.
     void replaceContents(std::unique_ptr<Document> staging);
@@ -111,6 +127,7 @@ class Document {
     EntityId issueId();
     std::vector<Change> apply(const detail::Edits& edits, bool reverse);
     void notify(std::span<const Change> changes) noexcept;
+    LineTypeTable lineTypes_;
     std::vector<detail::Record> slots_;
     std::unique_ptr<SpatialIndex> index_;
     std::unique_ptr<SpatialIndex> extraPoints_ = makeRTree();

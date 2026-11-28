@@ -18,6 +18,10 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Linetype patterns.** A linetype used to arrive as a name only, so a drawing that called its line
+  «ОСЕВ-СВОЙ» came out solid. The lengths in the LTYPE table (groups 49) now travel with the drawing,
+  are used by the viewer ahead of its standard names, and are written back out, so the pattern survives
+  a round trip.
 - **Dashed and dotted lines.** A linetype used to be a name on a layer and nothing more: hidden, centre
   and phantom lines came out solid. The renderer now splits a stroke into the ink of its pattern — ISO
   dash, dot, dash-dot and the Russian names that go with them — and carries the phase from one segment

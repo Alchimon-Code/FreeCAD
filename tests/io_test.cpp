@@ -575,6 +575,33 @@ TEST_F(Io, SplinesArriveAsPolylinesThatFollowTheCurve) {
             << "point " << vertex.point.x << ", " << vertex.point.y << " is off the circle";
 }
 
+// A linetype carries its dash pattern in groups 49, and a drawing that names a line after itself keeps
+// those lengths: without them the line would be drawn with a guess at what it looks like.
+TEST_F(Io, LinetypePatternsComeWithTheDrawingAndGoBackOut) {
+    auto p = dir / "linetype.dxf";
+    put(p, "0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLTYPE\n0\nLTYPE\n2\nОСЕВ-СВОЙ\n70\n0\n3\n\n"
+           "72\n65\n73\n4\n40\n20\n49\n8\n49\n-2\n49\n8\n49\n-2\n"
+           "0\nENDTAB\n0\nENDSEC\n" +
+           section + "0\nLINE\n6\nОСЕВ-СВОЙ\n10\n0\n20\n0\n11\n20\n21\n0\n" + finish);
+    auto r = registry.read(p, doc);
+    ASSERT_TRUE(r.ok()) << why(r);
+    const auto pattern = doc.lineTypePattern("ОСЕВ-СВОЙ");
+    ASSERT_EQ(pattern.size(), 4u);
+    EXPECT_DOUBLE_EQ(pattern[0], 8.);
+    EXPECT_DOUBLE_EQ(pattern[1], -2.);
+
+    // The name travels on the entity, and the pattern goes back out beside it.
+    auto q = dir / "linetype-out.dxf";
+    ASSERT_TRUE(registry.write(q, doc).ok());
+    Document again;
+    auto back = registry.read(q, again);
+    ASSERT_TRUE(back.ok()) << why(back);
+    const auto written = again.lineTypePattern("ОСЕВ-СВОЙ");
+    ASSERT_EQ(written.size(), 4u);
+    EXPECT_DOUBLE_EQ(written[2], 8.);
+    EXPECT_DOUBLE_EQ(written[3], -2.);
+}
+
 TEST_F(Io, UnsupportedRealWorldEntitiesAreCountedByType) {
     auto p = dir / "mixed.dxf";
     put(p, section +

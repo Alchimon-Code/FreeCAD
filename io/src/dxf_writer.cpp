@@ -505,8 +505,22 @@ class Writer {
             g(70, 0);
             g(3, "");
             g(72, 65);
-            g(73, 0);
-            g(40, 0);
+            // A drawing that came in with a dash pattern goes out with the same one, or the reader of
+            // this file would draw a dashed line solid.
+            const auto pattern = d.lineTypePattern(name);
+            if (pattern.empty()) {
+                g(73, 0);
+                g(40, 0);
+                continue;
+            }
+            double total = 0;
+            for (double value : pattern)
+                total += std::abs(value);
+            g(73, static_cast<int>(pattern.size()));
+            g(40, total);
+            for (double value : pattern)
+                g(49, value);
+            g(74, 0);
         }
         g(0, "ENDTAB");
         table("LAYER", "2", static_cast<int>(layers.size()));

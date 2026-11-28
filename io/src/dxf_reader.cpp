@@ -276,6 +276,7 @@ struct Ocs {
 struct Import {
     Transaction& tx;
     IoResult& res;
+    Document::LineTypeTable& lineTypes;
     std::string page = "ANSI_1252";
     bool declaredLegacyPage = false;
     std::map<std::string, LayerId> layers{{"0", DefaultLayer}};
@@ -303,7 +304,8 @@ struct Import {
         }
         styles[symbolKey(text(r, 2))] = s;
     }
-    Import(Transaction& t, IoResult& result) : tx(t), res(result) {}
+    Import(Transaction& t, IoResult& result, Document::LineTypeTable& patterns)
+        : tx(t), res(result), lineTypes(patterns) {}
     std::string text(const Record& r, int c, std::string def = {}) const {
         return stringValue(r.str(c, std::move(def)));
     }
@@ -328,6 +330,22 @@ struct Import {
                 res.warn(v.line, r.type, "not AC1015; reading supported 2D subset");
         }
         declaredLegacyPage = legacy && declared;
+    }
+    // A linetype is its name and a run of lengths along the curve: positive ink, negative a gap, zero a
+    // dot. Keeping them is what makes the dashed line of a drawing look like the drawing and not like a
+    // guess at it.
+    void lineType(const Record& r) {
+        if (r.i(73) <= 0)
+            return;
+        std::vector<double> pattern;
+        for (auto& g : r.groups)
+            if (g.code == 49)
+                pattern.push_back(real(g.value));
+        if (pattern.empty()) {
+            res.warn(r.line, "LTYPE", "dash count without lengths; pattern ignored");
+            return;
+        }
+        lineTypes[text(r, 2)] = std::move(pattern);
     }
     void layer(const Record& r) {
         r.warnIfPartial(res);
@@ -844,9 +862,10 @@ struct Import {
         return out;
     }
 };
-void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant) {
+void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant,
+           Document::LineTypeTable& lineTypes) {
     Records input(path);
-    Import imp(tx, res);
+    Import imp(tx, res, lineTypes);
     std::string section, table;
     struct RawBlock {
         std::string name, owner;
@@ -903,8 +922,8 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant) 
                     table.clear();
                 } else if (table == "LAYER" && r.type == "LAYER")
                     imp.layer(r);
-                else if (table == "LTYPE" && r.type == "LTYPE" && r.i(73) > 0)
-                    res.warn(r.line, "LTYPE", "dash pattern not imported; linetype name retained");
+                else if (table == "LTYPE" && r.type == "LTYPE")
+                    imp.lineType(r);
                 else if (table == "DIMSTYLE" && r.type == "DIMSTYLE")
                     imp.dimStyle(r);
             } else if (section == "BLOCKS") {
@@ -1063,6 +1082,14 @@ void parse(const fs::path& path, Transaction& tx, IoResult& res, bool tolerant) 
 }
 } // namespace
 IoResult DxfHandler::read(const fs::path& p, Document& d) const {
-    return checked([&](IoResult& r) { d.transact([&](Transaction& tx) { parse(p, tx, r, tolerant_); }); });
+    Document::LineTypeTable lineTypes;
+    auto result = checked([&](IoResult& r) {
+        d.transact([&](Transaction& tx) { parse(p, tx, r, tolerant_, lineTypes); });
+    });
+    // The dash patterns belong to the drawing, not to an edit: they are kept beside it, and a drawing
+    // that fails to load keeps none.
+    if (result.ok())
+        d.setLineTypes(std::move(lineTypes));
+    return result;
 }
 } // namespace pd::io
