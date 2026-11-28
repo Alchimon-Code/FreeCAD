@@ -637,7 +637,7 @@ struct Import {
                     weights.push_back(real(g.value));
             }
             const int degree = std::clamp(r.i(71, 3), 1, 25);
-            std::vector<Vec2> walked;
+            std::vector<Vertex> walked;
             // Bit 1 is a closed spline, bit 2 a periodic one, which is closed as well.
             const bool closed = (r.i(70) & 3) != 0;
             if (int(control.size()) >= degree + 1 &&
