@@ -593,6 +593,14 @@ void Ribbon::retranslate() {
         const auto source = label->property("titleSource").toString();
         label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
     }
+    // The drop-downs are filled in the constructor, before a translator exists, so their two leading
+    // choices kept the language the window was built in; they are renamed with the rest of the ribbon.
+    for (auto* combo : {color_, weight_}) {
+        if (combo->count() < 2)
+            continue;
+        combo->setItemText(0, tr("By layer"));
+        combo->setItemText(1, tr("By block"));
+    }
     for (auto* fold : pages_->findChildren<QToolButton*>(QStringLiteral("ribbonPanelFold"))) {
         const auto source = fold->property("titleSource").toString();
         fold->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));

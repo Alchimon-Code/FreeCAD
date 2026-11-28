@@ -18,6 +18,12 @@
   theme keeps near black — and a click anywhere in the cell flips it. Every heading is as wide as its
   word, so «Замор.» and «Weight» stop being cut in half. The palette itself is 20 px wider, which
   leaves the name column whole words instead of an ellipsis.
+- **Ribbon folding.** A panel that no longer fits the strip folds down to its name, and its commands move
+  into the menu behind that name — the way AutoCAD shrinks a panel — instead of sliding out of sight. The
+  Russian Home page at 1520 pixels now shows all six panels: Draw open, Modify and Annotate folded, the
+  layer, block and property lists in view.
+- **Crosshair.** The crosshair is near white and its pickbox carries a two-pixel border, so it reads at a
+  glance on the dark canvas instead of looking like a smudge.
 - **Ribbon width:** a ribbon page answers the scroll area with the size its layout asks for, so a page
   whose translated captions outgrew the strip no longer loses its last three panels behind a blank
   gap; the chevrons that say a page scrolls are there from the first frame instead of after a tab
