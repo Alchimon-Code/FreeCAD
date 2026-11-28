@@ -461,6 +461,23 @@ QWidget* Ribbon::page(const QString& key) {
     return widget ? widget : pages_->widget(index_[key]);
 }
 
+// The name of a folded panel is a button, and the button carries the entries of that panel.
+static QToolButton* foldButton(const QString& title, const QList<QAction*>& actions, QWidget* parent) {
+    auto* fold = new QToolButton(parent);
+    fold->setObjectName("ribbonPanelFold");
+    fold->setProperty("titleSource", title);
+    fold->setText(QCoreApplication::translate("MainWindow", title.toUtf8().constData()));
+    fold->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    fold->setPopupMode(QToolButton::InstantPopup);
+    fold->setAutoRaise(true);
+    auto* menu = new QMenu(fold);
+    for (auto* action : actions)
+        menu->addAction(action);
+    fold->setMenu(menu);
+    fold->hide();
+    return fold;
+}
+
 void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<QAction*>& actions,
                       int columns, int primary) {
     auto* target = page(pageKey);
@@ -510,23 +527,6 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
     row->insertWidget(row->count() - 1, frame);
     panelLabels_.append(label);
     evenColumns();
-}
-
-// The name of a folded panel is a button, and the button carries the entries of that panel.
-static QToolButton* foldButton(const QString& title, const QList<QAction*>& actions, QWidget* parent) {
-    auto* fold = new QToolButton(parent);
-    fold->setObjectName("ribbonPanelFold");
-    fold->setProperty("titleSource", title);
-    fold->setText(QCoreApplication::translate("MainWindow", title.toUtf8().constData()));
-    fold->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    fold->setPopupMode(QToolButton::InstantPopup);
-    fold->setAutoRaise(true);
-    auto* menu = new QMenu(fold);
-    for (auto* action : actions)
-        menu->addAction(action);
-    fold->setMenu(menu);
-    fold->hide();
-    return fold;
 }
 
 void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidget* widget) {
