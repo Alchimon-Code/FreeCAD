@@ -20,6 +20,7 @@
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QLabel>
+#include <QMenu>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QToolBar>
@@ -45,6 +46,28 @@ class PanelFrame : public QFrame {
         setFrameShape(QFrame::NoFrame);
         setObjectName("ribbonPanel");
     }
+    // AutoCAD keeps the strip inside the window by folding a panel down to its name: the entries move
+    // into the menu behind that name and the panel takes a fraction of the width. Nothing is lost —
+    // the commands are one click away, and the panels that fit stay readable.
+    void setParts(QWidget* body, QLabel* caption, QToolButton* fold) {
+        body_ = body;
+        caption_ = caption;
+        fold_ = fold;
+        if (fold_)
+            fold_->hide();
+    }
+    bool canFold() const { return fold_ != nullptr; }
+    bool isFolded() const { return folded_; }
+    void setFolded(bool folded) {
+        if (folded_ == folded || !canFold() || !body_)
+            return;
+        folded_ = folded;
+        body_->setVisible(!folded);
+        if (caption_)
+            caption_->setVisible(!folded);
+        fold_->setVisible(folded);
+        updateGeometry();
+    }
 
   protected:
     void paintEvent(QPaintEvent*) override {
@@ -57,6 +80,12 @@ class PanelFrame : public QFrame {
         painter.setPen(line);
         painter.drawLine(width() - 1, 6, width() - 1, height() - 7);
     }
+
+  private:
+    QWidget* body_ = nullptr;
+    QLabel* caption_ = nullptr;
+    QToolButton* fold_ = nullptr;
+    bool folded_ = false;
 };
 
 // The band behind the tabs and the quick access row is a shade apart from the page, not a colour of
@@ -473,9 +502,31 @@ void Ribbon::addPanel(const QString& pageKey, const QString& title, const QList<
         buttons->setMinimumHeight(rows * rowHeight + (rows - 1) * grid->spacing());
     auto* box = qobject_cast<QVBoxLayout*>(frame->layout());
     box->insertWidget(0, buttons);
+    auto* fold = foldButton(title, actions, frame);
+    box->insertWidget(1, fold);
+    auto* panel = static_cast<PanelFrame*>(frame);
+    panel->setParts(buttons, label, fold);
+    panels_[pageKey].append(panel);
     row->insertWidget(row->count() - 1, frame);
     panelLabels_.append(label);
     evenColumns();
+}
+
+// The name of a folded panel is a button, and the button carries the entries of that panel.
+static QToolButton* foldButton(const QString& title, const QList<QAction*>& actions, QWidget* parent) {
+    auto* fold = new QToolButton(parent);
+    fold->setObjectName("ribbonPanelFold");
+    fold->setProperty("titleSource", title);
+    fold->setText(QCoreApplication::translate("MainWindow", title.toUtf8().constData()));
+    fold->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    fold->setPopupMode(QToolButton::InstantPopup);
+    fold->setAutoRaise(true);
+    auto* menu = new QMenu(fold);
+    for (auto* action : actions)
+        menu->addAction(action);
+    fold->setMenu(menu);
+    fold->hide();
+    return fold;
 }
 
 void Ribbon::addPanelWidget(const QString& pageKey, const QString& title, QWidget* widget) {
@@ -541,6 +592,10 @@ void Ribbon::retranslate() {
             continue;
         const auto source = label->property("titleSource").toString();
         label->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
+    }
+    for (auto* fold : pages_->findChildren<QToolButton*>(QStringLiteral("ribbonPanelFold"))) {
+        const auto source = fold->property("titleSource").toString();
+        fold->setText(QCoreApplication::translate("MainWindow", source.toUtf8().constData()));
     }
     applyPageTitles();
     // The captions are translated after the buttons were measured, and a Russian name can be a good
@@ -643,6 +698,40 @@ void Ribbon::syncChevrons() {
                             horizontal->value() < horizontal->maximum());
 }
 
+// A ribbon never cuts a panel in half: when the strip is narrower than its panels, the last ones fold
+// down to their names, the way AutoCAD shrinks a panel that no longer fits.
+void Ribbon::fitPanels() {
+    if (fitting_)
+        return;
+    // Folding changes the height the band asks for, which comes back as a resize; the flag keeps that
+    // answer from re-entering the question.
+    fitting_ = true;
+    struct Settled {
+        bool& flag;
+        ~Settled() { flag = false; }
+    } settled{fitting_};
+    auto* scroll = static_cast<PageScroll*>(pages_->currentWidget());
+    if (!scroll || !scroll->widget())
+        return;
+    auto* row = qobject_cast<QHBoxLayout*>(scroll->widget()->layout());
+    if (!row)
+        return;
+    const int page = pages_->currentIndex();
+    const QString key = index_.key(page);
+    auto& frames = panels_[key];
+    for (auto* widget : frames)
+        static_cast<PanelFrame*>(widget)->setFolded(false);
+    row->activate();
+    const int room = scroll->viewport()->width();
+    for (int i = int(frames.size()) - 1; i >= 0 && row->minimumSize().width() > room; --i)
+        if (auto* frame = static_cast<PanelFrame*>(frames[i]); frame->canFold()) {
+            frame->setFolded(true);
+            row->activate();
+        }
+    if (QWidget* content = scroll->widget())
+        content->updateGeometry();
+}
+
 void Ribbon::updateStrip() {
     // Captions arrive after the panels are built, so the strip is stated here instead of waiting for a
     // chain of cached layout hints to catch up. The height comes from the tallest page rather than
@@ -650,6 +739,7 @@ void Ribbon::updateStrip() {
     // drawing area by a pixel.
     if (collapsed_)
         return;
+    fitPanels();
     int need = 0;
     for (int i = 0; i < pages_->count(); ++i) {
         auto* scroll = qobject_cast<QScrollArea*>(pages_->widget(i));

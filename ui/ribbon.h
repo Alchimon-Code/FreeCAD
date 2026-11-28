@@ -58,6 +58,7 @@ class Ribbon final : public QWidget {
   private:
     QWidget* page(const QString& key);
     void updateStrip();
+    void fitPanels();
     void syncChevrons();
     void askBandForRoom();
     void applyPageTitles();
@@ -68,7 +69,11 @@ class Ribbon final : public QWidget {
     QHash<QString, int> index_;
     QHash<QString, QWidget*> rows_; // the scrolling page content, without the viewport
     QList<QLabel*> panelLabels_;
+    // Frames that can fold to their name, per page: the panel class lives in the source file, so the
+    // list is kept by widget.
+    QHash<QString, QList<QWidget*>> panels_;
     QStringList pageSources_;
     bool collapsed_ = false;
     bool writing_ = false;
+    bool fitting_ = false;
 };

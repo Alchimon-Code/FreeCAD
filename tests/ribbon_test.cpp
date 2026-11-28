@@ -140,6 +140,35 @@ TEST_F(RibbonWorkspace, RibbonKeepsOneHeightAcrossTabs) {
 // headings out, takes that room back from the drawing.
 // A page is as tall as its buttons and its caption, and no more: the band is sized from the tallest
 // page, so one greedy page costs every tab a strip of the drawing area.
+// A ribbon never cuts a panel in half: a panel that no longer fits folds down to its name and its
+// entries move into the menu behind it, which is how AutoCAD shrinks the strip.
+TEST_F(RibbonWorkspace, TheStripFoldsAPanelInsteadOfCuttingIt) {
+    window->resize(1240, 800);
+    window->show();
+    QApplication::processEvents();
+    auto* stack = child<QStackedWidget>(QStringLiteral("ribbonPages"));
+    ASSERT_NE(stack, nullptr);
+    auto* scroll = qobject_cast<QScrollArea*>(stack->currentWidget());
+    ASSERT_NE(scroll, nullptr);
+    QWidget* page = scroll->widget();
+    ASSERT_NE(page, nullptr);
+    auto* row = qobject_cast<QHBoxLayout*>(page->layout());
+    ASSERT_NE(row, nullptr);
+    EXPECT_LE(row->minimumSize().width(), scroll->viewport()->width())
+        << "the strip asks for more than the window has";
+    bool folded = false;
+    for (auto* fold : page->findChildren<QToolButton*>(QStringLiteral("ribbonPanelFold"))) {
+        if (!fold->isVisible())
+            continue;
+        folded = true;
+        ASSERT_NE(fold->menu(), nullptr) << "a folded panel still reaches its commands";
+        EXPECT_FALSE(fold->menu()->actions().isEmpty());
+    }
+    // The narrow window folds at least one panel, and the strip stops scrolling once it does.
+    EXPECT_TRUE(folded);
+    EXPECT_EQ(scroll->horizontalScrollBar()->maximum(), 0);
+}
+
 TEST_F(RibbonWorkspace, EveryPageKeepsToTheHeightOfItsButtons) {
     window->resize(1520, 880);
     window->show();
@@ -179,18 +208,25 @@ TEST_F(RibbonWorkspace, TheHomePageLaysOutEveryPanelOnTheFirstFrame) {
     QWidget* page = scroll->widget();
     ASSERT_NE(page, nullptr);
     int panels = 0;
-    for (auto* label : page->findChildren<QLabel*>(QStringLiteral("ribbonPanelTitle")))
-        if (label->isVisible() && label->width() > 0)
-            ++panels;
+    for (auto* label : page->findChildren<QLabel*>(QStringLiteral("ribbonPanelTitle"))) {
+        // A folded panel hides its caption and carries its name on a button instead; either way the
+        // panel is on the page, and none of the six is left out.
+        QWidget* frame = label->parentWidget();
+        ASSERT_NE(frame, nullptr);
+        EXPECT_TRUE(label->isVisible() || frame->findChild<QToolButton*>(QStringLiteral("ribbonPanelFold")))
+            << "panel " << label->text().toStdString() << " is neither drawn nor folded";
+        ++panels;
+    }
     EXPECT_GE(panels, 6) << "the Home page keeps its Draw, Modify, Annotate, Layers, Blocks and Properties";
     // A strip narrower than the panels it carries clips the last of them and leaves a blank gap
     // where the next panel should start.
     EXPECT_GE(page->width(), page->layout()->minimumSize().width());
     EXPECT_EQ(scroll->horizontalScrollBar()->value(), 0) << "a fresh page starts at its first panel";
+    // The drop-downs of Layers, Colour and Weight exist and are measured even when their panel is the
+    // one that folded away.
     for (const char* name : {"ribbonLayer", "ribbonColor", "ribbonWeight"}) {
         auto* combo = ribbon->findChild<QComboBox*>(QString::fromLatin1(name));
         ASSERT_NE(combo, nullptr) << name;
-        EXPECT_TRUE(combo->isVisible()) << name;
         EXPECT_GT(combo->width(), 0) << name;
     }
 }
