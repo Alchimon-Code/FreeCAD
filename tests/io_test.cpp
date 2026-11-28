@@ -531,6 +531,50 @@ TEST_F(Io, EllipsesArriveAsPolylinesThatKeepTheirShape) {
     EXPECT_EQ(bad.skipped, 1u);
 }
 
+// A spline carries a control net and a knot vector; walking it with de Boor's algorithm gives points
+// that lie on the curve itself, so a drawing with free-form curves arrives with its shape.
+TEST_F(Io, SplinesArriveAsPolylinesThatFollowTheCurve) {
+    auto straight = dir / "spline-line.dxf";
+    put(straight, section + "0\nSPLINE\n8\nСлой\n71\n1\n72\n4\n73\n2\n"
+                         "40\n0\n40\n0\n40\n1\n40\n1\n"
+                         "10\n0\n20\n0\n10\n10\n20\n5\n" +
+                   line + finish);
+    auto r = registry.read(straight, doc);
+    ASSERT_TRUE(r.ok()) << why(r);
+    const Polyline* walked = nullptr;
+    for (auto id : doc.entityIds())
+        if (auto* poly = dynamic_cast<const Polyline*>(doc.entity(id)))
+            walked = poly;
+    ASSERT_NE(walked, nullptr) << "the spline arrives as a polyline";
+    const auto bounds = walked->getBounds();
+    EXPECT_NEAR(bounds.min().x, 0., 1e-6);
+    EXPECT_NEAR(bounds.min().y, 0., 1e-6);
+    EXPECT_NEAR(bounds.max().x, 10., 1e-6);
+    EXPECT_NEAR(bounds.max().y, 5., 1e-6);
+    EXPECT_NE(why(r).find("approximated"), std::string::npos);
+
+    // The quadratic rational arc with weights 1, cos 45 and 1 is a quarter of the unit circle, and the
+    // walked points have to sit on it, which is what makes the import worth having.
+    auto arc = dir / "spline-circle.dxf";
+    put(arc, section + "0\nSPLINE\n8\nСлой\n71\n2\n72\n6\n73\n3\n"
+                      "40\n0\n40\n0\n40\n0\n40\n1\n40\n1\n40\n1\n"
+                      "41\n1\n41\n0.7071067811865476\n41\n1\n"
+                      "10\n1\n20\n0\n10\n1\n20\n1\n10\n0\n20\n1\n" +
+                line + finish);
+    Document circle;
+    auto cr = registry.read(arc, circle);
+    ASSERT_TRUE(cr.ok()) << why(cr);
+    const Polyline* quarter = nullptr;
+    for (auto id : circle.entityIds())
+        if (auto* poly = dynamic_cast<const Polyline*>(circle.entity(id)))
+            quarter = poly;
+    ASSERT_NE(quarter, nullptr);
+    ASSERT_GE(quarter->vertices().size(), 32u);
+    for (const auto& vertex : quarter->vertices())
+        EXPECT_NEAR(vertex.point.length(), 1., 1e-9)
+            << "point " << vertex.point.x << ", " << vertex.point.y << " is off the circle";
+}
+
 TEST_F(Io, UnsupportedRealWorldEntitiesAreCountedByType) {
     auto p = dir / "mixed.dxf";
     put(p, section +
@@ -549,7 +593,7 @@ TEST_F(Io, UnsupportedRealWorldEntitiesAreCountedByType) {
     for (auto& d : r.diagnostics)
         reasons[d.subject] = d.message;
     EXPECT_NE(reasons["3DFACE"].find("3D"), std::string::npos);
-    EXPECT_NE(reasons["SPLINE"].find("analytic"), std::string::npos);
+    EXPECT_NE(reasons["SPLINE"].find("knot"), std::string::npos);
     EXPECT_NE(reasons["POINT"].find("point"), std::string::npos);
     EXPECT_NE(reasons["LEADER"].find("annotation"), std::string::npos);
     EXPECT_NE(reasons["XLINE"].find("construction"), std::string::npos);

@@ -254,8 +254,7 @@ const char* unsupportedReason(const std::string& type) {
                                              "LOFTEDSURFACE", "REVOLVEDSURFACE", "SWEPTSURFACE"};
     if (solid.contains(type))
         return "3D or solid entity skipped by the 2D model";
-    if (type == "SPLINE")
-        return "analytic curve entity skipped (not converted to a polyline)";
+
     if (type == "POINT")
         return "point entity skipped by the 2D model";
     if (type == "LEADER" || type == "MLEADER" || type == "MULTILEADER" || type == "MLINE")
@@ -547,6 +546,24 @@ struct Import {
             axis = std::numbers::pi / 2;
         return std::make_unique<Dimension>(k, p, it == styles.end() ? DimStyle{} : it->second, axis);
     }
+    // Repeating X/Y group pairs, in file order: a spline carries its control points and its fit points
+    // that way.
+    static std::vector<Vec2> points(const Record& r, int code) {
+        std::vector<Vec2> out;
+        bool y = false;
+        for (auto& g : r.groups) {
+            if (g.code == code) {
+                out.push_back({real(g.value), 0.});
+                y = false;
+            } else if (g.code == code + 10 && !out.empty()) {
+                out.back().y = real(g.value);
+                y = true;
+            }
+        }
+        if (!y)
+            out.clear();
+        return out;
+    }
     std::unique_ptr<Entity> geometry(const Record& r, Ocs o) {
         if (r.type == "INSERT") {
             auto it = blocks.find(symbolKey(text(r, 2)));
@@ -604,6 +621,75 @@ struct Import {
             if (closed)
                 walked.pop_back();
             res.warn(r.line, r.type, "ellipse imported as a polyline: the curve is approximated");
+            return std::make_unique<Polyline>(std::move(walked), closed);
+        }
+        if (r.type == "SPLINE") {
+            // A spline is a control net, a knot vector and, when it carries a circle, a weight per
+            // control point. Walking it with de Boor's algorithm gives points that lie on the very
+            // curve, and the 2D model keeps them as a polyline.
+            const std::vector<Vec2> control = points(r, 10);
+            const std::vector<Vec2> fit = points(r, 11);
+            std::vector<double> knots, weights;
+            for (auto& g : r.groups) {
+                if (g.code == 40)
+                    knots.push_back(real(g.value));
+                else if (g.code == 41)
+                    weights.push_back(real(g.value));
+            }
+            const int degree = std::clamp(r.i(71, 3), 1, 25);
+            std::vector<Vec2> walked;
+            // Bit 1 is a closed spline, bit 2 a periodic one, which is closed as well.
+            const bool closed = (r.i(70) & 3) != 0;
+            if (int(control.size()) >= degree + 1 &&
+                int(knots.size()) == int(control.size()) + degree + 1) {
+                const int n = int(control.size());
+                const auto sample = [&](double u) {
+                    int span = degree;
+                    for (int i = degree; i < n; ++i)
+                        if (u >= knots[i] && u < knots[i + 1]) {
+                            span = i;
+                            break;
+                        }
+                    if (u >= knots[n])
+                        span = n - 1;
+                    double px[26], py[26], pw[26];
+                    for (int j = 0; j <= degree; ++j) {
+                        const int at = std::clamp(span - degree + j, 0, n - 1);
+                        const double w = j < int(weights.size()) ? weights[at] : 1.;
+                        px[j] = control[at].x * w;
+                        py[j] = control[at].y * w;
+                        pw[j] = w;
+                    }
+                    for (int round = 1; round <= degree; ++round) {
+                        for (int j = degree; j >= round; --j) {
+                            const double lo = knots[span - degree + j], hi = knots[span + 1 + j - round];
+                            const double alpha = hi > lo ? (u - lo) / (hi - lo) : 0.;
+                            px[j] = px[j - 1] * (1 - alpha) + px[j] * alpha;
+                            py[j] = py[j - 1] * (1 - alpha) + py[j] * alpha;
+                            pw[j] = pw[j - 1] * (1 - alpha) + pw[j] * alpha;
+                        }
+                    }
+                    const double w = pw[degree] != 0 ? pw[degree] : 1.;
+                    return Vec2{px[degree] / w, py[degree] / w};
+                };
+                const double from = knots[degree], to = knots[n];
+                const int segments = std::clamp(8 * n, 32, 512);
+                walked.reserve(static_cast<std::size_t>(segments) + 1);
+                for (int i = 0; i <= segments; ++i)
+                    walked.push_back({o.world(sample(from + (to - from) * i / segments)), 0});
+                if (closed && (walked.back().point - walked.front().point).length() < 1e-6)
+                    walked.pop_back();
+            } else if (fit.size() >= 2) {
+                for (const auto& point : fit)
+                    walked.push_back({o.world(point), 0});
+                if (closed && (walked.back().point - walked.front().point).length() < 1e-6)
+                    walked.pop_back();
+            } else {
+                throw UnsupportedPart("SPLINE without a knot vector or fit points");
+            }
+            if (walked.size() < 2)
+                throw UnsupportedPart("degenerate SPLINE");
+            res.warn(r.line, r.type, "spline imported as a polyline: the curve is approximated");
             return std::make_unique<Polyline>(std::move(walked), closed);
         }
         if (r.type == "TEXT")
@@ -695,7 +781,8 @@ struct Import {
         };
         if (r.type != "LINE" && r.type != "CIRCLE" && r.type != "ARC" && r.type != "TEXT" &&
             r.type != "MTEXT" && r.type != "LWPOLYLINE" && r.type != "INSERT" &&
-            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID" && r.type != "ELLIPSE") {
+            r.type != "HATCH" && r.type != "DIMENSION" && r.type != "SOLID" && r.type != "ELLIPSE" &&
+            r.type != "SPLINE") {
             skip(unsupportedReason(r.type));
             return {};
         }
